@@ -408,7 +408,7 @@ export default function AppointmentsPage() {
             </Card>
           ) : (
             Object.entries(calendarData)
-              .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+              .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
               .map(([date, dayAppointments]) => (
                 <Card key={date} className="shadow-sm">
                   <div className="px-4 py-2 border-b bg-muted/20 flex items-center justify-between">
