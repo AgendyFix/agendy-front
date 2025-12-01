@@ -5,12 +5,13 @@
 import { useState } from "react";
 import { appointmentsApi } from "../api/appointments";
 import type { Appointment, Note } from "../types/models";
-import type { 
-  CreateAppointmentRequest, 
+import type {
+  CreateAppointmentRequest,
   UpdateAppointmentRequest,
   UpdateAppointmentStatusRequest,
   AppointmentCalendarParams,
-  CreateNoteRequest 
+  CreateNoteRequest,
+  UpdateNoteRequest
 } from "../types/api";
 
 export const useAppointments = () => {
