@@ -10,10 +10,43 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { metabaseApi } from "@/lib/api/metabase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+// agrega/quita theme=night en el #hash del iframe para activar modo osucro en metabase dashboards
+function applyMetabaseTheme(urlStr: string, theme: "light" | "dark") {
+  const url = new URL(urlStr);
+  const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+
+  if (theme === "dark") hashParams.set("theme", "night");
+  else hashParams.delete("theme"); // vuelve a claro/default
+
+  url.hash = hashParams.toString();
+  return url.toString();
+}
+
 export default function DashboardPage() {
   const { user, currentCompany } = useAuth();
   const [iframeUrl, setIframeUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+
+  // ESTADO NUEVO: theme actual
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  // detecta cambios del modo oscuro mirando la clase "dark" del <html>
+  useEffect(() => {
+    const updateThemeFromDom = () => {
+      const isDark = document.documentElement.classList.contains("dark");
+      setTheme(isDark ? "dark" : "light");
+    };
+
+    updateThemeFromDom(); // inicial
+
+    const obs = new MutationObserver(updateThemeFromDom);
+    obs.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => obs.disconnect();
+  }, []);
 
   useEffect(() => {
     const loadMetabaseDashboard = async () => {
@@ -21,7 +54,7 @@ export default function DashboardPage() {
         setIsLoading(true);
         const data = await metabaseApi.getDashboard({
           dashboard_id: "2",
-          date_filter: "thisyear"
+          date_filter: "thisyear",
         });
         setIframeUrl(data.iframe_url);
       } catch (error) {
@@ -36,6 +69,9 @@ export default function DashboardPage() {
       loadMetabaseDashboard();
     }
   }, [user, currentCompany]);
+
+  // calcula URL final con dark/light aplicado
+  const themedIframeUrl = iframeUrl ? applyMetabaseTheme(iframeUrl, theme) : "";
 
   return (
     <div className="h-full flex flex-col">
@@ -62,10 +98,12 @@ export default function DashboardPage() {
                 <p className="text-muted-foreground">Cargando dashboard...</p>
               </div>
             </div>
-          ) : iframeUrl ? (
+          ) : themedIframeUrl ? (
             <div className="w-full h-full min-h-[700px]">
               <iframe
-                src={iframeUrl}
+                //key para forzar recarga al cambiar theme
+                key={`${theme}-${iframeUrl}`}
+                src={themedIframeUrl}
                 width="100%"
                 height="100%"
                 frameBorder="0"
