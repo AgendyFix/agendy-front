@@ -74,6 +74,12 @@ const statusLabels = {
   rejected: "Rechazada",
 };
 
+// Convierte "YYYY-MM-DD" a Date en horario LOCAL (evita desfase por UTC)
+const parseLocalDate = (dateStr: string) => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1); // midnight local
+};
+
 export default function AppointmentsPage() {
   const router = useRouter();
   const {
@@ -252,7 +258,10 @@ export default function AppointmentsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Si viene "YYYY-MM-DD" (sin hora), parse local.
+    // Si viene ISO con hora (start_at), usa Date normal.
+    const date = dateString.includes("T") ? new Date(dateString) : parseLocalDate(dateString);
+
     return date.toLocaleDateString("es-MX", {
       day: "2-digit",
       month: "short",
@@ -269,7 +278,7 @@ export default function AppointmentsPage() {
   };
 
   const formatDateHeader = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = parseLocalDate(dateStr);
     return date.toLocaleDateString("es-MX", {
       weekday: "long",
       day: "numeric",
@@ -408,7 +417,7 @@ export default function AppointmentsPage() {
             </Card>
           ) : (
             Object.entries(calendarData)
-              .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+              .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
               .map(([date, dayAppointments]) => (
                 <Card key={date} className="shadow-sm">
                   <div className="px-4 py-2 border-b bg-muted/20 flex items-center justify-between">

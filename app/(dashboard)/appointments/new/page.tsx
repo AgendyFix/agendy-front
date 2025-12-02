@@ -272,6 +272,9 @@ export default function NewAppointmentPage() {
                   disabled={isLoading}
                   {...register("estimated_price")}
                 />
+                <p className="text-xs text-muted-foreground">
+                modificar solo si el precio es diferente al asignado por el servicio.
+              </p>
               </div>
             </div>
 
