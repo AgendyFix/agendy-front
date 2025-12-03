@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================
-// TEAMS PAGE - Lista de equipos (Admin only)
+// TEAMS PAGE - Lista de equipos (solo lectura para operators)
 // ============================================
 
 import { useEffect, useState, useRef } from "react";
@@ -55,34 +55,28 @@ export default function TeamsPage() {
   const currentRole = user?.employee_profiles?.find(
     (profile) => profile.company === currentCompany?.id
   )?.role;
-  
+
   const isAdmin = currentRole === "admin";
 
   useEffect(() => {
-    if (!isAdmin) {
-      toast.error("Solo administradores pueden gestionar equipos");
-      router.push("/");
-      return;
-    }
-
     if (!hasFetched.current) {
       fetchTeams({ page: 1 });
       hasFetched.current = true;
     }
-  }, [isAdmin, router]);
+  }, []);
 
   const handlePageChange = (page: number) => {
-    fetchTeams({ 
-      page, 
-      search: searchTerm || undefined 
+    fetchTeams({
+      page,
+      search: searchTerm || undefined
     });
   };
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
-    fetchTeams({ 
-      page: 1, 
-      search: value || undefined 
+    fetchTeams({
+      page: 1,
+      search: value || undefined
     });
   };
 
@@ -105,14 +99,12 @@ export default function TeamsPage() {
   };
 
   const filteredTeams = Array.isArray(teams) ? teams : [];
-  
+
   const startItem = totalCount === 0 ? 0 : (currentPage - 1) * 10 + 1;
   const endItem = Math.min(currentPage * 10, totalCount);
   const totalPages = Math.ceil(totalCount / 10);
 
-  if (!isAdmin) {
-    return null;
-  }
+
 
   if (isLoading && teams.length === 0) {
     return (
@@ -131,32 +123,31 @@ export default function TeamsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Equipos</h1>
           <p className="text-muted-foreground">
-            Gestiona los equipos de trabajo de tu empresa
+            {isAdmin ? "Gestiona los equipos de trabajo de tu empresa" : "Listado de equipos de tu empresa"}
           </p>
         </div>
-        <Button onClick={() => router.push("/teams/new")}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo Equipo
-        </Button>
+        {isAdmin ? (
+          <Button onClick={() => router.push("/teams/new")}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo Equipo
+          </Button>
+        ) : (
+          <div className="text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-md">
+            <Shield className="inline h-4 w-4 mr-1" />
+            Solo lectura
+          </div>
+        )}
       </div>
 
       <Card className="shadow-card">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Lista de Equipos</CardTitle>
-              <CardDescription>
-                {totalCount > 0
-                  ? `Mostrando ${startItem}-${endItem} de ${totalCount} equipo${totalCount !== 1 ? "s" : ""}`
-                  : "No hay equipos registrados"
-                }
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Shield className="h-4 w-4" />
-              <span>Solo Administradores</span>
-            </div>
-          </div>
+          <CardTitle>Lista de Equipos</CardTitle>
+          <CardDescription>
+            {totalCount > 0
+              ? `Mostrando ${startItem}-${endItem} de ${totalCount} equipo${totalCount !== 1 ? "s" : ""}`
+              : "No hay equipos registrados"
+            }
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-4">
@@ -179,7 +170,7 @@ export default function TeamsPage() {
                   ? "No se encontraron equipos"
                   : "No hay equipos registrados"}
               </p>
-              {!searchTerm && (
+              {!searchTerm && isAdmin && (
                 <Button
                   onClick={() => router.push("/teams/new")}
                   className="mt-4"
@@ -197,7 +188,7 @@ export default function TeamsPage() {
                   <TableRow>
                     <TableHead>Equipo</TableHead>
                     <TableHead>Miembros</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
+                    {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -227,24 +218,26 @@ export default function TeamsPage() {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => router.push(`/teams/${team.id}`)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openDeleteDialog(team.id, team.name)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {isAdmin && (
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => router.push(`/teams/${team.id}`)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openDeleteDialog(team.id, team.name)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
