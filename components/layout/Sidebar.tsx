@@ -18,6 +18,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 
 const navigation = [
@@ -25,6 +26,7 @@ const navigation = [
     name: "Dashboard",
     href: "/",
     icon: LayoutDashboard,
+    adminOnly: true,
   },
   {
     name: "Citas",
@@ -56,6 +58,17 @@ const navigation = [
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, closeSidebar } = useUIStore();
+  const { user, currentCompany } = useAuth();
+
+  const currentRole = user?.employee_profiles?.find(
+    (profile) => profile.company === currentCompany?.id
+  )?.role;
+
+  const isAdmin = currentRole === "admin";
+
+  const visibleNavigation = navigation.filter(
+    (item) => !item.adminOnly || isAdmin
+  );
 
   return (
     <>
@@ -66,7 +79,7 @@ export function Sidebar() {
           onClick={closeSidebar}
         />
       )}
-      
+
       {/* Sidebar */}
       <aside className={cn(
         "fixed lg:static inset-y-0 left-0 z-50 w-64 border-r bg-background transition-transform duration-300 lg:translate-x-0",
@@ -81,26 +94,26 @@ export function Sidebar() {
         </div>
 
         <nav className="flex flex-col gap-1 p-4">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href;
-          const Icon = item.icon;
+          {visibleNavigation.map((item) => {
+            const isActive = pathname === item.href;
+            const Icon = item.icon;
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-agendyfix px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-foreground/70 hover:bg-accent/20 hover:text-foreground"
-              )}
-            >
-              <Icon className="h-5 w-5" />
-              {item.name}
-            </Link>
-          );
-        })}
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-agendyfix px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-foreground/70 hover:bg-accent/20 hover:text-foreground"
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                {item.name}
+              </Link>
+            );
+          })}
         </nav>
       </aside>
     </>

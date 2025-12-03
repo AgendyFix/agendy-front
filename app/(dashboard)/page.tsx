@@ -1,10 +1,12 @@
 "use client";
 
 // ============================================
+// ============================================
 // DASHBOARD HOME PAGE
 // ============================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { metabaseApi } from "@/lib/api/metabase";
@@ -23,12 +25,27 @@ function applyMetabaseTheme(urlStr: string, theme: "light" | "dark") {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { user, currentCompany } = useAuth();
   const [iframeUrl, setIframeUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
 
   // ESTADO NUEVO: theme actual
   const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  // Redirigir a /appointments si el usuario NO es admin
+  useEffect(() => {
+    if (user && currentCompany) {
+      const currentRole = user.employee_profiles?.find(
+        (profile) => profile.company === currentCompany.id
+      )?.role;
+
+      if (currentRole !== "admin") {
+        router.replace("/appointments");
+      }
+    }
+  }, [user, currentCompany, router]);
 
   // detecta cambios del modo oscuro mirando la clase "dark" del <html>
   useEffect(() => {
@@ -57,6 +74,7 @@ export default function DashboardPage() {
           date_filter: "thisyear",
         });
         setIframeUrl(data.iframe_url);
+        hasLoadedRef.current = true;
       } catch (error) {
         console.error("Error loading Metabase:", error);
         toast.error("Error al cargar dashboard de métricas");
@@ -65,13 +83,30 @@ export default function DashboardPage() {
       }
     };
 
-    if (user && currentCompany) {
-      loadMetabaseDashboard();
+    if (user && currentCompany && !hasLoadedRef.current) {
+      const currentRole = user.employee_profiles?.find(
+        (profile) => profile.company === currentCompany.id
+      )?.role;
+
+      // Solo cargar Metabase si es admin
+      if (currentRole === "admin") {
+        loadMetabaseDashboard();
+      }
     }
   }, [user, currentCompany]);
 
   // calcula URL final con dark/light aplicado
   const themedIframeUrl = iframeUrl ? applyMetabaseTheme(iframeUrl, theme) : "";
+
+  // Verificar rol antes de renderizar
+  const currentRole = user?.employee_profiles?.find(
+    (profile) => profile.company === currentCompany?.id
+  )?.role;
+
+  // No renderizar nada si NO es admin (se está redirigiendo)
+  if (currentRole && currentRole !== "admin") {
+    return null;
+  }
 
   return (
     <div className="h-full flex flex-col">
