@@ -109,16 +109,27 @@ export default function AppointmentDetailPage() {
         clientsApi.getAll({ limit: 100, offset: 0 }),
         servicesApi.getAll({}),
       ]);
-      
+
       setAppointment(appointmentData);
       setNotes(appointmentData.notes || []);
       setClients(clientsRes.results);
       setServices(servicesRes.results);
-      
+
+      // Extraer IDs de client y service (pueden venir como objetos o strings)
+      const clientId = typeof appointmentData.client === 'string'
+        ? appointmentData.client
+        : appointmentData.client?.id || "";
+
+      const serviceId = appointmentData.service
+        ? (typeof appointmentData.service === 'string'
+          ? appointmentData.service
+          : appointmentData.service?.id || "")
+        : "";
+
       // Pre-populate form
       reset({
-        client: appointmentData.client as string,
-        service: (appointmentData.service as string) || "",
+        client: clientId,
+        service: serviceId,
         start_at: appointmentData.start_at.slice(0, 16), // Format for datetime-local
         end_at: appointmentData.end_at?.slice(0, 16) || "",
         title: appointmentData.title || "",
@@ -135,6 +146,35 @@ export default function AppointmentDetailPage() {
       setIsFetching(false);
     }
   };
+
+  // Resetear formulario cuando se activa modo edición
+  useEffect(() => {
+    if (isEditingAppointment && appointment) {
+      // Extraer IDs de client y service
+      const clientId = typeof appointment.client === 'string'
+        ? appointment.client
+        : appointment.client?.id || "";
+
+      const serviceId = appointment.service
+        ? (typeof appointment.service === 'string'
+          ? appointment.service
+          : appointment.service?.id || "")
+        : "";
+
+      reset({
+        client: clientId,
+        service: serviceId,
+        start_at: appointment.start_at.slice(0, 16),
+        end_at: appointment.end_at?.slice(0, 16) || "",
+        title: appointment.title || "",
+        description: appointment.description || "",
+        location: appointment.location || "",
+        estimated_price: appointment.estimated_price || "",
+        client_notes: appointment.client_notes || "",
+        custom_service_description: appointment.custom_service_description || "",
+      });
+    }
+  }, [isEditingAppointment, appointment, reset]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!appointment) return;
@@ -224,12 +264,12 @@ export default function AppointmentDetailPage() {
   const handleUpdateAppointment = async (data: z.infer<typeof appointmentEditSchema>) => {
     try {
       setIsLoading(true);
-      
+
       const cleanData: Record<string, string> = {
         client: data.client,
         start_at: data.start_at,
       };
-      
+
       if (data.service) cleanData.service = data.service;
       if (data.end_at) cleanData.end_at = data.end_at;
       if (data.title?.trim()) cleanData.title = data.title.trim();
@@ -240,7 +280,7 @@ export default function AppointmentDetailPage() {
       if (data.custom_service_description?.trim()) {
         cleanData.custom_service_description = data.custom_service_description.trim();
       }
-      
+
       const updated = await appointmentsApi.update(id, cleanData);
       setAppointment(updated);
       setIsEditingAppointment(false);
@@ -300,9 +340,8 @@ export default function AppointmentDetailPage() {
             </Button>
           )}
           <span
-            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-              statusColors[appointment.status as keyof typeof statusColors]
-            }`}
+            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${statusColors[appointment.status as keyof typeof statusColors]
+              }`}
           >
             {statusLabels[appointment.status as keyof typeof statusLabels]}
           </span>
@@ -325,9 +364,13 @@ export default function AppointmentDetailPage() {
                   name="client"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      defaultValue={field.value}
+                    >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Selecciona un cliente" />
                       </SelectTrigger>
                       <SelectContent>
                         {clients.map((client) => (
@@ -348,11 +391,15 @@ export default function AppointmentDetailPage() {
                   name="service"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || ""}
+                      defaultValue={field.value || ""}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Sin servicio" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-[300px]">
                         {services.map((service) => (
                           <SelectItem key={service.id} value={service.id}>
                             {service.name}
@@ -362,6 +409,9 @@ export default function AppointmentDetailPage() {
                     </Select>
                   )}
                 />
+                <p className="text-xs text-muted-foreground">
+                  {services.length} servicio{services.length !== 1 ? 's' : ''} disponible{services.length !== 1 ? 's' : ''}
+                </p>
               </div>
 
               {/* Fecha y hora */}
@@ -438,141 +488,141 @@ export default function AppointmentDetailPage() {
           ) : (
             // MODO VISUALIZACIÓN
             <>
-          {/* Título y Descripción */}
-          {(appointment.title || appointment.description) && (
-            <div className="space-y-3 pb-4">
-              {appointment.title && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Título</p>
-                  <p className="text-base">{appointment.title}</p>
+              {/* Título y Descripción */}
+              {(appointment.title || appointment.description) && (
+                <div className="space-y-3 pb-4">
+                  {appointment.title && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Título</p>
+                      <p className="text-base">{appointment.title}</p>
+                    </div>
+                  )}
+                  {appointment.description && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Descripción</p>
+                      <p className="text-sm whitespace-pre-wrap">{appointment.description}</p>
+                    </div>
+                  )}
                 </div>
               )}
-              {appointment.description && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Descripción</p>
-                  <p className="text-sm whitespace-pre-wrap">{appointment.description}</p>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="flex items-start gap-3">
+                  <User className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Cliente</p>
+                    <p className="text-sm text-muted-foreground">{appointment.client_name}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Fecha y Hora Inicio</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatDateTime(appointment.start_at)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Hora de Fin</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatDateTime(appointment.end_at)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Duración</p>
+                    <p className="text-sm text-muted-foreground">
+                      {appointment.duration_minutes} minutos
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <MessageSquare className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Servicio</p>
+                    <p className="text-sm text-muted-foreground">
+                      {appointment.service_name || appointment.custom_service_description || "Sin servicio"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Tag className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Origen</p>
+                    <p className="text-sm text-muted-foreground">
+                      {appointment.source_display || appointment.source}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <User className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Asignado a</p>
+                    <p className="text-sm text-muted-foreground">
+                      {appointment.assigned_to?.full_name || (
+                        <span className="italic">Sin asignar</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Equipo</p>
+                    <p className="text-sm text-muted-foreground">
+                      {appointment.team?.name || (
+                        <span className="italic">Sin equipo</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <DollarSign className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Precio Estimado</p>
+                    <p className="text-sm text-muted-foreground">
+                      {appointment.estimated_price ? `$${appointment.estimated_price}` : (
+                        <span className="italic">A consultar</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Ubicación</p>
+                    <p className="text-sm text-muted-foreground">
+                      {appointment.location || (
+                        <span className="italic">Sin ubicación</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {appointment.client_notes && (
+                <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-200 mt-4">
+                  <div className="flex items-start gap-2 mb-2">
+                    <FileText className="h-4 w-4 text-blue-700 mt-0.5" />
+                    <p className="text-sm font-medium text-blue-900">Notas del Cliente</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap pl-6">{appointment.client_notes}</p>
                 </div>
               )}
-            </div>
-          )}
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="flex items-start gap-3">
-              <User className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Cliente</p>
-                <p className="text-sm text-muted-foreground">{appointment.client_name}</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Fecha y Hora Inicio</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatDateTime(appointment.start_at)}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Hora de Fin</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatDateTime(appointment.end_at)}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Duración</p>
-                <p className="text-sm text-muted-foreground">
-                  {appointment.duration_minutes} minutos
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <MessageSquare className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Servicio</p>
-                <p className="text-sm text-muted-foreground">
-                  {appointment.service_name || appointment.custom_service_description || "Sin servicio"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Tag className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Origen</p>
-                <p className="text-sm text-muted-foreground">
-                  {appointment.source_display || appointment.source}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <User className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Asignado a</p>
-                <p className="text-sm text-muted-foreground">
-                  {appointment.assigned_to?.full_name || (
-                    <span className="italic">Sin asignar</span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Equipo</p>
-                <p className="text-sm text-muted-foreground">
-                  {appointment.team?.name || (
-                    <span className="italic">Sin equipo</span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <DollarSign className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Precio Estimado</p>
-                <p className="text-sm text-muted-foreground">
-                  {appointment.estimated_price ? `$${appointment.estimated_price}` : (
-                    <span className="italic">A consultar</span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Ubicación</p>
-                <p className="text-sm text-muted-foreground">
-                  {appointment.location || (
-                    <span className="italic">Sin ubicación</span>
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {appointment.client_notes && (
-            <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-200 mt-4">
-              <div className="flex items-start gap-2 mb-2">
-                <FileText className="h-4 w-4 text-blue-700 mt-0.5" />
-                <p className="text-sm font-medium text-blue-900">Notas del Cliente</p>
-              </div>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap pl-6">{appointment.client_notes}</p>
-            </div>
-          )}
 
               {/* Cambiar Status */}
               <div className="pt-4 border-t">
@@ -641,9 +691,8 @@ export default function AppointmentDetailPage() {
               {notes.map((note) => (
                 <div
                   key={note.id}
-                  className={`p-4 rounded-lg border ${
-                    note.is_internal ? "bg-purple-50/50" : "bg-blue-50/50"
-                  }`}
+                  className={`p-4 rounded-lg border ${note.is_internal ? "bg-purple-50/50" : "bg-blue-50/50"
+                    }`}
                 >
                   {editingNoteId === note.id ? (
                     // Modo edición

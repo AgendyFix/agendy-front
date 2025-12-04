@@ -187,25 +187,32 @@ export default function TeamsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Equipo</TableHead>
+                    <TableHead>Descripción</TableHead>
                     <TableHead>Miembros</TableHead>
                     {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredTeams.map((team) => (
-                    <TableRow key={team.id}>
+                    <TableRow
+                      key={team.id}
+                      className="cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => router.push(`/teams/${team.id}`)}
+                    >
                       <TableCell className="font-medium">
-                        <div>
-                          <p className="flex items-center gap-2">
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                            {team.name}
+                        <p className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          {team.name}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        {team.description ? (
+                          <p className="text-sm text-muted-foreground">
+                            {team.description}
                           </p>
-                          {team.description && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {team.description}
-                            </p>
-                          )}
-                        </div>
+                        ) : (
+                          <span className="text-muted-foreground italic text-sm">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {team.employee_count > 0 ? (
@@ -220,7 +227,7 @@ export default function TeamsPage() {
                       </TableCell>
                       {isAdmin && (
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                             <Button
                               variant="ghost"
                               size="icon"

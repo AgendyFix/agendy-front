@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================
-// EDIT TEAM PAGE - Editar equipo (Admin only)
+// TEAM DETAIL PAGE - Ver/Editar equipo (solo lectura para operators)
 // ============================================
 
 import { useEffect, useState } from "react";
@@ -10,12 +10,20 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Shield, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { teamsApi } from "@/lib/api/teams";
 import type { Team } from "@/lib/types/models";
 import type { CreateTeamRequest } from "@/lib/types/api";
@@ -42,7 +50,7 @@ export default function EditTeamPage() {
   const currentRole = user?.employee_profiles?.find(
     (profile) => profile.company === currentCompany?.id
   )?.role;
-  
+
   const isAdmin = currentRole === "admin";
 
   const {
@@ -55,12 +63,6 @@ export default function EditTeamPage() {
   });
 
   useEffect(() => {
-    if (!isAdmin) {
-      toast.error("Solo administradores pueden editar equipos");
-      router.push("/teams");
-      return;
-    }
-
     const loadTeam = async () => {
       try {
         setIsFetching(true);
@@ -79,18 +81,18 @@ export default function EditTeamPage() {
     };
 
     loadTeam();
-  }, [id, reset, router, isAdmin]);
+  }, [id, reset, router]);
 
   const onSubmit = async (data: TeamFormData) => {
     try {
       setIsLoading(true);
-      
+
       const cleanData: Partial<CreateTeamRequest> = {
         name: data.name.trim(),
       };
-      
+
       if (data.description?.trim()) cleanData.description = data.description.trim();
-      
+
       await teamsApi.update(id, cleanData);
       toast.success("Equipo actualizado exitosamente");
       router.push("/teams");
@@ -101,9 +103,7 @@ export default function EditTeamPage() {
     }
   };
 
-  if (!isAdmin) {
-    return null;
-  }
+
 
   if (isFetching) {
     return (
@@ -126,80 +126,158 @@ export default function EditTeamPage() {
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Editar Equipo</h1>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold tracking-tight">
+            {isAdmin ? "Editar Equipo" : "Detalle del Equipo"}
+          </h1>
           <p className="text-muted-foreground">
-            Actualiza la información del equipo
+            {isAdmin ? "Actualiza la información del equipo" : "Información del equipo y sus miembros"}
           </p>
         </div>
+        {!isAdmin && (
+          <div className="text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-md">
+            <Shield className="inline h-4 w-4 mr-1" />
+            Solo lectura
+          </div>
+        )}
       </div>
 
-      <Card className="max-w-2xl shadow-card">
-        <CardHeader>
-          <CardTitle>Información del Equipo</CardTitle>
-          <CardDescription>
-            Modifica los datos del equipo. Los empleados asignados se gestionan desde el módulo de Empleados.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">
-                Nombre <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="name"
-                placeholder="Ej: Equipo de Estilistas"
-                disabled={isLoading}
-                {...register("name")}
-              />
-              {errors.name && (
-                <p className="text-sm text-red-500">{errors.name.message}</p>
-              )}
-            </div>
+      <div className="max-w-4xl space-y-6">
+        {/* Información Básica */}
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle>Información del Equipo</CardTitle>
+            <CardDescription>
+              {isAdmin
+                ? "Modifica los datos del equipo. Los empleados asignados se gestionan desde el módulo de Empleados."
+                : "Datos generales del equipo"
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isAdmin ? (
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name">
+                    Nombre <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="name"
+                    placeholder="Ej: Equipo de Estilistas"
+                    disabled={isLoading}
+                    {...register("name")}
+                  />
+                  {errors.name && (
+                    <p className="text-sm text-red-500">{errors.name.message}</p>
+                  )}
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Descripción (opcional)</Label>
-              <Input
-                id="description"
-                placeholder="Descripción del equipo"
-                disabled={isLoading}
-                {...register("description")}
-              />
-              <p className="text-xs text-muted-foreground">
-                Información adicional sobre el equipo
-              </p>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Descripción (opcional)</Label>
+                  <Input
+                    id="description"
+                    placeholder="Descripción del equipo"
+                    disabled={isLoading}
+                    {...register("description")}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Información adicional sobre el equipo
+                  </p>
+                </div>
 
-            <div className="bg-muted/30 p-4 rounded-lg">
-              <p className="text-sm font-medium mb-2">
-                Miembros actuales: {team.employee_count}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Para asignar o quitar empleados de este equipo, ve al módulo de Empleados
-              </p>
-            </div>
+                <div className="flex gap-4">
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Guardando..." : "Guardar Cambios"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.back()}
+                    disabled={isLoading}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-muted-foreground">Nombre</Label>
+                  <p className="text-lg font-medium mt-1">{team.name}</p>
+                </div>
+                {team.description && (
+                  <div>
+                    <Label className="text-muted-foreground">Descripción</Label>
+                    <p className="mt-1">{team.description}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-            <div className="flex gap-4">
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="flex-1"
-              >
-                {isLoading ? "Guardando..." : "Guardar Cambios"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.back()}
-                disabled={isLoading}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+        {/* Lista de Miembros */}
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle>Miembros del Equipo</CardTitle>
+            <CardDescription>
+              {team.employee_count > 0
+                ? `${team.employee_count} miembro${team.employee_count !== 1 ? "s" : ""} en este equipo`
+                : "No hay miembros asignados a este equipo"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {team.employees_list && team.employees_list.length > 0 ? (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Empleado</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Rol</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {team.employees_list.map((employee) => (
+                      <TableRow key={employee.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <p>{employee.full_name}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{employee.email}</TableCell>
+                        <TableCell>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${employee.role === "admin"
+                              ? "bg-purple-50 text-purple-700"
+                              : "bg-blue-50 text-blue-700"
+                              }`}
+                          >
+                            {employee.role === "admin" ? "Administrador" : "Operador"}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <p>No hay miembros asignados a este equipo</p>
+                {isAdmin && (
+                  <p className="text-xs mt-2">
+                    Para asignar empleados, ve al módulo de Empleados
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

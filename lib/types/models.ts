@@ -104,12 +104,12 @@ export interface EmployeeBasic {
   email: string;
 }
 
-export type AppointmentStatus = 
-  | "pending" 
-  | "confirmed" 
-  | "in_progress" 
-  | "completed" 
-  | "cancelled" 
+export type AppointmentStatus =
+  | "pending"
+  | "confirmed"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
   | "rejected";
 
 export type AppointmentSource = "manual" | "online" | "phone";
@@ -127,10 +127,10 @@ export interface Appointment {
   source: AppointmentSource;
   source_display?: string;
   company?: string; // UUID
-  service?: string | null; // UUID en lista, objeto en detalle
+  service?: string | Service | null; // UUID en lista, objeto en detalle
   service_name: string;
   custom_service_description?: string;
-  client: string; // UUID en lista
+  client: string | Client; // UUID en lista, objeto en detalle
   client_name: string;
   team?: TeamBasic | null;
   assigned_to?: EmployeeBasic | null; // Solo en detalle
