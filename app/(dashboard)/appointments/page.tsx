@@ -690,7 +690,7 @@ export default function AppointmentsPage() {
                                 <span className="text-muted-foreground italic text-xs">Sin notas</span>
                               )}
                             </TableCell>
-                            <TableCell className="py-2 w-[130px]" onClick={(e) => e.stopPropagation()}>
+                            <TableCell className="py-2 w-[130px] cursor-default" onClick={(e) => e.stopPropagation()}>
                               <Select
                                 value={apt.status}
                                 onValueChange={(val) => handleQuickStatusChange(apt.id, val)}
@@ -710,11 +710,11 @@ export default function AppointmentsPage() {
                                 </SelectContent>
                               </Select>
                             </TableCell>
-                            <TableCell className="py-2 text-right w-[60px]">
+                            <TableCell className="py-2 text-right w-[60px] cursor-default">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 w-7 p-0 hover:bg-red-50"
+                                className="h-7 w-7 p-0 hover:bg-red-50 cursor-pointer"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   openDeleteDialog(apt.id, apt.title || `Cita de ${apt.client}`);
@@ -888,7 +888,7 @@ export default function AppointmentsPage() {
                             <span className="text-muted-foreground italic text-xs">Sin notas</span>
                           )}
                         </TableCell>
-                        <TableCell className="py-2 w-[130px]" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="py-2 w-[130px] cursor-default" onClick={(e) => e.stopPropagation()}>
                           <Select
                             value={appointment.status}
                             onValueChange={(val) => handleQuickStatusChange(appointment.id, val)}
@@ -908,11 +908,11 @@ export default function AppointmentsPage() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="text-right py-2 w-[60px]">
+                        <TableCell className="text-right py-2 w-[60px] cursor-default">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0 hover:bg-red-50"
+                            className="h-7 w-7 p-0 hover:bg-red-50 cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               openDeleteDialog(appointment.id, appointment.title || `Cita de ${appointment.client_name}`);
