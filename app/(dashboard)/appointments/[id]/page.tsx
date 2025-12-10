@@ -37,7 +37,9 @@ import {
 import { appointmentsApi } from "@/lib/api/appointments";
 import { clientsApi } from "@/lib/api/clients";
 import { servicesApi } from "@/lib/api/services";
-import type { Appointment, Note, AppointmentStatus, Client, Service } from "@/lib/types/models";
+import { employeesApi } from "@/lib/api/employees";
+import { teamsApi } from "@/lib/api/teams";
+import type { Appointment, Note, AppointmentStatus, Client, Service, Employee, Team } from "@/lib/types/models";
 
 const appointmentEditSchema = z.object({
   client: z.string().min(1, "El cliente es requerido"),
@@ -50,6 +52,9 @@ const appointmentEditSchema = z.object({
   estimated_price: z.string().optional(),
   client_notes: z.string().optional(),
   custom_service_description: z.string().optional(),
+  assigned_to: z.string().optional(),
+  team: z.string().optional(),
+  source: z.string().optional(),
 });
 
 const statusLabels = {
@@ -86,6 +91,8 @@ export default function AppointmentDetailPage() {
   const [isEditingAppointment, setIsEditingAppointment] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
 
   const {
     register,
@@ -104,16 +111,20 @@ export default function AppointmentDetailPage() {
   const loadAppointment = async () => {
     try {
       setIsFetching(true);
-      const [appointmentData, clientsRes, servicesRes] = await Promise.all([
+      const [appointmentData, clientsRes, servicesRes, employeesRes, teamsRes] = await Promise.all([
         appointmentsApi.getById(id),
         clientsApi.getAll({ limit: 100, offset: 0 }),
         servicesApi.getAll({}),
+        employeesApi.getAll({ limit: 100, offset: 0 }),
+        teamsApi.getAll({ limit: 100, offset: 0 }),
       ]);
 
       setAppointment(appointmentData);
       setNotes(appointmentData.notes || []);
       setClients(clientsRes.results);
       setServices(servicesRes.results);
+      setEmployees(employeesRes.results);
+      setTeams(teamsRes.results);
 
       // Extraer IDs de client y service (pueden venir como objetos o strings)
       const clientId = typeof appointmentData.client === 'string'
@@ -125,6 +136,9 @@ export default function AppointmentDetailPage() {
           ? appointmentData.service
           : appointmentData.service?.id || "")
         : "";
+
+      const assignedToId = appointmentData.assigned_to?.id || "";
+      const teamId = appointmentData.team?.id || "";
 
       // Pre-populate form
       reset({
@@ -138,6 +152,9 @@ export default function AppointmentDetailPage() {
         estimated_price: appointmentData.estimated_price || "",
         client_notes: appointmentData.client_notes || "",
         custom_service_description: appointmentData.custom_service_description || "",
+        assigned_to: assignedToId,
+        team: teamId,
+        source: appointmentData.source || "",
       });
     } catch (error) {
       toast.error("Error al cargar la cita");
@@ -161,6 +178,9 @@ export default function AppointmentDetailPage() {
           : appointment.service?.id || "")
         : "";
 
+      const assignedToId = appointment.assigned_to?.id || "";
+      const teamId = appointment.team?.id || "";
+
       reset({
         client: clientId,
         service: serviceId,
@@ -172,6 +192,9 @@ export default function AppointmentDetailPage() {
         estimated_price: appointment.estimated_price || "",
         client_notes: appointment.client_notes || "",
         custom_service_description: appointment.custom_service_description || "",
+        assigned_to: assignedToId,
+        team: teamId,
+        source: appointment.source || "",
       });
     }
   }, [isEditingAppointment, appointment, reset]);
@@ -270,7 +293,7 @@ export default function AppointmentDetailPage() {
         start_at: data.start_at,
       };
 
-      if (data.service) cleanData.service = data.service;
+      if (data.service && data.service !== "none") cleanData.service = data.service;
       if (data.end_at) cleanData.end_at = data.end_at;
       if (data.title?.trim()) cleanData.title = data.title.trim();
       if (data.description?.trim()) cleanData.description = data.description.trim();
@@ -280,6 +303,9 @@ export default function AppointmentDetailPage() {
       if (data.custom_service_description?.trim()) {
         cleanData.custom_service_description = data.custom_service_description.trim();
       }
+      if (data.assigned_to && data.assigned_to !== "none") cleanData.assigned_to = data.assigned_to;
+      if (data.team && data.team !== "none") cleanData.team = data.team;
+      if (data.source && data.source !== "none") cleanData.source = data.source;
 
       const updated = await appointmentsApi.update(id, cleanData);
       setAppointment(updated);
@@ -357,105 +383,213 @@ export default function AppointmentDetailPage() {
           {isEditingAppointment ? (
             // MODO EDICIÓN
             <form onSubmit={handleSubmit(handleUpdateAppointment)} className="space-y-4">
-              {/* Cliente */}
+              {/* Título */}
               <div className="space-y-2">
-                <Label htmlFor="edit-client">Cliente *</Label>
-                <Controller
-                  name="client"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      defaultValue={field.value}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un cliente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                <Label htmlFor="edit-title">Título</Label>
+                <Input id="edit-title" {...register("title")} />
+              </div>
+
+              {/* Descripción */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Descripción</Label>
+                <Textarea
+                  id="edit-description"
+                  rows={3}
+                  {...register("description")}
                 />
               </div>
 
-              {/* Servicio */}
-              <div className="space-y-2">
-                <Label>Servicio</Label>
-                <Controller
-                  name="service"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value || ""}
-                      defaultValue={field.value || ""}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sin servicio" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        {services.map((service) => (
-                          <SelectItem key={service.id} value={service.id}>
-                            {service.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {services.length} servicio{services.length !== 1 ? 's' : ''} disponible{services.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-
-              {/* Fecha y hora */}
+              {/* Cliente y Fecha Inicio */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-start">Inicio *</Label>
+                  <Label htmlFor="edit-client">Cliente *</Label>
+                  <Controller
+                    name="client"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        defaultValue={field.value}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un cliente" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients.map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-start">Fecha y Hora Inicio *</Label>
                   <Input
                     id="edit-start"
                     type="datetime-local"
                     {...register("start_at")}
                   />
                 </div>
+              </div>
+
+              {/* Hora Fin y Duración (solo Fin editable) */}
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-end">Fin</Label>
+                  <Label htmlFor="edit-end">Hora de Fin</Label>
                   <Input
                     id="edit-end"
                     type="datetime-local"
                     {...register("end_at")}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Duración</Label>
+                  <Input
+                    value={appointment.duration_minutes ? `${appointment.duration_minutes} minutos` : ""}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
               </div>
 
-              {/* Título y Ubicación */}
+              {/* Servicio y Origen */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-title">Título</Label>
-                  <Input id="edit-title" {...register("title")} />
+                  <Label>Servicio</Label>
+                  <Controller
+                    name="service"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || "none"}
+                        defaultValue={field.value || "none"}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sin servicio" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          <SelectItem value="none">Sin servicio</SelectItem>
+                          {services.map((service) => (
+                            <SelectItem key={service.id} value={service.id}>
+                              {service.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {services.length} servicio{services.length !== 1 ? 's' : ''} disponible{services.length !== 1 ? 's' : ''}
+                  </p>
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Origen</Label>
+                  <Controller
+                    name="source"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || "none"}
+                        defaultValue={field.value || "none"}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sin origen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin origen</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="public">Sitio Público</SelectItem>
+                          <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                          <SelectItem value="other">Otro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Asignado a y Equipo */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Asignado a</Label>
+                  <Controller
+                    name="assigned_to"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || ""}
+                        defaultValue={field.value || ""}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sin asignar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin asignar</SelectItem>
+                          {employees.map((emp) => (
+                            <SelectItem key={emp.id} value={emp.id}>
+                              {emp.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Equipo</Label>
+                  <Controller
+                    name="team"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || ""}
+                        defaultValue={field.value || ""}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sin equipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin equipo</SelectItem>
+                          {teams.map((team) => (
+                            <SelectItem key={team.id} value={team.id}>
+                              {team.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Precio y Ubicación */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-price">Precio Estimado</Label>
+                  <Input
+                    id="edit-price"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0.00"
+                    {...register("estimated_price")}
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="edit-location">Ubicación</Label>
                   <Input id="edit-location" {...register("location")} />
                 </div>
-              </div>
-
-              {/* Precio */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-price">Precio Estimado</Label>
-                <Input
-                  id="edit-price"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="0.00"
-                  {...register("estimated_price")}
-                />
               </div>
 
               {/* Notas del cliente */}
