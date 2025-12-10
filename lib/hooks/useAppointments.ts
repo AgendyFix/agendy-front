@@ -23,7 +23,13 @@ export const useAppointments = () => {
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
 
-  const fetchAppointments = async (params?: { search?: string; page?: number; status?: string }) => {
+  const fetchAppointments = async (params?: {
+    search?: string;
+    page?: number;
+    status?: string;
+    client?: string;
+    source?: string;
+  }) => {
     try {
       setIsLoading(true);
       setError(null);

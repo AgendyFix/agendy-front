@@ -18,7 +18,15 @@ export const appointmentsApi = {
   /**
    * Get all appointments with optional filters and pagination
    */
-  getAll: async (params?: { search?: string; page?: number; limit?: number; offset?: number; status?: string }): Promise<PaginatedResponse<Appointment>> => {
+  getAll: async (params?: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    offset?: number;
+    status?: string;
+    client?: string;
+    source?: string;
+  }): Promise<PaginatedResponse<Appointment>> => {
     const response = await apiClient.get<PaginatedResponse<Appointment>>("/appointments/", { params });
     return response.data;
   },

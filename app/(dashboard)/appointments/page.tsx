@@ -39,10 +39,11 @@ import {
 } from "@/components/ui/select";
 import { useAppointments } from "@/lib/hooks/useAppointments";
 import { appointmentsApi } from "@/lib/api/appointments";
+import { clientsApi } from "@/lib/api/clients";
 import { MonthSelector } from "@/components/appointments/MonthSelector";
 import { DateRangePicker } from "@/components/appointments/DateRangePicker";
 import { AppointmentCard } from "@/components/appointments/AppointmentCard";
-import type { AppointmentStatus } from "@/lib/types/models";
+import type { AppointmentStatus, Client } from "@/lib/types/models";
 
 type ViewMode = "month" | "range" | "all";
 
@@ -54,6 +55,9 @@ interface CalendarAppointment {
   service: string;
   status: string;
   assigned_to: string | null;
+  source?: string;
+  source_display?: string;
+  notes_count?: number;
 }
 
 const statusColors = {
@@ -113,12 +117,28 @@ export default function AppointmentsPage() {
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [clientFilter, setClientFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [clients, setClients] = useState<Client[]>([]);
   
   // Dialog states
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<{ id: string; title: string } | null>(null);
   
   const hasFetched = useRef(false);
+
+  // Load clients for filter
+  useEffect(() => {
+    const loadClients = async () => {
+      try {
+        const response = await clientsApi.getAll({ limit: 100, offset: 0 });
+        setClients(response.results);
+      } catch (error) {
+        console.error("Error loading clients:", error);
+      }
+    };
+    loadClients();
+  }, []);
 
   // Load data based on view mode
   useEffect(() => {
@@ -142,14 +162,26 @@ export default function AppointmentsPage() {
         await fetchCalendarByRange(startDate, endDate);
       }
     } else {
-      await fetchAppointments({ page: 1, search: searchTerm || undefined });
+      await fetchAppointments({
+        page: 1,
+        search: searchTerm || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        client: clientFilter !== "all" ? clientFilter : undefined,
+        source: sourceFilter !== "all" ? sourceFilter : undefined,
+      });
     }
   };
 
   const fetchCalendarByMonth = async (month: string) => {
     try {
       setIsLoadingCalendar(true);
-      const response: any = await appointmentsApi.getCalendar({ month });
+      const params: Record<string, string> = { month };
+      
+      if (clientFilter !== "all") params.client = clientFilter;
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (sourceFilter !== "all") params.source = sourceFilter;
+      
+      const response: any = await appointmentsApi.getCalendar(params);
       setCalendarData(response.calendar || {});
       setCalendarInfo({
         total: response.total_appointments || 0,
@@ -171,7 +203,13 @@ export default function AppointmentsPage() {
   const fetchCalendarByRange = async (start: string, end: string) => {
     try {
       setIsLoadingCalendar(true);
-      const response: any = await appointmentsApi.getCalendar({ start_date: start, end_date: end });
+      const params: Record<string, string> = { start_date: start, end_date: end };
+      
+      if (clientFilter !== "all") params.client = clientFilter;
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (sourceFilter !== "all") params.source = sourceFilter;
+      
+      const response: any = await appointmentsApi.getCalendar(params);
       setCalendarData(response.calendar || {});
       setCalendarInfo({
         total: response.total_appointments || 0,
@@ -191,31 +229,141 @@ export default function AppointmentsPage() {
   };
 
   const handlePageChange = (page: number) => {
-    fetchAppointments({ 
-      page, 
+    fetchAppointments({
+      page,
       search: searchTerm || undefined,
-      status: statusFilter !== "all" ? statusFilter : undefined
+      status: statusFilter !== "all" ? statusFilter : undefined,
+      client: clientFilter !== "all" ? clientFilter : undefined,
+      source: sourceFilter !== "all" ? sourceFilter : undefined,
     });
   };
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
     if (viewMode === "all") {
-      fetchAppointments({ 
-        page: 1, 
+      fetchAppointments({
+        page: 1,
         search: value || undefined,
-        status: statusFilter !== "all" ? statusFilter : undefined
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        client: clientFilter !== "all" ? clientFilter : undefined,
+        source: sourceFilter !== "all" ? sourceFilter : undefined,
       });
     }
   };
 
-  const handleStatusFilter = (value: string) => {
+  const handleStatusFilter = async (value: string) => {
     setStatusFilter(value);
+    
+    // Construir params con el nuevo valor
+    const params: Record<string, string> = {};
+    if (clientFilter !== "all") params.client = clientFilter;
+    if (value !== "all") params.status = value;
+    if (sourceFilter !== "all") params.source = sourceFilter;
+    
     if (viewMode === "all") {
-      fetchAppointments({
+      await fetchAppointments({
         page: 1,
         search: searchTerm || undefined,
-        status: value !== "all" ? value : undefined
+        status: value !== "all" ? value : undefined,
+        client: clientFilter !== "all" ? clientFilter : undefined,
+        source: sourceFilter !== "all" ? sourceFilter : undefined,
+      });
+    } else if (viewMode === "month") {
+      params.month = selectedMonth;
+      const response: any = await appointmentsApi.getCalendar(params);
+      setCalendarData(response.calendar || {});
+      setCalendarInfo({
+        total: response.total_appointments || 0,
+        period: response.period || { start: "", end: "", days: 0 },
+        warning: response.warning,
+      });
+    } else if (viewMode === "range" && startDate && endDate) {
+      params.start_date = startDate;
+      params.end_date = endDate;
+      const response: any = await appointmentsApi.getCalendar(params);
+      setCalendarData(response.calendar || {});
+      setCalendarInfo({
+        total: response.total_appointments || 0,
+        period: response.period || { start: startDate, end: endDate, days: 0 },
+        warning: response.warning,
+      });
+    }
+  };
+
+  const handleClientFilter = async (value: string) => {
+    setClientFilter(value);
+    
+    // Construir params con el nuevo valor
+    const params: Record<string, string> = {};
+    if (value !== "all") params.client = value;
+    if (statusFilter !== "all") params.status = statusFilter;
+    if (sourceFilter !== "all") params.source = sourceFilter;
+    
+    if (viewMode === "all") {
+      await fetchAppointments({
+        page: 1,
+        search: searchTerm || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        client: value !== "all" ? value : undefined,
+        source: sourceFilter !== "all" ? sourceFilter : undefined,
+      });
+    } else if (viewMode === "month") {
+      params.month = selectedMonth;
+      const response: any = await appointmentsApi.getCalendar(params);
+      setCalendarData(response.calendar || {});
+      setCalendarInfo({
+        total: response.total_appointments || 0,
+        period: response.period || { start: "", end: "", days: 0 },
+        warning: response.warning,
+      });
+    } else if (viewMode === "range" && startDate && endDate) {
+      params.start_date = startDate;
+      params.end_date = endDate;
+      const response: any = await appointmentsApi.getCalendar(params);
+      setCalendarData(response.calendar || {});
+      setCalendarInfo({
+        total: response.total_appointments || 0,
+        period: response.period || { start: startDate, end: endDate, days: 0 },
+        warning: response.warning,
+      });
+    }
+  };
+
+  const handleSourceFilter = async (value: string) => {
+    setSourceFilter(value);
+    
+    // Construir params con el nuevo valor
+    const params: Record<string, string> = {};
+    if (clientFilter !== "all") params.client = clientFilter;
+    if (statusFilter !== "all") params.status = statusFilter;
+    if (value !== "all") params.source = value;
+    
+    if (viewMode === "all") {
+      await fetchAppointments({
+        page: 1,
+        search: searchTerm || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        client: clientFilter !== "all" ? clientFilter : undefined,
+        source: value !== "all" ? value : undefined,
+      });
+    } else if (viewMode === "month") {
+      params.month = selectedMonth;
+      const response: any = await appointmentsApi.getCalendar(params);
+      setCalendarData(response.calendar || {});
+      setCalendarInfo({
+        total: response.total_appointments || 0,
+        period: response.period || { start: "", end: "", days: 0 },
+        warning: response.warning,
+      });
+    } else if (viewMode === "range" && startDate && endDate) {
+      params.start_date = startDate;
+      params.end_date = endDate;
+      const response: any = await appointmentsApi.getCalendar(params);
+      setCalendarData(response.calendar || {});
+      setCalendarInfo({
+        total: response.total_appointments || 0,
+        period: response.period || { start: startDate, end: endDate, days: 0 },
+        warning: response.warning,
       });
     }
   };
@@ -358,34 +506,59 @@ export default function AppointmentsPage() {
                 />
               )}
 
-              {/* Filtros vista "Todas" */}
+              {/* Búsqueda solo en vista "Todas" */}
               {viewMode === "all" && (
-                <>
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar..."
-                      value={searchTerm}
-                      onChange={(e) => handleSearch(e.target.value)}
-                      className="pl-8 w-[200px]"
-                    />
-                  </div>
-                  <Select value={statusFilter} onValueChange={handleStatusFilter}>
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="pending">Pendiente</SelectItem>
-                      <SelectItem value="confirmed">Confirmada</SelectItem>
-                      <SelectItem value="in_progress">En Progreso</SelectItem>
-                      <SelectItem value="completed">Completada</SelectItem>
-                      <SelectItem value="cancelled">Cancelada</SelectItem>
-                      <SelectItem value="rejected">Rechazada</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    className="pl-8 w-[200px]"
+                  />
+                </div>
               )}
+
+              {/* Filtros comunes para todas las vistas */}
+              <Select value={clientFilter} onValueChange={handleClientFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los clientes</SelectItem>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={handleStatusFilter}>
+                <SelectTrigger className="w-[170px]">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  <SelectItem value="pending">Pendiente</SelectItem>
+                  <SelectItem value="confirmed">Confirmada</SelectItem>
+                  <SelectItem value="in_progress">En Progreso</SelectItem>
+                  <SelectItem value="completed">Completada</SelectItem>
+                  <SelectItem value="cancelled">Cancelada</SelectItem>
+                  <SelectItem value="rejected">Rechazada</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sourceFilter} onValueChange={handleSourceFilter}>
+                <SelectTrigger className="w-[170px]">
+                  <SelectValue placeholder="Origen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los orígenes</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="public">Sitio Público</SelectItem>
+                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                  <SelectItem value="other">Otro</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Info compacta - solo en vista calendario */}
@@ -434,20 +607,24 @@ export default function AppointmentsPage() {
                     <Table className="table-fixed">
                       <colgroup>
                         <col style={{ width: "90px" }} />
-                        <col style={{ width: "200px" }} />
-                        <col style={{ width: "150px" }} />
                         <col style={{ width: "180px" }} />
                         <col style={{ width: "140px" }} />
+                        <col style={{ width: "160px" }} />
+                        <col style={{ width: "130px" }} />
+                        <col style={{ width: "110px" }} />
+                        <col style={{ width: "100px" }} />
                         <col style={{ width: "130px" }} />
                         <col style={{ width: "60px" }} />
                       </colgroup>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
                           <TableHead className="h-9 py-2 w-[90px]">Hora</TableHead>
-                          <TableHead className="h-9 py-2 w-[200px]">Título</TableHead>
-                          <TableHead className="h-9 py-2 w-[150px]">Cliente</TableHead>
-                          <TableHead className="h-9 py-2 w-[180px]">Servicio</TableHead>
-                          <TableHead className="h-9 py-2 w-[140px]">Asignado</TableHead>
+                          <TableHead className="h-9 py-2 w-[180px]">Título</TableHead>
+                          <TableHead className="h-9 py-2 w-[140px]">Cliente</TableHead>
+                          <TableHead className="h-9 py-2 w-[160px]">Servicio</TableHead>
+                          <TableHead className="h-9 py-2 w-[130px]">Asignado</TableHead>
+                          <TableHead className="h-9 py-2 w-[110px]">Origen</TableHead>
+                          <TableHead className="h-9 py-2 w-[100px]">Notas</TableHead>
                           <TableHead className="h-9 py-2 w-[130px]">Estado</TableHead>
                           <TableHead className="h-9 py-2 text-right w-[60px]"></TableHead>
                         </TableRow>
@@ -465,30 +642,53 @@ export default function AppointmentsPage() {
                                 {apt.time}
                               </span>
                             </TableCell>
-                            <TableCell className="py-2 w-[200px]">
+                            <TableCell className="py-2 w-[180px]">
                               <span className="text-sm font-medium">
                                 {apt.title || `Cita de ${apt.client}`}
                               </span>
                             </TableCell>
-                            <TableCell className="py-2 w-[150px]">
+                            <TableCell className="py-2 w-[140px]">
                               <span className="text-sm flex items-center gap-1">
                                 <User className="h-3 w-3 text-muted-foreground" />
                                 {apt.client}
                               </span>
                             </TableCell>
-                            <TableCell className="py-2 w-[180px]">
+                            <TableCell className="py-2 w-[160px]">
                               <span className="text-sm text-muted-foreground">
                                 {apt.service || (
                                   <span className="italic">Sin servicio</span>
                                 )}
                               </span>
                             </TableCell>
-                            <TableCell className="py-2 w-[140px]">
+                            <TableCell className="py-2 w-[130px]">
                               <span className="text-sm text-muted-foreground">
                                 {apt.assigned_to || (
                                   <span className="italic">Sin asignar</span>
                                 )}
                               </span>
+                            </TableCell>
+                            <TableCell className="py-2 w-[110px]">
+                              {apt.source ? (
+                                <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                                  apt.source === "admin" ? "bg-gray-50 text-gray-700" :
+                                  apt.source === "public" ? "bg-green-50 text-green-700" :
+                                  apt.source === "whatsapp" ? "bg-blue-50 text-blue-700" :
+                                  "bg-purple-50 text-purple-700"
+                                }`}>
+                                  {apt.source_display || apt.source}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground italic text-xs">N/A</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="py-2 w-[100px]">
+                              {(apt.notes_count || 0) > 0 ? (
+                                <span className="inline-flex items-center rounded-full bg-purple-50 text-purple-700 px-2 py-1 text-xs font-medium">
+                                  {apt.notes_count} nota{apt.notes_count !== 1 ? "s" : ""}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground italic text-xs">Sin notas</span>
+                              )}
                             </TableCell>
                             <TableCell className="py-2 w-[130px]" onClick={(e) => e.stopPropagation()}>
                               <Select
