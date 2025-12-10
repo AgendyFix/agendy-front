@@ -643,25 +643,25 @@ export default function AppointmentsPage() {
                               </span>
                             </TableCell>
                             <TableCell className="py-2 w-[180px]">
-                              <span className="text-sm font-medium">
+                              <span className="text-sm font-medium truncate block">
                                 {apt.title || `Cita de ${apt.client}`}
                               </span>
                             </TableCell>
                             <TableCell className="py-2 w-[140px]">
-                              <span className="text-sm flex items-center gap-1">
-                                <User className="h-3 w-3 text-muted-foreground" />
-                                {apt.client}
+                              <span className="text-sm flex items-center gap-1 truncate">
+                                <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                <span className="truncate">{apt.client}</span>
                               </span>
                             </TableCell>
                             <TableCell className="py-2 w-[160px]">
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-sm text-muted-foreground truncate block">
                                 {apt.service || (
                                   <span className="italic">Sin servicio</span>
                                 )}
                               </span>
                             </TableCell>
                             <TableCell className="py-2 w-[130px]">
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-sm text-muted-foreground truncate block">
                                 {apt.assigned_to || (
                                   <span className="italic">Sin asignar</span>
                                 )}
@@ -795,19 +795,31 @@ export default function AppointmentsPage() {
               <>
                 {/* Vista Desktop - Tabla */}
                 <div className="hidden md:block rounded-md border">
-                  <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fecha y Hora</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Servicio</TableHead>
-                      <TableHead>Asignado A</TableHead>
-                      <TableHead>Origen</TableHead>
-                      <TableHead>Notas</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                   <Table className="table-fixed">
+                     <colgroup>
+                       <col style={{ width: "140px" }} />
+                       <col style={{ width: "180px" }} />
+                       <col style={{ width: "140px" }} />
+                       <col style={{ width: "160px" }} />
+                       <col style={{ width: "130px" }} />
+                       <col style={{ width: "110px" }} />
+                       <col style={{ width: "100px" }} />
+                       <col style={{ width: "130px" }} />
+                       <col style={{ width: "60px" }} />
+                     </colgroup>
+                   <TableHeader>
+                     <TableRow>
+                       <TableHead className="w-[140px]">Fecha y Hora</TableHead>
+                       <TableHead className="w-[180px]">Título</TableHead>
+                       <TableHead className="w-[140px]">Cliente</TableHead>
+                       <TableHead className="w-[160px]">Servicio</TableHead>
+                       <TableHead className="w-[130px]">Asignado A</TableHead>
+                       <TableHead className="w-[110px]">Origen</TableHead>
+                       <TableHead className="w-[100px]">Notas</TableHead>
+                       <TableHead className="w-[130px]">Estado</TableHead>
+                       <TableHead className="text-right w-[60px]">Acciones</TableHead>
+                     </TableRow>
+                   </TableHeader>
                   <TableBody>
                     {filteredAppointments.map((appointment) => (
                       <TableRow
@@ -815,63 +827,74 @@ export default function AppointmentsPage() {
                         className="cursor-pointer hover:bg-accent/50 transition-colors"
                         onClick={() => router.push(`/appointments/${appointment.id}`)}
                       >
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <p>{formatDate(appointment.start_at)}</p>
+                        <TableCell className="font-medium py-2 w-[140px]">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-sm truncate">{formatDate(appointment.start_at)}</p>
                               <p className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
-                                {formatTime(appointment.start_at)} - {formatTime(appointment.end_at)}
+                                <span className="truncate">{formatTime(appointment.start_at)} - {formatTime(appointment.end_at)}</span>
                               </p>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                            {appointment.client_name}
+                        <TableCell className="py-2 w-[180px]">
+                          <span className="text-sm font-medium truncate block">
+                            {appointment.title || `Cita de ${appointment.client_name}`}
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-2 w-[140px]">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm truncate">{appointment.client_name}</span>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          {appointment.service_name || (
-                            <span className="text-muted-foreground italic text-sm">
-                              {appointment.custom_service_description || "Sin servicio"}
-                            </span>
-                          )}
+                        <TableCell className="py-2 w-[160px]">
+                          <span className="text-sm text-muted-foreground truncate block">
+                            {appointment.service_name || (
+                              <span className="italic">
+                                {appointment.custom_service_description || "Sin servicio"}
+                              </span>
+                            )}
+                          </span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-2 w-[130px]">
                           {appointment.assigned_to_name ? (
-                            <span className="text-sm">{appointment.assigned_to_name}</span>
+                            <span className="text-sm text-muted-foreground truncate block">{appointment.assigned_to_name}</span>
                           ) : (
                             <span className="text-muted-foreground italic text-sm">Sin asignar</span>
                           )}
                         </TableCell>
-                        <TableCell>
-                          <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                            appointment.source === "manual" ? "bg-gray-50 text-gray-700" :
-                            appointment.source === "online" ? "bg-green-50 text-green-700" :
-                            "bg-blue-50 text-blue-700"
-                          }`}>
-                            {appointment.source_display || appointment.source}
-                          </span>
+                        <TableCell className="py-2 w-[110px]">
+                          {appointment.source ? (
+                            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                              appointment.source === "manual" ? "bg-gray-50 text-gray-700" :
+                              appointment.source === "online" ? "bg-green-50 text-green-700" :
+                              "bg-blue-50 text-blue-700"
+                            }`}>
+                              {appointment.source_display || appointment.source}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground italic text-xs">N/A</span>
+                          )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-2 w-[100px]">
                           {(appointment.notes_count || 0) > 0 ? (
                             <span className="inline-flex items-center rounded-full bg-purple-50 text-purple-700 px-2 py-1 text-xs font-medium">
                               {appointment.notes_count} nota{appointment.notes_count !== 1 ? "s" : ""}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground italic text-sm">Sin notas</span>
+                            <span className="text-muted-foreground italic text-xs">Sin notas</span>
                           )}
                         </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="py-2 w-[130px]" onClick={(e) => e.stopPropagation()}>
                           <Select
                             value={appointment.status}
                             onValueChange={(val) => handleQuickStatusChange(appointment.id, val)}
                           >
                             <SelectTrigger className={`h-7 w-[125px] text-xs border-0 ${
-                              statusColors[appointment.status as keyof typeof statusColors]
+                              statusColors[appointment.status as keyof typeof statusColors].split(" border-")[0]
                             }`}>
                               <SelectValue />
                             </SelectTrigger>
@@ -885,17 +908,17 @@ export default function AppointmentsPage() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right py-2 w-[60px]">
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="hover:bg-red-50"
+                            size="sm"
+                            className="h-7 w-7 p-0 hover:bg-red-50"
                             onClick={(e) => {
                               e.stopPropagation();
                               openDeleteDialog(appointment.id, appointment.title || `Cita de ${appointment.client_name}`);
                             }}
                           >
-                            <Trash2 className="h-4 w-4 text-red-600" />
+                            <Trash2 className="h-3.5 w-3.5 text-red-600" />
                           </Button>
                         </TableCell>
                       </TableRow>
