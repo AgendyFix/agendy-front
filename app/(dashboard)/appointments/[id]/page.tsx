@@ -329,6 +329,34 @@ export default function AppointmentDetailPage() {
     });
   };
 
+  // Detectar si la ubicación es una URL
+  const isUrl = (text: string) => {
+    try {
+      const url = new URL(text);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
+  // Renderizar ubicación como link o texto
+  const renderLocation = (location: string) => {
+    if (isUrl(location)) {
+      return (
+        <a
+          href={location}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+        >
+          <MapPin className="h-3 w-3" />
+          Abrir en Maps
+        </a>
+      );
+    }
+    return <p className="text-sm text-muted-foreground">{location}</p>;
+  };
+
   if (isFetching) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -346,21 +374,26 @@ export default function AppointmentDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {appointment.title || `Cita de ${appointment.client_name}`}
-          </h1>
-          <p className="text-muted-foreground">
-            Código: {appointment.confirmation_code}
-          </p>
+      {/* Header - Responsive */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight break-words">
+              {appointment.title || `Cita de ${appointment.client_name}`}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Código: {appointment.confirmation_code}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        
+        {/* Botones en móvil - Debajo del título */}
+        <div className="flex items-center gap-2 flex-wrap">
           {!isEditingAppointment && (
-            <Button onClick={() => setIsEditingAppointment(true)}>
+            <Button onClick={() => setIsEditingAppointment(true)} size="sm" className="md:size-default">
               <Pencil className="mr-2 h-4 w-4" />
               Editar Cita
             </Button>
@@ -739,11 +772,11 @@ export default function AppointmentDetailPage() {
                   <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
                     <p className="text-sm font-medium">Ubicación</p>
-                    <p className="text-sm text-muted-foreground">
-                      {appointment.location || (
-                        <span className="italic">Sin ubicación</span>
-                      )}
-                    </p>
+                    {appointment.location ? (
+                      renderLocation(appointment.location)
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Sin ubicación</p>
+                    )}
                   </div>
                 </div>
               </div>

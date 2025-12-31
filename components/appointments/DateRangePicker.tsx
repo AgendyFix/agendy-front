@@ -4,7 +4,7 @@
 // DATE RANGE PICKER - Visual date range selector
 // ============================================
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -27,6 +27,19 @@ export function DateRangePicker({ from, to, onRangeChange }: DateRangePickerProp
     to: to ? new Date(to) : undefined,
   });
   const [isOpen, setIsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detectar si es móvil
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const handleSelect = (range: DateRange | undefined) => {
     setDate(range);
@@ -77,7 +90,7 @@ export function DateRangePicker({ from, to, onRangeChange }: DateRangePickerProp
             defaultMonth={date?.from}
             selected={date}
             onSelect={handleSelect}
-            numberOfMonths={2}
+            numberOfMonths={isMobile ? 1 : 2}
             locale={es}
           />
           <div className="p-3 border-t flex gap-2">
