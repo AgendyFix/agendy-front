@@ -371,11 +371,11 @@ export default function AppointmentsPage() {
   const handleQuickStatusChange = async (aptId: string, newStatus: string) => {
     try {
       await updateAppointmentStatus(aptId, newStatus as AppointmentStatus);
-      toast.success("Estado actualizado");
+      toast("Estado actualizado", { duration: 2000 });
       // Reload appointments
       loadAppointmentsByMode();
     } catch (error) {
-      toast.error("Error al actualizar estado");
+      toast("Error al actualizar estado", { duration: 3000 });
     }
   };
 
