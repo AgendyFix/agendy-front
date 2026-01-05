@@ -34,11 +34,13 @@ export default function RootLayout({
           richColors
           toastOptions={{
             style: {
-              color: '#1A1A1A',
+              color: '#FFFFFF',
+              fontWeight: '500',
             },
             actionButtonStyle: {
               backgroundColor: '#FF8A00',
               color: '#FFFFFF',
+              fontWeight: '600',
             },
           }}
         />
