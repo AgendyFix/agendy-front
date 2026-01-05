@@ -170,3 +170,71 @@ export interface CalendarAppointment {
   service_name: string;
   status: AppointmentStatus;
 }
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+export type NotificationType =
+  | "appointment_created"
+  | "appointment_updated"
+  | "appointment_cancelled"
+  | "appointment_confirmed";
+
+export interface NotificationMetadata {
+  appointment_id?: string;
+  appointment_title?: string;
+  client_name?: string;
+  service_name?: string;
+  start_at?: string;
+  status?: AppointmentStatus;
+  [key: string]: any; // Para futuros campos adicionales
+}
+
+export interface Notification {
+  id: number;
+  notification_type: NotificationType;
+  notification_type_display: string;
+  title: string;
+  description: string;
+  metadata: NotificationMetadata;
+  is_read: boolean;
+  company: string; // UUID en lista
+  company_name: string;
+  user: number;
+  user_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationDetail extends Omit<Notification, 'company' | 'user'> {
+  company: {
+    id: string;
+    name: string;
+  };
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    is_active: boolean;
+    date_joined: string;
+  };
+  status: string;
+  datetime_notification: string | null;
+}
+
+// WebSocket message types
+export interface WSConnectionMessage {
+  type: "connection_established";
+  message: string;
+}
+
+export interface WSNotificationMessage {
+  type: "notification";
+  data: Notification;
+}
+
+export type WSMessage = WSConnectionMessage | WSNotificationMessage;

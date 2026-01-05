@@ -5,6 +5,7 @@
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { NotificationsProvider } from "@/components/notifications/NotificationsProvider";
 
 export default function DashboardLayout({
   children,
@@ -13,15 +14,17 @@ export default function DashboardLayout({
 }) {
   return (
     <ProtectedRoute>
-      <div className="flex h-screen flex-col">
-        <Header />
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto p-6">
-            {children}
-          </main>
+      <NotificationsProvider>
+        <div className="flex h-screen flex-col">
+          <Header />
+          <div className="flex flex-1 overflow-hidden">
+            <Sidebar />
+            <main className="flex-1 overflow-y-auto p-6">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </NotificationsProvider>
     </ProtectedRoute>
   );
 }
