@@ -50,11 +50,37 @@ const appointmentEditSchema = z.object({
   description: z.string().optional(),
   location: z.string().optional(),
   estimated_price: z.string().optional(),
+  advance_payment: z.string().optional(),
   client_notes: z.string().optional(),
   custom_service_description: z.string().optional(),
   assigned_to: z.string().optional(),
   team: z.string().optional(),
   source: z.string().optional(),
+}).refine((data) => {
+  // Validar que advance_payment no sea negativo
+  if (data.advance_payment) {
+    const advance = parseFloat(data.advance_payment);
+    if (isNaN(advance) || advance < 0) {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "El anticipo debe ser un número positivo",
+  path: ["advance_payment"],
+}).refine((data) => {
+  // Validar que advance_payment no sea mayor que estimated_price
+  if (data.advance_payment && data.estimated_price) {
+    const advance = parseFloat(data.advance_payment);
+    const price = parseFloat(data.estimated_price);
+    if (!isNaN(advance) && !isNaN(price) && advance > price) {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "El anticipo no puede ser mayor que el precio estimado",
+  path: ["advance_payment"],
 });
 
 const statusLabels = {
@@ -150,6 +176,7 @@ export default function AppointmentDetailPage() {
         description: appointmentData.description || "",
         location: appointmentData.location || "",
         estimated_price: appointmentData.estimated_price || "",
+        advance_payment: appointmentData.advance_payment || "",
         client_notes: appointmentData.client_notes || "",
         custom_service_description: appointmentData.custom_service_description || "",
         assigned_to: assignedToId,
@@ -190,6 +217,7 @@ export default function AppointmentDetailPage() {
         description: appointment.description || "",
         location: appointment.location || "",
         estimated_price: appointment.estimated_price || "",
+        advance_payment: appointment.advance_payment || "",
         client_notes: appointment.client_notes || "",
         custom_service_description: appointment.custom_service_description || "",
         assigned_to: assignedToId,
@@ -299,6 +327,7 @@ export default function AppointmentDetailPage() {
       if (data.description?.trim()) cleanData.description = data.description.trim();
       if (data.location?.trim()) cleanData.location = data.location.trim();
       if (data.estimated_price?.trim()) cleanData.estimated_price = data.estimated_price.trim();
+      if (data.advance_payment?.trim()) cleanData.advance_payment = data.advance_payment.trim();
       if (data.client_notes?.trim()) cleanData.client_notes = data.client_notes.trim();
       if (data.custom_service_description?.trim()) {
         cleanData.custom_service_description = data.custom_service_description.trim();
@@ -606,22 +635,37 @@ export default function AppointmentDetailPage() {
                 </div>
               </div>
 
-              {/* Precio y Ubicación */}
+              {/* Ubicación */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-location">Ubicación</Label>
+                <Input id="edit-location" {...register("location")} />
+              </div>
+
+              {/* Precio y Anticipo */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="edit-price">Precio Estimado</Label>
                   <Input
                     id="edit-price"
                     type="text"
-                    inputMode="numeric"
+                    inputMode="decimal"
                     placeholder="0.00"
                     {...register("estimated_price")}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-location">Ubicación</Label>
-                  <Input id="edit-location" {...register("location")} />
+                  <Label htmlFor="edit-advance">Anticipo Pagado</Label>
+                  <Input
+                    id="edit-advance"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    {...register("advance_payment")}
+                  />
+                  {errors.advance_payment && (
+                    <p className="text-sm text-red-500">{errors.advance_payment.message}</p>
+                  )}
                 </div>
               </div>
 
@@ -757,18 +801,6 @@ export default function AppointmentDetailPage() {
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <DollarSign className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium">Precio Estimado</p>
-                    <p className="text-sm text-muted-foreground">
-                      {appointment.estimated_price ? `$${appointment.estimated_price}` : (
-                        <span className="italic">A consultar</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
                   <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
                     <p className="text-sm font-medium">Ubicación</p>
@@ -777,6 +809,40 @@ export default function AppointmentDetailPage() {
                     ) : (
                       <p className="text-sm text-muted-foreground italic">Sin ubicación</p>
                     )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Información de Pago */}
+              <div className="bg-green-50/50 p-4 rounded-lg border border-green-200">
+                <div className="flex items-start gap-2 mb-3">
+                  <DollarSign className="h-5 w-5 text-green-700 mt-0.5" />
+                  <p className="text-sm font-medium text-green-900">Información de Pago</p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3 pl-7">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Precio Total</p>
+                    <p className="text-base font-semibold">
+                      {appointment.estimated_price ? `$${appointment.estimated_price}` : (
+                        <span className="text-sm italic font-normal">A consultar</span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Anticipo Pagado</p>
+                    <p className="text-base font-semibold text-green-700">
+                      {appointment.advance_payment ? `$${appointment.advance_payment}` : "$0.00"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Saldo Pendiente</p>
+                    <p className="text-base font-semibold text-orange-700">
+                      {appointment.balance_due ? `$${appointment.balance_due}` : (
+                        appointment.estimated_price ? `$${appointment.estimated_price}` : (
+                          <span className="text-sm italic font-normal">A consultar</span>
+                        )
+                      )}
+                    </p>
                   </div>
                 </div>
               </div>

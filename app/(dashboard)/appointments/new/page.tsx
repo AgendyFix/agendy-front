@@ -40,8 +40,34 @@ const appointmentSchema = z.object({
   description: z.string().optional(),
   location: z.string().optional(),
   estimated_price: z.string().optional(),
+  advance_payment: z.string().optional(),
   client_notes: z.string().optional(),
   assigned_to: z.string().optional(),
+}).refine((data) => {
+  // Validar que advance_payment no sea negativo
+  if (data.advance_payment) {
+    const advance = parseFloat(data.advance_payment);
+    if (isNaN(advance) || advance < 0) {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "El anticipo debe ser un número positivo",
+  path: ["advance_payment"],
+}).refine((data) => {
+  // Validar que advance_payment no sea mayor que estimated_price
+  if (data.advance_payment && data.estimated_price) {
+    const advance = parseFloat(data.advance_payment);
+    const price = parseFloat(data.estimated_price);
+    if (!isNaN(advance) && !isNaN(price) && advance > price) {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "El anticipo no puede ser mayor que el precio estimado",
+  path: ["advance_payment"],
 });
 
 type AppointmentFormData = z.infer<typeof appointmentSchema>;
@@ -100,6 +126,7 @@ export default function NewAppointmentPage() {
       }
       if (data.location?.trim()) cleanData.location = data.location.trim();
       if (data.estimated_price?.trim()) cleanData.estimated_price = data.estimated_price.trim();
+      if (data.advance_payment?.trim()) cleanData.advance_payment = data.advance_payment.trim();
       if (data.client_notes?.trim()) cleanData.client_notes = data.client_notes.trim();
       if (data.assigned_to) cleanData.assigned_to = data.assigned_to;
       
@@ -250,31 +277,50 @@ export default function NewAppointmentPage() {
               />
             </div>
 
-            {/* Ubicación y Precio */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="location">Ubicación (opcional)</Label>
-                <Input
-                  id="location"
-                  placeholder="Dirección o sucursal"
-                  disabled={isLoading}
-                  {...register("location")}
-                />
-              </div>
+            {/* Ubicación */}
+            <div className="space-y-2">
+              <Label htmlFor="location">Ubicación (opcional)</Label>
+              <Input
+                id="location"
+                placeholder="Dirección o sucursal"
+                disabled={isLoading}
+                {...register("location")}
+              />
+            </div>
 
+            {/* Precio y Anticipo */}
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="estimated_price">Precio Estimado (opcional)</Label>
                 <Input
                   id="estimated_price"
                   type="text"
-                  inputMode="numeric"
+                  inputMode="decimal"
                   placeholder="0.00"
                   disabled={isLoading}
                   {...register("estimated_price")}
                 />
                 <p className="text-xs text-muted-foreground">
-                modificar solo si el precio es diferente al asignado por el servicio.
-              </p>
+                  Modificar solo si el precio es diferente al asignado por el servicio.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="advance_payment">Anticipo Pagado (opcional)</Label>
+                <Input
+                  id="advance_payment"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  disabled={isLoading}
+                  {...register("advance_payment")}
+                />
+                {errors.advance_payment && (
+                  <p className="text-sm text-red-500">{errors.advance_payment.message}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Monto pagado por adelantado
+                </p>
               </div>
             </div>
 

@@ -107,6 +107,7 @@ export interface CreateAppointmentRequest {
   assigned_to?: string; // Employee UUID
   location?: string;
   estimated_price?: string;
+  advance_payment?: string; // Decimal field for advance payment
   client_notes?: string;
   status?: "pending" | "confirmed" | "in_progress" | "completed" | "cancelled" | "rejected";
 }

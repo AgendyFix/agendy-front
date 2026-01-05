@@ -137,6 +137,8 @@ export interface Appointment {
   assigned_to_name?: string | null; // En lista
   location?: string;
   estimated_price?: string | null;
+  advance_payment?: string | null; // NUEVO: Anticipo pagado
+  balance_due?: string | null; // NUEVO: Saldo pendiente (calculado)
   client_name_snapshot?: string;
   client_phone_snapshot?: string;
   service_name_snapshot?: string;
