@@ -73,3 +73,10 @@ export const markAllNotificationsAsRead = async (): Promise<{
   }>("/notifications/mark-all-read/");
   return response.data;
 };
+
+/**
+ * Delete notification (soft delete)
+ */
+export const deleteNotification = async (id: number): Promise<void> => {
+  await apiClient.delete(`/notifications/${id}/`);
+};

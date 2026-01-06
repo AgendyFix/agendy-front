@@ -92,6 +92,7 @@ export const useNotifications = () => {
         toast(message.data.title, {
           description: message.data.description,
           duration: 5000,
+          dismissible: true, // Habilita el botón X para cerrar
           action: message.data.metadata?.appointment_id
             ? {
                 label: "Ver cita",
