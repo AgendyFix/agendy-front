@@ -118,7 +118,7 @@ export function ReminderCardCompact({
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onEdit(reminder.id);
+                    onEdit(String(reminder.id));
                   }}
                   className="h-8 px-2"
                 >
@@ -132,7 +132,7 @@ export function ReminderCardCompact({
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onSendNow(reminder.id);
+                    onSendNow(String(reminder.id));
                   }}
                   className="h-8 px-2"
                 >
@@ -146,7 +146,7 @@ export function ReminderCardCompact({
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onCancel(reminder.id);
+                    onCancel(String(reminder.id));
                   }}
                   className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
                 >

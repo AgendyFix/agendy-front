@@ -322,7 +322,7 @@ export default function ReminderDetailPage() {
               <>
                 <div className="space-y-3">
                   {executions.map((execution) => (
-                    <ReminderExecutionItem key={execution.id} execution={execution} />
+                    <ReminderExecutionItem key={execution.id} reminder={execution} />
                   ))}
                 </div>
                 
