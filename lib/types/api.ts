@@ -81,6 +81,28 @@ export interface CreateClientRequest {
 
 export interface UpdateClientRequest extends Partial<CreateClientRequest> {}
 
+// Client Groups
+export interface CreateClientGroupRequest {
+  name: string;
+  description?: string;
+  client_ids?: string[]; // Array of client UUIDs
+}
+
+export interface UpdateClientGroupRequest extends Partial<CreateClientGroupRequest> {}
+
+export interface UpdateClientGroupMembersRequest {
+  action: 'add' | 'remove';
+  client_ids: string[];
+}
+
+export interface ClientGroupListParams {
+  search?: string;
+  ordering?: string;
+  is_active?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
 // Teams
 export interface CreateTeamRequest {
   name: string;
@@ -146,4 +168,156 @@ export interface PaginatedResponse<T> {
 export interface APIError {
   detail?: string;
   [key: string]: any;
+}
+
+// ============================================
+// REMINDERS
+// ============================================
+
+export interface CreateReminderRequest {
+  channel: 'whatsapp' | 'email' | 'sms';
+  reminder_type: 'appointment' | 'custom' | 'promotional' | 'follow_up';
+  client?: string; // UUID (XOR con client_group)
+  client_group?: string; // UUID (XOR con client)
+  phone_number?: string; // Required para whatsapp/sms si es individual
+  email?: string; // Required para email si es individual
+  appointment?: string; // UUID opcional
+  
+  // Template OR message (XOR)
+  template?: string; // UUID del template
+  template_variables?: Record<string, string>; // Variables del template {"1": "valor1", "2": "valor2"}
+  message?: string; // Mensaje personalizado (solo si no usa template)
+  
+  scheduled_at: string; // ISO 8601
+  recurrence?: 'once' | 'daily' | 'weekly' | 'monthly';
+  recurrence_weekday?: 0 | 1 | 2 | 3 | 4 | 5 | 6; // Required para weekly
+  recurrence_time?: string; // HH:MM:SS - Required para recurrentes
+  recurrence_end_date?: string; // YYYY-MM-DD - Opcional
+}
+
+export interface UpdateReminderRequest {
+  message?: string;
+  scheduled_at?: string;
+  recurrence_end_date?: string;
+}
+
+export interface ReminderListParams {
+  status?: 'pending' | 'sent' | 'failed' | 'cancelled';
+  channel?: 'whatsapp' | 'email' | 'sms';
+  reminder_type?: 'appointment' | 'custom' | 'promotional' | 'follow_up';
+  client?: string;
+  client_group?: string;
+  appointment?: string;
+  ordering?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ReminderHistoryParams {
+  channel?: 'whatsapp' | 'email' | 'sms';
+  status?: 'sent' | 'failed';
+  date_from?: string; // YYYY-MM-DD
+  date_to?: string; // YYYY-MM-DD
+  client?: string;
+  client_group?: string;
+  exclude_bulk_children?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+// Master info for recurrence masters
+export interface MasterInfo {
+  id: string;
+  type: 'recurrence_master' | 'bulk_reminder';
+  recurrence: string;
+  recurrence_display: string;
+  recurrence_description: string;
+  client_group: string | null;
+  client: string | null;
+  message: string;
+  scheduled_at: string;
+  last_occurrence_date: string | null;
+  recurrence_end_date: string | null;
+  total_instances: number;
+}
+
+// Bulk reminder info (legacy, for bulk reminders)
+export interface BulkReminderInfo {
+  id: string;
+  client_group: string;
+  message: string;
+  sent_at: string | null;
+  stats: {
+    total_clients: number;
+    sent: number;
+    failed: number;
+    skipped: number;
+  };
+}
+
+export interface ReminderChildrenResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  master_info?: MasterInfo; // New: for recurrence masters
+  bulk_reminder?: BulkReminderInfo; // Legacy: for bulk reminders
+  results: Array<{
+    id: number;
+    channel: string;
+    channel_display: string;
+    reminder_type: string;
+    reminder_type_display: string;
+    status: string;
+    status_display: string;
+    client: string | null;
+    client_name: string | null;
+    client_group: string | null;
+    is_bulk: boolean;
+    is_recurring: boolean;
+    phone_number: string;
+    email: string;
+    scheduled_at: string;
+    sent_at: string | null;
+    recurrence: string;
+    recurrence_display: string;
+    recurrence_description: string;
+    company: string;
+    company_name: string;
+    is_active: boolean;
+    created_at: string;
+  }>;
+}
+
+export interface SendNowResponse {
+  detail: string;
+  reminder_id: string;
+}
+
+export interface CancelReminderResponse {
+  detail: string;
+  reminder_id: string;
+}
+
+// ============================================
+// WHATSAPP TEMPLATES
+// ============================================
+
+export interface TemplateListParams {
+  category?: string;
+  status?: 'pending' | 'approved' | 'rejected';
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface TemplatePreviewRequest {
+  variables: Record<string, string>; // {"1": "valor1", "2": "valor2"}
+}
+
+export interface TemplatePreviewResponse {
+  template_id: string;
+  template_name: string;
+  template_display_name: string;
+  variables: Record<string, string>;
+  rendered_message: string;
 }

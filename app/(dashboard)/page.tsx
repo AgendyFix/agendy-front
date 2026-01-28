@@ -9,6 +9,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useFeatures } from "@/lib/hooks/useFeatures";
 import { metabaseApi } from "@/lib/api/metabase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -27,6 +28,7 @@ function applyMetabaseTheme(urlStr: string, theme: "light" | "dark") {
 export default function DashboardPage() {
   const router = useRouter();
   const { user, currentCompany } = useAuth();
+  const { isFeatureEnabled, features } = useFeatures();
   const [iframeUrl, setIframeUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const hasLoadedRef = useRef(false);
@@ -34,18 +36,35 @@ export default function DashboardPage() {
   // ESTADO NUEVO: theme actual
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
-  // Redirigir a /appointments si el usuario NO es admin
+  // Redirigir según permisos y features disponibles
   useEffect(() => {
-    if (user && currentCompany) {
+    if (user && currentCompany && features.length > 0) {
       const currentRole = user.employee_profiles?.find(
         (profile) => profile.company === currentCompany.id
       )?.role;
 
-      if (currentRole !== "admin") {
-        router.replace("/appointments");
+      // Si NO es admin O metabase no está habilitado, redirigir al primer módulo activo
+      if (currentRole !== "admin" || !isFeatureEnabled("metabase_analytics")) {
+        // Orden de prioridad para redirección
+        const redirectPriority = [
+          { slug: "appointments", path: "/appointments" },
+          { slug: "reminders", path: "/reminders" },
+          { slug: "client_groups", path: "/clients" },
+          { slug: "teams", path: "/teams" },
+        ];
+
+        for (const item of redirectPriority) {
+          if (isFeatureEnabled(item.slug)) {
+            router.replace(item.path);
+            return;
+          }
+        }
+
+        // Si ningún módulo está activo, mostrar mensaje
+        toast.error("No hay módulos disponibles");
       }
     }
-  }, [user, currentCompany, router]);
+  }, [user, currentCompany, features, isFeatureEnabled, router]);
 
   // detecta cambios del modo oscuro mirando la clase "dark" del <html>
   useEffect(() => {
@@ -83,28 +102,28 @@ export default function DashboardPage() {
       }
     };
 
-    if (user && currentCompany && !hasLoadedRef.current) {
+    if (user && currentCompany && !hasLoadedRef.current && features.length > 0) {
       const currentRole = user.employee_profiles?.find(
         (profile) => profile.company === currentCompany.id
       )?.role;
 
-      // Solo cargar Metabase si es admin
-      if (currentRole === "admin") {
+      // Solo cargar Metabase si es admin Y el feature está habilitado
+      if (currentRole === "admin" && isFeatureEnabled("metabase_analytics")) {
         loadMetabaseDashboard();
       }
     }
-  }, [user, currentCompany]);
+  }, [user, currentCompany, features, isFeatureEnabled]);
 
   // calcula URL final con dark/light aplicado
   const themedIframeUrl = iframeUrl ? applyMetabaseTheme(iframeUrl, theme) : "";
 
-  // Verificar rol antes de renderizar
+  // Verificar rol y feature antes de renderizar
   const currentRole = user?.employee_profiles?.find(
     (profile) => profile.company === currentCompany?.id
   )?.role;
 
-  // No renderizar nada si NO es admin (se está redirigiendo)
-  if (currentRole && currentRole !== "admin") {
+  // No renderizar nada si NO es admin O metabase no está habilitado (se está redirigiendo)
+  if (currentRole && (currentRole !== "admin" || !isFeatureEnabled("metabase_analytics"))) {
     return null;
   }
 

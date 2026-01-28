@@ -84,6 +84,31 @@ export interface Client {
   updated_at: string;
 }
 
+export interface ClientBasic {
+  id: string;
+  name: string;
+  last_name: string;
+  full_name: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface ClientGroup {
+  id: string; // UUID
+  name: string;
+  description?: string;
+  member_count: number;
+  company: CompanyBasic;
+  company_name?: string;
+  created_by: EmployeeBasic | null;
+  created_by_name?: string;
+  clients_list?: ClientBasic[]; // Campo correcto del API
+  metadata?: Record<string, any>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TeamBasic {
   id: string;
   name: string;
@@ -240,3 +265,228 @@ export interface WSNotificationMessage {
 }
 
 export type WSMessage = WSConnectionMessage | WSNotificationMessage;
+
+// ============================================
+// REMINDERS
+// ============================================
+
+export type ReminderChannel = 'whatsapp' | 'email' | 'sms';
+export type ReminderType = 'appointment' | 'custom' | 'promotional' | 'follow_up';
+export type ReminderStatus = 'pending' | 'sent' | 'failed' | 'cancelled';
+export type ReminderRecurrence = 'once' | 'daily' | 'weekly' | 'monthly';
+export type ReminderWeekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface ReminderClientDetail {
+  id: string;
+  name: string;
+  last_name: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  is_active: boolean;
+  company: CompanyBasic;
+  total_appointments: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReminderClientGroup {
+  id: string;
+  name: string;
+  member_count: number;
+}
+
+export interface ReminderAppointment {
+  id: string;
+  title: string;
+  start_at: string;
+}
+
+export interface BulkStats {
+  total_clients: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+}
+
+export interface ReminderMetadata {
+  bulk_stats?: BulkStats;
+  bulk_reminder_id?: string;
+  client_group_id?: string;
+  client_group_name?: string;
+  auto_created?: boolean;
+  hours_before?: number;
+  [key: string]: any;
+}
+
+export interface Reminder {
+  // Identificación
+  id: number | string;
+  company: string | CompanyBasic; // UUID en lista, objeto en detalle
+  company_name?: string;
+  
+  // Configuración
+  channel: ReminderChannel;
+  channel_display: string;
+  reminder_type: ReminderType;
+  reminder_type_display: string;
+  
+  // Destinatario (XOR: client O client_group)
+  client: string | ReminderClientDetail | null; // UUID en lista, objeto en detalle
+  client_name?: string | null;
+  client_group: string | ClientGroup | null; // UUID en lista, objeto en detalle
+  client_group_name?: string | null;
+  
+  // Contacto
+  phone_number?: string;
+  email?: string;
+  
+  // Relación opcional
+  appointment: ReminderAppointment | null;
+  
+  // Contenido (template O message)
+  template: string | null; // UUID del template
+  template_name: string | null; // Nombre del template
+  template_variables: Record<string, string> | null; // Variables del template
+  uses_template: boolean; // Indica si usa template
+  message: string; // Mensaje personalizado o vacío si usa template
+  final_message: string | null; // Mensaje renderizado (solo en detail)
+  
+  // Programación
+  scheduled_at: string;
+  sent_at: string | null;
+  
+  // Recurrencia
+  recurrence: ReminderRecurrence;
+  recurrence_display: string;
+  recurrence_weekday: ReminderWeekday | null;
+  recurrence_weekday_display: string | null;
+  recurrence_time: string | null;
+  recurrence_end_date: string | null;
+  recurrence_description: string;
+  is_recurrence_master: boolean;
+  last_occurrence_date: string | null;
+  
+  // Estado
+  status: ReminderStatus;
+  status_display: string;
+  
+  // Propiedades computadas
+  is_bulk: boolean;
+  is_recurring: boolean;
+  target_count: number;
+  
+  // Metadata
+  metadata?: ReminderMetadata;
+  
+  // Resultado
+  response_data: any | null;
+  error_message: string | null;
+  
+  // Auditoría
+  created_by: Employee | null; // Objeto completo en detalle
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReminderChild {
+  id: number;
+  channel: ReminderChannel;
+  channel_display: string;
+  reminder_type: ReminderType;
+  reminder_type_display: string;
+  status: string;
+  status_display: string;
+  client: string; // UUID
+  client_name: string;
+  client_group: string | null;
+  is_bulk: boolean;
+  is_recurring: boolean;
+  phone_number: string;
+  email: string;
+  scheduled_at: string;
+  sent_at: string | null;
+  recurrence: ReminderRecurrence;
+  recurrence_display: string;
+  recurrence_description: string;
+  company: string; // UUID
+  company_name: string;
+  is_active: boolean;
+  created_at: string;
+  error_message?: string | null;
+  response_data?: any | null;
+}
+
+// ============================================
+// FEATURE FLAGS
+// ============================================
+
+export interface FeatureDashboardConfig {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface FeatureMetabaseConfig {
+  dashboards: Record<string, FeatureDashboardConfig>;
+  active_dashboard: string;
+}
+
+export interface FeatureConfig {
+  dashboards?: Record<string, FeatureDashboardConfig>;
+  active_dashboard?: string;
+  [key: string]: any;
+}
+
+export interface Feature {
+  slug: string;
+  name: string;
+  description: string;
+  is_enabled: boolean;
+  config: FeatureConfig;
+}
+
+export interface FeaturesResponse {
+  features: Feature[];
+}
+
+// ============================================
+// WHATSAPP TEMPLATES
+// ============================================
+
+export type TemplateCategoryType = 'appointment' | 'promotion' | 'reminder' | 'follow_up' | 'other';
+export type TemplateStatus = 'pending' | 'approved' | 'rejected';
+
+export interface TemplateVariableMetadata {
+  name: string;
+  description: string;
+  example: string;
+}
+
+export interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string;
+  body: string;
+  category: TemplateCategoryType;
+  category_display: string;
+  status: TemplateStatus;
+  status_display: string;
+  is_approved: boolean;
+  variable_count: number;
+  variable_names: string[];
+  variables_metadata: Record<string, TemplateVariableMetadata>;
+  companies_count?: number;
+  metadata?: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateCategoryOption {
+  value: string;
+  label: string;
+  count: number;
+}

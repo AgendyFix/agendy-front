@@ -13,12 +13,14 @@ import {
   Calendar,
   UsersRound,
   UserCog,
+  Bell,
   X
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useFeatures } from "@/lib/hooks/useFeatures";
 import { Button } from "@/components/ui/button";
 
 const navigation = [
@@ -27,31 +29,43 @@ const navigation = [
     href: "/",
     icon: LayoutDashboard,
     adminOnly: true,
+    featureFlag: "metabase_analytics", // Dashboard requires metabase
   },
   {
     name: "Citas",
     href: "/appointments",
     icon: Calendar,
+    featureFlag: "appointments",
   },
   {
     name: "Clientes",
     href: "/clients",
     icon: Users,
+    featureFlag: "client_groups",
   },
   {
     name: "Servicios",
     href: "/services",
     icon: Briefcase,
+    featureFlag: "appointments", // Services are part of appointments
   },
   {
     name: "Equipos",
     href: "/teams",
     icon: UsersRound,
+    featureFlag: "teams",
   },
   {
     name: "Empleados",
     href: "/employees",
     icon: UserCog,
+    featureFlag: "teams", // Employees are managed through teams
+  },
+  {
+    name: "Recordatorios",
+    href: "/reminders",
+    icon: Bell,
+    featureFlag: "reminders",
   },
 ];
 
@@ -59,6 +73,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, closeSidebar } = useUIStore();
   const { user, currentCompany } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
 
   const currentRole = user?.employee_profiles?.find(
     (profile) => profile.company === currentCompany?.id
@@ -66,9 +81,19 @@ export function Sidebar() {
 
   const isAdmin = currentRole === "admin";
 
-  const visibleNavigation = navigation.filter(
-    (item) => !item.adminOnly || isAdmin
-  );
+  const visibleNavigation = navigation.filter((item) => {
+    // Check admin permission
+    if (item.adminOnly && !isAdmin) {
+      return false;
+    }
+    
+    // Check feature flag
+    if (item.featureFlag && !isFeatureEnabled(item.featureFlag)) {
+      return false;
+    }
+    
+    return true;
+  });
 
   return (
     <>
