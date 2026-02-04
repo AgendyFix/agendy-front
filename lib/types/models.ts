@@ -345,7 +345,7 @@ export interface Reminder {
   appointment: ReminderAppointment | null;
   
   // Contenido (template O message)
-  template: string | null; // UUID del template
+  template: string | WhatsAppTemplate | null; // UUID en lista, objeto en detalle
   template_name: string | null; // Nombre del template
   template_variables: Record<string, string> | null; // Variables del template
   uses_template: boolean; // Indica si usa template
@@ -390,6 +390,23 @@ export interface Reminder {
   updated_at: string;
 }
 
+export interface RecipientInfo {
+  id: string; // UUID del cliente
+  name: string;
+  phone: string;
+  email: string;
+  has_contact?: boolean; // Solo para pending
+  status: 'pending' | 'sent' | 'failed';
+  sent_at?: string | null; // Solo para sent
+  error_message?: string | null; // Solo para failed
+}
+
+export interface RecipientsData {
+  status: 'pending' | 'sent' | 'failed' | 'mixed';
+  total: number;
+  list: RecipientInfo[];
+}
+
 export interface ReminderChild {
   id: number;
   channel: ReminderChannel;
@@ -401,6 +418,7 @@ export interface ReminderChild {
   client: string; // UUID
   client_name: string;
   client_group: string | null;
+  client_group_name?: string | null;
   is_bulk: boolean;
   is_recurring: boolean;
   phone_number: string;
@@ -416,6 +434,7 @@ export interface ReminderChild {
   created_at: string;
   error_message?: string | null;
   response_data?: any | null;
+  recipients?: RecipientsData; // Información de destinatarios
 }
 
 // ============================================

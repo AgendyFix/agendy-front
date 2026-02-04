@@ -201,16 +201,16 @@ export default function ReminderDetailPage() {
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Tipo</p>
-              <p className="font-medium">{reminder.reminder_type_display}</p>
+              <p className="text-sm text-muted-foreground">Estado</p>
+              <p className="font-medium">{reminder.status_display}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Programado para</p>
               <p className="font-medium">{formatDate(reminder.scheduled_at)}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Enviado</p>
-              <p className="font-medium">{formatDate(reminder.sent_at)}</p>
+              <p className="text-sm text-muted-foreground">Recurrencia</p>
+              <p className="font-medium">{reminder.recurrence_description || 'Una vez'}</p>
             </div>
           </div>
 
@@ -232,7 +232,19 @@ export default function ReminderDetailPage() {
               ) : getClientGroupName() ? (
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">Grupo: {getClientGroupName()}</span>
+                  <button
+                    onClick={() => {
+                      const groupId = typeof reminder.client_group === 'string'
+                        ? reminder.client_group
+                        : reminder.client_group?.id;
+                      if (groupId) {
+                        router.push(`/clients/groups/${groupId}`);
+                      }
+                    }}
+                    className="font-medium text-primary hover:underline cursor-pointer transition-colors"
+                  >
+                    Grupo: {getClientGroupName()}
+                  </button>
                 </div>
               ) : (
                 <span className="text-muted-foreground">Sin destinatario</span>
@@ -240,18 +252,47 @@ export default function ReminderDetailPage() {
             </div>
           </div>
 
-          <div>
-            <p className="text-sm text-muted-foreground mb-2">Mensaje</p>
-            <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg">
-              <MessageSquare className="h-4 w-4 text-muted-foreground mt-0.5" />
-              <p className="text-sm flex-1">{reminder.message}</p>
+          {/* Mostrar mensaje solo si no usa template */}
+          {!reminder.uses_template && reminder.message && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Mensaje</p>
+              <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg">
+                <MessageSquare className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <p className="text-sm flex-1 whitespace-pre-wrap">{reminder.message}</p>
+              </div>
             </div>
-          </div>
+          )}
 
-          <div>
-            <p className="text-sm text-muted-foreground mb-2">Recurrencia</p>
-            <p className="text-sm">{reminder.recurrence_description}</p>
-          </div>
+          {/* Mostrar template info si usa template */}
+          {reminder.uses_template && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Template de WhatsApp</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <span className="text-lg">📋</span>
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">
+                      {reminder.template && typeof reminder.template !== 'string'
+                        ? reminder.template.display_name
+                        : reminder.template_name || 'Template'}
+                    </p>
+                    {reminder.template && typeof reminder.template !== 'string' && reminder.template.description && (
+                      <p className="text-xs text-muted-foreground">
+                        {reminder.template.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {reminder.final_message && (
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Mensaje final:</p>
+                    <p className="text-sm whitespace-pre-wrap">{reminder.final_message}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
 
           {reminder.error_message && (
             <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">

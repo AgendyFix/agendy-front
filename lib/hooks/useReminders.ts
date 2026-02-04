@@ -168,7 +168,8 @@ export const useReminderHistory = () => {
 };
 
 /**
- * Hook for my reminders (user's own reminders)
+ * Hook for all reminders (uses /reminders/ endpoint)
+ * Shows all reminders regardless of status (pending, sent, failed)
  */
 export const useMyReminders = () => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -178,13 +179,13 @@ export const useMyReminders = () => {
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
 
-  const fetchMyReminders = useCallback(async (params: ReminderHistoryParams & { page?: number } = {}) => {
+  const fetchMyReminders = useCallback(async (params: ReminderListParams & { page?: number } = {}) => {
     try {
       setIsLoading(true);
       const { page = 1, ...restParams } = params;
       
       const offset = (page - 1) * 10;
-      const response = await remindersApi.getMyReminders({
+      const response = await remindersApi.getAll({
         ...restParams,
         limit: 10,
         offset,

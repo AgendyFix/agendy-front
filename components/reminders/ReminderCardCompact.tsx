@@ -65,41 +65,51 @@ export function ReminderCardCompact({
       onClick={handleCardClick}
     >
       <CardContent className="p-3">
-        <div className="flex items-center gap-4">
-          {/* Fecha - MÁS PROMINENTE */}
-          <div className="flex items-center gap-2 min-w-[160px]">
+        <div className="flex items-center gap-3">
+          {/* Fecha */}
+          <div className="flex items-center gap-2 min-w-[140px] flex-shrink-0">
             <Calendar className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-sm text-foreground">
+            <span className="font-semibold text-sm">
               {formatDate(reminder.sent_at || reminder.scheduled_at)}
             </span>
           </div>
 
-          {/* Canal y Destinatario */}
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-base">{getChannelIcon()}</span>
+          {/* Canal */}
+          <span className="text-base flex-shrink-0">{getChannelIcon()}</span>
+
+          {/* Destinatario */}
+          <div className="flex items-center gap-1.5 min-w-[180px] max-w-[220px]">
             {reminder.client_name ? (
-              <div className="flex items-center gap-1.5 min-w-0">
+              <>
                 <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                 <span className="font-medium text-sm truncate">{reminder.client_name}</span>
-                {reminder.phone_number && (
-                  <span className="text-xs text-muted-foreground flex-shrink-0">{reminder.phone_number}</span>
-                )}
-              </div>
+              </>
             ) : reminder.client_group_name ? (
-              <div className="flex items-center gap-1.5 min-w-0">
+              <>
                 <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                 <span className="font-medium text-sm truncate">Grupo: {reminder.client_group_name}</span>
-              </div>
+              </>
             ) : null}
           </div>
 
-          {/* Recurrencia (si aplica) */}
-          {reminder.is_recurring && (
-            <div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950 px-2 py-1 rounded flex-shrink-0">
-              <span>🔁</span>
-              <span className="font-medium">{reminder.recurrence_display}</span>
+          {/* Template (inline, más espacio) */}
+          {reminder.uses_template && reminder.template_name && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-[200px] max-w-[300px]">
+              <span className="flex-shrink-0">📋</span>
+              <span className="truncate">{reminder.template_name}</span>
             </div>
           )}
+
+          {/* Recurrence description (inline, más espacio) */}
+          {reminder.is_recurring && reminder.recurrence_description && (
+            <div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950 px-2 py-1 rounded min-w-[200px] max-w-[300px]">
+              <span className="flex-shrink-0">🔁</span>
+              <span className="truncate">{reminder.recurrence_description}</span>
+            </div>
+          )}
+
+          {/* Spacer flexible para empujar estado y acciones a la derecha */}
+          <div className="flex-1 min-w-0" />
 
           {/* Estado */}
           <div className="flex-shrink-0">
@@ -126,7 +136,8 @@ export function ReminderCardCompact({
                   Editar
                 </Button>
               )}
-              {onSendNow && (
+              {/* Solo mostrar "Enviar Ahora" si NO es recurrente */}
+              {onSendNow && !reminder.is_recurring && (
                 <Button
                   variant="ghost"
                   size="sm"

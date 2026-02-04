@@ -7,7 +7,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MyRemindersList } from "@/components/reminders/MyRemindersList";
 import { ScheduledRemindersList } from "@/components/reminders/ScheduledRemindersList";
-import { ReminderHistoryList } from "@/components/reminders/ReminderHistoryList";
 
 export default function RemindersPage() {
   return (
@@ -15,7 +14,7 @@ export default function RemindersPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Recordatorios</h1>
         <p className="text-muted-foreground">
-          Gestiona recordatorios programados, revisa los tuyos y consulta el historial
+          Gestiona recordatorios programados y revisa tu historial personal
         </p>
       </div>
 
@@ -23,7 +22,6 @@ export default function RemindersPage() {
         <TabsList>
           <TabsTrigger value="scheduled">Programados</TabsTrigger>
           <TabsTrigger value="my-reminders">Mis Recordatorios</TabsTrigger>
-          <TabsTrigger value="history">Historial</TabsTrigger>
         </TabsList>
 
         <TabsContent value="scheduled" className="space-y-4">
@@ -32,10 +30,6 @@ export default function RemindersPage() {
 
         <TabsContent value="my-reminders" className="space-y-4">
           <MyRemindersList />
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-4">
-          <ReminderHistoryList />
         </TabsContent>
       </Tabs>
     </div>
