@@ -199,13 +199,13 @@ export default function ClientDetailPage() {
     }
   }, [id]);
 
-  // Carga de pagos — una sola llamada con enrollment__client
+  // Carga de pagos — incluye paid y overdue, ordenados por fecha de vencimiento desc
   const fetchPayments = useCallback(async () => {
     try {
       setLoadingPayments(true);
       const data = await paymentsApi.getAll({
         enrollment__client: id,
-        ordering: "-payment_date",
+        ordering: "-due_date",
         limit: 100,
       });
       setPayments(data.results);
@@ -383,8 +383,8 @@ export default function ClientDetailPage() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <p
-                        className="font-medium text-sm truncate hover:underline cursor-pointer"
-                        onClick={() => router.push(`/class-groups/${enrollment.class_group}`)}
+                        className={`font-medium text-sm truncate ${enrollment.status !== "dropped" ? "hover:underline cursor-pointer" : "text-muted-foreground"}`}
+                        onClick={() => enrollment.status !== "dropped" && router.push(`/class-groups/${enrollment.class_group}`)}
                       >
                         {enrollment.class_group_name}
                       </p>

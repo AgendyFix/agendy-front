@@ -64,6 +64,8 @@ export default function InstructorDetailPage() {
   const [isFetching, setIsFetching]           = useState(true);
   const [loadingGroups, setLoadingGroups]     = useState(false);
   const [editing, setEditing]                 = useState(false);
+  const [firstName, setFirstName]             = useState("");
+  const [lastName, setLastName]               = useState("");
   const [specialty, setSpecialty]             = useState("");
   const [phone, setPhone]                     = useState("");
   const [saving, setSaving]                   = useState(false);
@@ -86,6 +88,8 @@ export default function InstructorDetailPage() {
         setIsFetching(true);
         const data = await employeesApi.getById(id);
         setEmployee(data);
+        setFirstName(data.first_name ?? "");
+        setLastName(data.last_name ?? "");
         setSpecialty(data.specialty ?? "");
         setPhone(data.phone ?? "");
       } catch {
@@ -113,11 +117,17 @@ export default function InstructorDetailPage() {
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
 
   const handleSave = async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error("Nombre y apellido son requeridos");
+      return;
+    }
     try {
       setSaving(true);
       const updated = await employeesApi.update(id, {
-        specialty: specialty.trim() || undefined,
-        phone:     phone.trim() || undefined,
+        first_name: firstName.trim(),
+        last_name:  lastName.trim(),
+        specialty:  specialty.trim() || undefined,
+        phone:      phone.trim() || undefined,
       });
       setEmployee(updated);
       setEditing(false);
@@ -351,6 +361,28 @@ export default function InstructorDetailPage() {
 
               {editing ? (
                 <div className="space-y-3 pt-1">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-first-name">Nombre <span className="text-destructive">*</span></Label>
+                      <Input
+                        id="edit-first-name"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="Carlos"
+                        disabled={saving}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-last-name">Apellido <span className="text-destructive">*</span></Label>
+                      <Input
+                        id="edit-last-name"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="López"
+                        disabled={saving}
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="edit-phone">Teléfono</Label>
                     <Input
@@ -368,7 +400,7 @@ export default function InstructorDetailPage() {
                       id="edit-specialty"
                       value={specialty}
                       onChange={(e) => setSpecialty(e.target.value)}
-                      placeholder="Ej: Salsa y Bachata"
+                      placeholder="Ej: Baile urbano, ritmos latinos..."
                       disabled={saving}
                     />
                   </div>
@@ -381,6 +413,8 @@ export default function InstructorDetailPage() {
                       size="sm" variant="outline"
                       onClick={() => {
                         setEditing(false);
+                        setFirstName(employee.first_name ?? "");
+                        setLastName(employee.last_name ?? "");
                         setSpecialty(employee.specialty ?? "");
                         setPhone(employee.phone ?? "");
                       }}

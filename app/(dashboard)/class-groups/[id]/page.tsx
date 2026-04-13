@@ -8,7 +8,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, Loader2, Users, Clock, DollarSign,
-  Phone, UserPlus, Pencil, Pause, UserX, Check, X as XIcon,
+  Phone, UserPlus, Pencil, Pause, UserX, Check, X as XIcon, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -79,6 +79,10 @@ export default function ClassGroupDetailPage() {
   // confirmación de baja de alumno
   const [dropTarget, setDropTarget] = useState<Enrollment | null>(null);
   const [dropping, setDropping] = useState(false);
+
+  // confirmación de eliminar grupo
+  const [showDeleteGroup, setShowDeleteGroup] = useState(false);
+  const [deletingGroup, setDeletingGroup]     = useState(false);
 
   // Edición de día de pago inline
   const [editingBillingDay, setEditingBillingDay] = useState<string | null>(null);
@@ -180,6 +184,19 @@ export default function ClassGroupDetailPage() {
     }
   };
 
+  const handleDeleteGroup = async () => {
+    try {
+      setDeletingGroup(true);
+      await classGroupsApi.delete(id);
+      toast.success("Grupo eliminado");
+      router.push("/class-groups");
+    } catch {
+      toast.error("Error al eliminar el grupo");
+      setDeletingGroup(false);
+      setShowDeleteGroup(false);
+    }
+  };
+
   if (loadingGroup) {
     return (
       <div className="flex justify-center py-16">
@@ -197,7 +214,7 @@ export default function ClassGroupDetailPage() {
 
       {/* ── Header ── */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+        <Button variant="ghost" size="icon" onClick={() => router.push("/class-groups")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">
@@ -212,10 +229,20 @@ export default function ClassGroupDetailPage() {
           )}
         </div>
         {!editing && (
-          <Button variant="outline" onClick={() => setEditing(true)}>
-            <Pencil className="h-4 w-4 mr-2" />
-            Editar
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" onClick={() => setEditing(true)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Editar
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setShowDeleteGroup(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </div>
 
@@ -496,6 +523,30 @@ export default function ClassGroupDetailPage() {
             >
               {dropping && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Dar de baja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Confirmar eliminar grupo ── */}
+      <AlertDialog open={showDeleteGroup} onOpenChange={(v) => { if (!v) setShowDeleteGroup(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar grupo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              El grupo <strong>{group?.name}</strong> será eliminado permanentemente junto con
+              todos sus horarios. Los alumnos inscritos perderán su inscripción.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingGroup}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteGroup}
+              disabled={deletingGroup}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingGroup && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

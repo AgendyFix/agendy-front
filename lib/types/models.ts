@@ -571,6 +571,7 @@ export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'other';
 export interface Payment {
   id: string;
   enrollment: string;       // UUID
+  enrollment_status: "active" | "paused" | "dropped";
   client_name: string;
   client_phone: string;
   class_group_name: string;
@@ -591,6 +592,8 @@ export interface UnpaidEnrollment {
   client_phone: string;
   class_group_name: string;
   monthly_fee: number;
+  billing_day?: number;
+  due_date?: string; // "YYYY-MM-DD"
 }
 
 export interface PaymentSummary {

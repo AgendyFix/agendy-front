@@ -121,6 +121,8 @@ export interface CreateEmployeeRequest {
 }
 
 export interface UpdateEmployeeRequest {
+  first_name?: string;
+  last_name?: string;
   phone?: string;
   specialty?: string;
   teams?: string[]; // Array of team IDs
@@ -400,8 +402,10 @@ export interface PaymentListParams {
   enrollment?: string;
   enrollment__client?: string;  // Todos los pagos de un cliente
   payment_method?: 'cash' | 'card' | 'transfer' | 'other';
-  payment_date__month?: number; // Filtrar por mes (1-12)
-  payment_date__year?: number;  // Filtrar por año
+  payment_date__month?: number; // Filtrar pagos realizados por mes (1-12)
+  payment_date__year?: number;  // Filtrar pagos realizados por año
+  due_date__month?: number;     // Filtrar por mes de vencimiento (1-12)
+  due_date__year?: number;      // Filtrar por año de vencimiento
   search?: string;
   ordering?: string;
   limit?: number;

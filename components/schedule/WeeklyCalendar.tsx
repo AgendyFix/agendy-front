@@ -386,8 +386,13 @@ export function WeeklyCalendar({
                   const schedule  = block.group.schedules[block.scheduleIdx];
                   const startMins = toMins(schedule.start_time);
                   const endMins   = toMins(schedule.end_time);
-                  const top    = ((startMins / 60) - minHour) * SLOT_H;
-                  const h      = Math.max(((endMins - startMins) / 60) * SLOT_H - 2, 22);
+                  const top        = ((startMins / 60) - minHour) * SLOT_H;
+                  const rawH       = ((endMins - startMins) / 60) * SLOT_H - 2;
+                  // Altura real en px según duración; min 20px para que no desaparezca
+                  const h          = Math.max(rawH, 20);
+                  // Si el bloque es más alto que su espacio natural, lo dejamos "salir" visualmente
+                  // usando overflow-visible — el contenido se muestra completo encima de otras celdas
+                  const isShort    = rawH < 36;
                   const color  = GROUP_COLORS[block.colorIdx];
                   const colW   = block.totalCols > 1
                     ? `calc(${100 / block.totalCols}% - ${PAD}px)`
@@ -402,7 +407,8 @@ export function WeeklyCalendar({
                   return (
                     <button
                       key={bi}
-                      className={`absolute rounded border-l-[3px] px-1 py-0.5 text-left overflow-hidden transition-all cursor-pointer shadow-sm z-[41]
+                      className={`absolute rounded border-l-[3px] px-1 py-0.5 text-left transition-all cursor-pointer shadow-sm z-[41]
+                        ${isShort ? "overflow-visible" : "overflow-hidden"}
                         ${color.bg} ${color.border} ${color.text}
                         ${isSelected ? "ring-2 ring-offset-1 ring-current opacity-100" : "hover:opacity-85 opacity-90"}`}
                       style={{ top, height: h, width: colW, left }}
@@ -437,18 +443,28 @@ export function WeeklyCalendar({
                         setSelected({ group: block.group, scheduleIdx: block.scheduleIdx });
                       }}
                     >
-                      <p className="text-xs font-semibold leading-tight truncate">
-                        {block.group.name}
-                      </p>
-                      {h > 30 && (
-                        <p className="text-[11px] opacity-75 tabular-nums leading-tight">
-                          {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
+                      {isShort ? (
+                        /* Bloque corto: nombre + horario en una sola línea compacta */
+                        <p className="text-[11px] font-semibold leading-tight whitespace-nowrap">
+                          {block.group.name}
+                          <span className="font-normal opacity-75 ml-1 tabular-nums">
+                            {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
+                          </span>
                         </p>
-                      )}
-                      {showInstructor && block.group.instructor_name && h > 44 && (
-                        <p className="text-[11px] opacity-65 truncate leading-tight">
-                          {block.group.instructor_name}
-                        </p>
+                      ) : (
+                        <>
+                          <p className="text-xs font-semibold leading-tight truncate">
+                            {block.group.name}
+                          </p>
+                          <p className="text-[11px] opacity-75 tabular-nums leading-tight">
+                            {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
+                          </p>
+                          {showInstructor && block.group.instructor_name && h > 44 && (
+                            <p className="text-[11px] opacity-65 truncate leading-tight">
+                              {block.group.instructor_name}
+                            </p>
+                          )}
+                        </>
                       )}
                     </button>
                   );

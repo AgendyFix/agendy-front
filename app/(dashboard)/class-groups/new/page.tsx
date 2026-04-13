@@ -19,9 +19,9 @@ export default function NewClassGroupPage() {
   const { createClassGroup, isLoading } = useClassGroups();
 
   const handleSubmit = async (data: CreateClassGroupRequest) => {
-    await createClassGroup(data);
+    const newGroup = await createClassGroup(data);
     toast.success("Grupo creado exitosamente");
-    router.push("/class-groups");
+    router.push(`/class-groups/${newGroup.id}`);
   };
 
   return (

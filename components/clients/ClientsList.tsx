@@ -4,7 +4,7 @@
 // CLIENTS LIST
 // ============================================
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2, Search, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
@@ -71,10 +71,16 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
     fetchClients({ page, search: searchTerm || undefined });
   };
 
-  const handleSearch = (value: string) => {
+  // Debounce para no disparar fetch en cada keystroke
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearch = useCallback((value: string) => {
     setSearchTerm(value);
-    fetchClients({ page: 1, search: value || undefined });
-  };
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      fetchClients({ page: 1, search: value || undefined });
+    }, 350);
+  }, [fetchClients]);
 
   const openDeleteDialog = (id: string, name: string) => {
     setClientToDelete({ id, name });

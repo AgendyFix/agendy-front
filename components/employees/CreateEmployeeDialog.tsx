@@ -158,7 +158,7 @@ export function CreateEmployeeDialog({ onCreated }: CreateEmployeeDialogProps) {
               id="emp-specialty"
               value={specialty}
               onChange={(e) => setSpecialty(e.target.value)}
-              placeholder="Ej: Salsa y Bachata"
+              placeholder="Ej: Baile urbano, ritmos latinos..."
               disabled={saving}
             />
           </div>

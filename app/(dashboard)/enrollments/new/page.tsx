@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { useEnrollments } from "@/lib/hooks/useEnrollments";
 import { clientsApi } from "@/lib/api/clients";
 import { classGroupsApi } from "@/lib/api/classGroups";
+import { enrollmentsApi } from "@/lib/api/enrollments";
 import type { Client, ClassGroup } from "@/lib/types/models";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
@@ -50,33 +51,38 @@ type FormValues = z.infer<typeof schema>;
 export default function NewEnrollmentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const preselectedGroupId = searchParams.get("class_group") ?? "";
-  const preselectedClientId = searchParams.get("client") ?? "";
+  const preselectedGroupId   = searchParams.get("class_group") ?? "";
+  const preselectedClientId  = searchParams.get("client") ?? "";
 
   const { createEnrollment, isLoading } = useEnrollments();
 
-  const [clients, setClients] = useState<Client[]>([]);
-  const [groups, setGroups] = useState<ClassGroup[]>([]);
-  const [loadingClients, setLoadingClients] = useState(false);
-  const [loadingGroups, setLoadingGroups] = useState(false);
-  const [clientOpen, setClientOpen] = useState(false);
-  const [preselectedGroup, setPreselectedGroup] = useState<ClassGroup | null>(null);
+  const [clients, setClients]                     = useState<Client[]>([]);
+  const [groups, setGroups]                       = useState<ClassGroup[]>([]);
+  const [loadingClients, setLoadingClients]       = useState(false);
+  const [loadingGroups, setLoadingGroups]         = useState(false);
+  const [clientOpen, setClientOpen]               = useState(false);
+  const [preselectedGroup, setPreselectedGroup]   = useState<ClassGroup | null>(null);
   const [preselectedClient, setPreselectedClient] = useState<Client | null>(null);
+
+  // IDs de alumnos ya inscritos en el grupo seleccionado
+  const [enrolledClientIds, setEnrolledClientIds] = useState<Set<string>>(new Set());
+  // IDs de grupos donde ya está inscrito el cliente seleccionado
+  const [enrolledGroupIds, setEnrolledGroupIds]   = useState<Set<string>>(new Set());
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      client: preselectedClientId,
+      client:      preselectedClientId,
       class_group: preselectedGroupId,
-      start_date: new Date().toISOString().slice(0, 10),
-      notes: "",
+      start_date:  new Date().toISOString().slice(0, 10),
+      notes:       "",
     },
   });
 
   const selectedClientId = form.watch("client");
-  const selectedGroupId = form.watch("class_group");
-  const selectedClient = clients.find((c) => c.id === selectedClientId) ?? preselectedClient;
-  const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? preselectedGroup;
+  const selectedGroupId  = form.watch("class_group");
+  const selectedClient   = clients.find((c) => c.id === selectedClientId) ?? preselectedClient;
+  const selectedGroup    = groups.find((g) => g.id === selectedGroupId) ?? preselectedGroup;
 
   // Cargar grupos
   useEffect(() => {
@@ -98,7 +104,7 @@ export default function NewEnrollmentPage() {
     load();
   }, [preselectedGroupId]);
 
-  // Cargar clientes iniciales y cuando se abre el combobox
+  // Cargar clientes
   useEffect(() => {
     const load = async () => {
       try {
@@ -118,13 +124,50 @@ export default function NewEnrollmentPage() {
     load();
   }, [preselectedClientId]);
 
+  // Cuando cambia el grupo seleccionado, cargar inscripciones activas del grupo
+  useEffect(() => {
+    const groupId = selectedGroupId || preselectedGroupId;
+    if (!groupId) { setEnrolledClientIds(new Set()); return; }
+    enrollmentsApi.getAll({ class_group: groupId, limit: 200 }).then((res) => {
+      const ids = new Set(
+        res.results
+          .filter((e) => e.status === "active" || e.status === "paused")
+          .map((e) => e.client)
+      );
+      setEnrolledClientIds(ids);
+    }).catch(() => {});
+  }, [selectedGroupId, preselectedGroupId]);
+
+  // Cuando cambia el cliente seleccionado, cargar sus inscripciones activas
+  useEffect(() => {
+    const clientId = selectedClientId || preselectedClientId;
+    if (!clientId) { setEnrolledGroupIds(new Set()); return; }
+    enrollmentsApi.getAll({ client: clientId, limit: 200 }).then((res) => {
+      const ids = new Set(
+        res.results
+          .filter((e) => e.status === "active" || e.status === "paused")
+          .map((e) => e.class_group)
+      );
+      setEnrolledGroupIds(ids);
+    }).catch(() => {});
+  }, [selectedClientId, preselectedClientId]);
+
   const handleSubmit = async (values: FormValues) => {
+    // Validación previa client-side
+    if (enrolledClientIds.has(values.client)) {
+      toast.error("Este alumno ya está inscrito en el grupo seleccionado");
+      return;
+    }
+    if (enrolledGroupIds.has(values.class_group)) {
+      toast.error("El alumno ya está inscrito en este grupo");
+      return;
+    }
     try {
       await createEnrollment({
-        client: values.client,
+        client:      values.client,
         class_group: values.class_group,
-        start_date: values.start_date,
-        notes: values.notes || undefined,
+        start_date:  values.start_date,
+        notes:       values.notes || undefined,
       });
       toast.success("Alumno inscrito exitosamente");
       if (preselectedClientId) {
@@ -134,9 +177,15 @@ export default function NewEnrollmentPage() {
       } else {
         router.push("/clients");
       }
-    } catch (err: any) {
-      const apiErrors = err?.response?.data;
+    } catch (err: unknown) {
+      const apiErrors = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
       if (apiErrors && typeof apiErrors === "object") {
+        // non_field_errors: duplicado → mensaje amigable
+        const nonField = apiErrors.non_field_errors;
+        if (nonField) {
+          toast.error("Este alumno ya está inscrito en este grupo");
+          return;
+        }
         Object.entries(apiErrors).forEach(([field, messages]) => {
           const msg = Array.isArray(messages) ? messages[0] : String(messages);
           toast.error(`${field}: ${msg}`);
@@ -221,29 +270,40 @@ export default function NewEnrollmentPage() {
                           <CommandList>
                             <CommandEmpty>Sin resultados</CommandEmpty>
                             <CommandGroup>
-                              {clients.map((c) => (
-                                <CommandItem
-                                  key={c.id}
-                                  value={`${c.full_name} ${c.phone ?? ""}`}
-                                  onSelect={() => {
-                                    field.onChange(c.id);
-                                    setClientOpen(false);
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      field.value === c.id ? "opacity-100" : "opacity-0"
+                              {clients.map((c) => {
+                                const isEnrolled = enrolledClientIds.has(c.id);
+                                return (
+                                  <CommandItem
+                                    key={c.id}
+                                    value={`${c.full_name} ${c.phone ?? ""}`}
+                                    disabled={isEnrolled}
+                                    onSelect={() => {
+                                      if (isEnrolled) return;
+                                      field.onChange(c.id);
+                                      setClientOpen(false);
+                                    }}
+                                    className={cn(isEnrolled && "opacity-50 cursor-not-allowed")}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        field.value === c.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex flex-col flex-1">
+                                      <span className="font-medium">{c.full_name}</span>
+                                      {c.phone && (
+                                        <span className="text-xs text-muted-foreground">{c.phone}</span>
+                                      )}
+                                    </div>
+                                    {isEnrolled && (
+                                      <span className="text-xs text-muted-foreground ml-2 shrink-0">
+                                        Ya inscrito
+                                      </span>
                                     )}
-                                  />
-                                  <div className="flex flex-col">
-                                    <span className="font-medium">{c.full_name}</span>
-                                    {c.phone && (
-                                      <span className="text-xs text-muted-foreground">{c.phone}</span>
-                                    )}
-                                  </div>
-                                </CommandItem>
-                              ))}
+                                  </CommandItem>
+                                );
+                              })}
                             </CommandGroup>
                           </CommandList>
                         </Command>
@@ -279,16 +339,29 @@ export default function NewEnrollmentPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {groups.map((g) => (
-                          <SelectItem key={g.id} value={g.id}>
-                            <div className="flex flex-col">
-                              <span>{g.name}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {g.level_display} · ${g.monthly_fee.toLocaleString("es-MX")}/mes
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
+                        {groups.map((g) => {
+                          const isEnrolled = enrolledGroupIds.has(g.id);
+                          return (
+                            <SelectItem
+                              key={g.id}
+                              value={g.id}
+                              disabled={isEnrolled}
+                              className={cn(isEnrolled && "opacity-50")}
+                            >
+                              <div className="flex flex-col">
+                                <span>
+                                  {g.name}
+                                  {isEnrolled && (
+                                    <span className="ml-2 text-xs text-muted-foreground">· Ya inscrito</span>
+                                  )}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {g.level_display} · ${g.monthly_fee.toLocaleString("es-MX")}/mes
+                                </span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />

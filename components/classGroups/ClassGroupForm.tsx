@@ -171,7 +171,7 @@ export function ClassGroupForm({
             <FormItem>
               <FormLabel>Nombre del grupo *</FormLabel>
               <FormControl>
-                <Input placeholder="Ej: Salsa Intermedio — Lunes y Miércoles" {...field} />
+                <Input placeholder="Ej: Grupo principiantes — Lunes y Miércoles" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -217,8 +217,15 @@ export function ClassGroupForm({
                     type="number"
                     min={0}
                     placeholder="350"
-                    value={field.value}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    value={field.value === 0 && field.value !== undefined ? "" : field.value}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      field.onChange(raw === "" ? 0 : parseFloat(raw));
+                    }}
+                    onFocus={(e) => {
+                      // Selecciona todo al hacer foco para facilitar reemplazar el valor
+                      e.target.select();
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
@@ -272,18 +279,7 @@ export function ClassGroupForm({
 
         {/* Horarios */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <FormLabel className="text-base">Horarios</FormLabel>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => append({ day_of_week: 0, start_time: "09:00", end_time: "10:00" })}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Agregar día
-            </Button>
-          </div>
+          <FormLabel className="text-base">Horarios</FormLabel>
 
           {fields.length === 0 && (
             <p className="text-sm text-muted-foreground italic">
@@ -367,6 +363,18 @@ export function ClassGroupForm({
               </Button>
             </div>
           ))}
+
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => append({ day_of_week: 0, start_time: "09:00", end_time: "10:00" })}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Agregar día
+            </Button>
+          </div>
         </div>
 
         {/* Acciones */}

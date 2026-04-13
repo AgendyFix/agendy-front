@@ -19,11 +19,11 @@ import type { ClassGroup, Employee } from "@/lib/types/models";
 export default function SchedulePage() {
   const router = useRouter();
 
-  const [allGroups, setAllGroups]   = useState<ClassGroup[]>([]);
-  const [filteredGroups, setFilteredGroups] = useState<ClassGroup[]>([]);
-  const [employees, setEmployees]   = useState<Employee[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [loadingFilter, setLoadingFilter] = useState(false);
+  const [allGroups, setAllGroups]               = useState<ClassGroup[]>([]);
+  const [filteredGroups, setFilteredGroups]     = useState<ClassGroup[]>([]);
+  const [employees, setEmployees]               = useState<Employee[]>([]);
+  const [loading, setLoading]                   = useState(true);
+  const [loadingFilter, setLoadingFilter]       = useState(false);
   const [filterInstructor, setFilterInstructor] = useState("all");
   const [activeGroupIds, setActiveGroupIds]     = useState<Set<string>>(new Set());
 

@@ -4,12 +4,13 @@
 // PAYMENTS PAGE - Control de pagos
 // ============================================
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   CreditCard, Search, Loader2, AlertTriangle,
-  TrendingUp, CheckCircle, Plus, Phone,
+  TrendingUp, CheckCircle, Plus,
   MoreHorizontal, Pencil, Trash2, CalendarIcon,
+  Pause, UserX, UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,8 +42,9 @@ import { Label } from "@/components/ui/label";
 import { usePayments } from "@/lib/hooks/usePayments";
 import { RegisterPaymentForm } from "@/components/payments/RegisterPaymentForm";
 import { DatePicker } from "@/components/ui/date-picker";
+import { paymentsApi } from "@/lib/api/payments";
+import { enrollmentsApi } from "@/lib/api/enrollments";
 import type { Payment, UnpaidEnrollment } from "@/lib/types/models";
-
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -72,8 +74,31 @@ const MONTHS = [
 
 function formatDate(date: string) {
   if (!date) return "—";
-  const [y, m, d] = date.split("-");
+  const [, m, d] = date.split("-");
+  const [y] = date.split("-");
   return `${d}/${m}/${y}`;
+}
+
+function overdueDays(dueDate?: string | null): number {
+  if (!dueDate) return 0;
+  const due = new Date(dueDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86_400_000));
+}
+
+// Construye un UnpaidEnrollment desde un Payment overdue para el modal de cobrar
+function paymentToUnpaid(p: Payment): UnpaidEnrollment {
+  return {
+    enrollment_id: p.enrollment,
+    client_id:     "",
+    client_name:   p.client_name,
+    client_phone:  p.client_phone,
+    class_group_name: p.class_group_name,
+    monthly_fee:   p.amount,
+    due_date:      p.due_date,
+  };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -86,49 +111,97 @@ export default function PaymentsPage() {
     fetchPayments, fetchSummary, createPayment, updatePayment, deletePayment,
   } = usePayments();
 
-  const [search, setSearch] = useState("");
+  // Estado de tab activa para controlar qué fetch lanzar
+  const [activeTab, setActiveTab] = useState<"all" | "unpaid">("all");
+
+  const [search, setSearch]           = useState("");
   const [methodFilter, setMethodFilter] = useState("all");
   const [summaryMonth, setSummaryMonth] = useState(now.getMonth() + 1);
-  const [summaryYear] = useState(now.getFullYear());
+  const [summaryYear, setSummaryYear]   = useState(now.getFullYear());
   const [registerOpen, setRegisterOpen] = useState(false);
-  const [registering, setRegistering] = useState(false);
+  const [registering, setRegistering]   = useState(false);
   const [preselectedEnrollment, setPreselectedEnrollment] = useState<UnpaidEnrollment | undefined>();
+
+  // Pagos overdue para la tab "Sin pagar"
+  const [overduePayments, setOverduePayments]     = useState<Payment[]>([]);
+  const [overdueLoading, setOverdueLoading]       = useState(false);
+  const [overdueCount, setOverdueCount]           = useState(0);
 
   // Acciones de corrección
   const [editMethodTarget, setEditMethodTarget] = useState<Payment | null>(null);
-  const [editDateTarget, setEditDateTarget] = useState<Payment | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Payment | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
+  const [editDateTarget, setEditDateTarget]     = useState<Payment | null>(null);
+  const [deleteTarget, setDeleteTarget]         = useState<Payment | null>(null);
+  const [editValue, setEditValue]               = useState("");
+  const [actionLoading, setActionLoading]       = useState(false);
   const isFirstRender = useRef(true);
 
+  // ── Fetches ────────────────────────────────────────────────────────────────
+
+  const fetchOverdue = useCallback(async (params?: { search?: string; month?: number; year?: number }) => {
+    try {
+      setOverdueLoading(true);
+      const res = await paymentsApi.getAll({
+        status: "overdue",
+        due_date__month: params?.month,
+        due_date__year:  params?.year,
+        search: params?.search || undefined,
+        limit: 100,
+      });
+      setOverduePayments(res.results);
+      setOverdueCount(res.count);
+    } catch {
+      // no bloqueante
+    } finally {
+      setOverdueLoading(false);
+    }
+  }, []);
+
+  // Carga inicial
   useEffect(() => {
-    fetchPayments({ page: 1 });
+    fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear });
     fetchSummary({ year: summaryYear, month: summaryMonth });
+    fetchOverdue({ month: summaryMonth, year: summaryYear });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Al cambiar mes o año: refrescar resumen + ambas tabs
   useEffect(() => {
     fetchSummary({ year: summaryYear, month: summaryMonth });
+    fetchPayments({
+      page: 1,
+      due_date__month: summaryMonth,
+      due_date__year:  summaryYear,
+      search: search || undefined,
+      payment_method: methodFilter !== "all" ? (methodFilter as Payment["payment_method"]) : undefined,
+    });
+    fetchOverdue({ month: summaryMonth, year: summaryYear, search: search || undefined });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [summaryMonth]);
+  }, [summaryMonth, summaryYear]);
 
-  // Solo corre cuando el usuario cambia filtros, no en el montaje inicial
+  // Filtros con debounce — aplica al fetch según tab activa, siempre con el mes activo
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
     const t = setTimeout(() => {
-      fetchPayments({
-        search: search || undefined,
-        payment_method: methodFilter !== "all" ? (methodFilter as Payment["payment_method"]) : undefined,
-        page: 1,
-      });
+      if (activeTab === "all") {
+        fetchPayments({
+          due_date__month: summaryMonth,
+          due_date__year:  summaryYear,
+          search: search || undefined,
+          payment_method: methodFilter !== "all" ? (methodFilter as Payment["payment_method"]) : undefined,
+          page: 1,
+        });
+      } else {
+        fetchOverdue({ month: summaryMonth, year: summaryYear, search: search || undefined });
+      }
     }, 350);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, methodFilter]);
+  }, [search, methodFilter, activeTab]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleRegister = async (data: {
     enrollment: string;
@@ -140,10 +213,12 @@ export default function PaymentsPage() {
       await createPayment(data);
       toast.success("Pago registrado");
       setRegisterOpen(false);
+      setPreselectedEnrollment(undefined);
       fetchPayments({ page: 1 });
+      fetchOverdue();
       fetchSummary({ year: summaryYear, month: summaryMonth });
-    } catch (err: any) {
-      const apiErrors = err?.response?.data;
+    } catch (err: unknown) {
+      const apiErrors = (err as { response?: { data?: Record<string, string[]> } })?.response?.data;
       if (apiErrors && typeof apiErrors === "object") {
         Object.entries(apiErrors).forEach(([field, messages]) => {
           const msg = Array.isArray(messages) ? messages[0] : String(messages);
@@ -195,6 +270,7 @@ export default function PaymentsPage() {
       toast.success("Pago revertido — el alumno vuelve a Sin pagar");
       setDeleteTarget(null);
       fetchPayments({ page: 1 });
+      fetchOverdue();
       fetchSummary({ year: summaryYear, month: summaryMonth });
     } catch {
       toast.error("Error al revertir el pago");
@@ -203,8 +279,65 @@ export default function PaymentsPage() {
     }
   };
 
-  const unpaidList = summary?.unpaid_enrollments ?? [];
-  const unpaidCount = summary?.counts.unpaid ?? 0;
+  // ── Acciones sobre inscripciones ─────────────────────────────────────────
+  const [enrollmentActionLoading, setEnrollmentActionLoading] = useState(false);
+  const [pauseTarget, setPauseTarget] = useState<Payment | null>(null);
+  const [dropTarget, setDropTarget]   = useState<Payment | null>(null);
+
+  const refreshAfterEnrollmentAction = async () => {
+    await Promise.all([
+      fetchOverdue({ month: summaryMonth, year: summaryYear }),
+      fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear }),
+      fetchSummary({ year: summaryYear, month: summaryMonth }),
+    ]);
+  };
+
+  const handlePauseEnrollment = async () => {
+    if (!pauseTarget) return;
+    try {
+      setEnrollmentActionLoading(true);
+      await enrollmentsApi.update(pauseTarget.enrollment, { status: "paused" });
+      toast.success(`${pauseTarget.client_name} pausado en ${pauseTarget.class_group_name}`);
+      setPauseTarget(null);
+      await refreshAfterEnrollmentAction();
+    } catch {
+      toast.error("Error al pausar la inscripción");
+    } finally {
+      setEnrollmentActionLoading(false);
+    }
+  };
+
+  const handleDropEnrollment = async () => {
+    if (!dropTarget) return;
+    try {
+      setEnrollmentActionLoading(true);
+      await enrollmentsApi.update(dropTarget.enrollment, { status: "dropped" });
+      toast.success(`${dropTarget.client_name} dado de baja de ${dropTarget.class_group_name}`);
+      setDropTarget(null);
+      await refreshAfterEnrollmentAction();
+    } catch {
+      toast.error("Error al dar de baja la inscripción");
+    } finally {
+      setEnrollmentActionLoading(false);
+    }
+  };
+
+  const handleReactivateEnrollment = async (p: Payment) => {
+    try {
+      setEnrollmentActionLoading(true);
+      await enrollmentsApi.update(p.enrollment, { status: "active" });
+      toast.success(`${p.client_name} reactivado en ${p.class_group_name}`);
+      await refreshAfterEnrollmentAction();
+    } catch {
+      toast.error("Error al reactivar la inscripción");
+    } finally {
+      setEnrollmentActionLoading(false);
+    }
+  };
+
+  const unpaidCount = summary?.counts.unpaid ?? overdueCount;
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">
@@ -221,25 +354,35 @@ export default function PaymentsPage() {
         </Button>
       </div>
 
-      {/* ── Resumen del mes ── */}
+      {/* ── Resumen del período ── */}
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
           <CardTitle className="text-base flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
             Resumen mensual
           </CardTitle>
-          <Select value={String(summaryMonth)} onValueChange={(v) => setSummaryMonth(Number(v))}>
-            <SelectTrigger className="w-36 h-8 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MONTHS.map((m, i) => (
-                <SelectItem key={i + 1} value={String(i + 1)}>
-                  {m} {summaryYear}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={String(summaryMonth)} onValueChange={(v) => setSummaryMonth(Number(v))}>
+              <SelectTrigger className="w-32 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTHS.map((m, i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={String(summaryYear)} onValueChange={(v) => setSummaryYear(Number(v))}>
+              <SelectTrigger className="w-24 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: now.getFullYear() - 2023 }, (_, i) => 2024 + i).map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {!summary ? (
@@ -278,7 +421,7 @@ export default function PaymentsPage() {
       </Card>
 
       {/* ── Tabs ── */}
-      <Tabs defaultValue="all">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "all" | "unpaid")}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <TabsList>
             <TabsTrigger value="all">
@@ -298,6 +441,7 @@ export default function PaymentsPage() {
             </TabsTrigger>
           </TabsList>
 
+          {/* Filtros — siempre visibles, aplican a la tab activa */}
           <div className="flex gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -323,7 +467,7 @@ export default function PaymentsPage() {
           </div>
         </div>
 
-        {/* Tab: todos los pagos */}
+        {/* ── Tab: Todos ── */}
         <TabsContent value="all" className="mt-4">
           {isLoading ? (
             <div className="flex justify-center py-16">
@@ -345,35 +489,41 @@ export default function PaymentsPage() {
               )}
             </div>
           ) : (
-            <PaidPaymentsTable
+            <PaymentsTable
               payments={payments}
               onEditMethod={(p) => { setEditMethodTarget(p); setEditValue(p.payment_method); }}
               onEditDate={(p) => { setEditDateTarget(p); setEditValue(p.payment_date ?? ""); }}
               onDelete={(p) => setDeleteTarget(p)}
+              onRegister={(p) => { setPreselectedEnrollment(paymentToUnpaid(p)); setRegisterOpen(true); }}
+              onPause={(p) => setPauseTarget(p)}
+              onDrop={(p) => setDropTarget(p)}
+              onReactivate={handleReactivateEnrollment}
+              enrollmentActionLoading={enrollmentActionLoading}
             />
           )}
         </TabsContent>
 
-        {/* Tab: sin pagar */}
+        {/* ── Tab: Sin pagar ── */}
         <TabsContent value="unpaid" className="mt-4">
-          {!summary ? (
+          {overdueLoading ? (
             <div className="flex justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : unpaidList.length === 0 ? (
+          ) : overduePayments.length === 0 ? (
             <div className="flex flex-col items-center py-16 gap-3 text-center">
               <CheckCircle className="h-12 w-12 text-green-400" />
               <p className="text-muted-foreground font-medium">
-                Todo al corriente — sin pagos pendientes
+                {search ? "Sin resultados con esos filtros" : "Todo al corriente — sin pagos pendientes"}
               </p>
             </div>
           ) : (
-            <UnpaidTable
-              enrollments={unpaidList}
-              onRegister={(unpaidEnrollment) => {
-                setPreselectedEnrollment(unpaidEnrollment);
-                setRegisterOpen(true);
-              }}
+            <PaymentsTable
+              payments={overduePayments}
+              onRegister={(p) => { setPreselectedEnrollment(paymentToUnpaid(p)); setRegisterOpen(true); }}
+              onPause={(p) => setPauseTarget(p)}
+              onDrop={(p) => setDropTarget(p)}
+              onReactivate={handleReactivateEnrollment}
+              enrollmentActionLoading={enrollmentActionLoading}
             />
           )}
         </TabsContent>
@@ -470,6 +620,55 @@ export default function PaymentsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* ── Confirm: dar de baja inscripción ── */}
+      <AlertDialog open={!!dropTarget} onOpenChange={(o) => !o && setDropTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Dar de baja a {dropTarget?.client_name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se dará de baja la inscripción de <strong>{dropTarget?.client_name}</strong> en{" "}
+              <strong>{dropTarget?.class_group_name}</strong>. El alumno dejará de aparecer como activo en ese grupo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={enrollmentActionLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDropEnrollment}
+              disabled={enrollmentActionLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {enrollmentActionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Dar de baja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Confirm: pausar inscripción ── */}
+      <AlertDialog open={!!pauseTarget} onOpenChange={(o) => !o && setPauseTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Pausar a {pauseTarget?.client_name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La inscripción de <strong>{pauseTarget?.client_name}</strong> en{" "}
+              <strong>{pauseTarget?.class_group_name}</strong> quedará pausada.
+              El alumno no generará cobros mientras esté pausado y podrá reactivarse cuando regrese.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={enrollmentActionLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePauseEnrollment}
+              disabled={enrollmentActionLoading}
+              className="bg-yellow-500 text-white hover:bg-yellow-600"
+            >
+              {enrollmentActionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Pausar alumno
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── Modal registrar pago ── */}
       <Dialog open={registerOpen} onOpenChange={(o) => { setRegisterOpen(o); if (!o) setPreselectedEnrollment(undefined); }}>
         <DialogContent className="sm:max-w-md">
@@ -489,23 +688,44 @@ export default function PaymentsPage() {
   );
 }
 
-// ── Tabla de pagos realizados ─────────────────────────────────────────────────
+// ── Tabla unificada ───────────────────────────────────────────────────────────
 
-function PaidPaymentsTable({
+function PaymentsTable({
   payments,
   onEditMethod,
   onEditDate,
   onDelete,
+  onRegister,
+  onPause,
+  onDrop,
+  onReactivate,
+  enrollmentActionLoading,
 }: {
   payments: Payment[];
-  onEditMethod: (p: Payment) => void;
-  onEditDate: (p: Payment) => void;
-  onDelete: (p: Payment) => void;
+  onEditMethod?: (p: Payment) => void;
+  onEditDate?: (p: Payment) => void;
+  onDelete?: (p: Payment) => void;
+  onRegister?: (p: Payment) => void;
+  onPause?: (p: Payment) => void;
+  onDrop?: (p: Payment) => void;
+  onReactivate?: (p: Payment) => void;
+  enrollmentActionLoading?: boolean;
 }) {
   return (
     <Card>
       <CardContent className="p-0">
-        <Table>
+        <Table style={{ tableLayout: "fixed", width: "100%" }}>
+          <colgroup>
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "18%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "6%" }} />
+          </colgroup>
           <TableHeader>
             <TableRow>
               <TableHead>Alumno</TableHead>
@@ -520,110 +740,137 @@ function PaidPaymentsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {payments.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-medium">{p.client_name}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {p.client_phone || "—"}
-                </TableCell>
-                <TableCell className="text-sm">{p.class_group_name}</TableCell>
-                <TableCell className="text-sm tabular-nums">
-                  {p.payment_date ? formatDate(p.payment_date) : "—"}
-                </TableCell>
-                <TableCell className="text-sm tabular-nums">
-                  {p.due_date ? formatDate(p.due_date) : "—"}
-                </TableCell>
-                <TableCell className="text-sm">
-                  {METHOD_LABELS[p.payment_method] ?? p.payment_method}
-                </TableCell>
-                <TableCell className="text-right font-semibold tabular-nums">
-                  ${p.amount.toLocaleString("es-MX")}
-                </TableCell>
-                <TableCell>
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[p.status]}`}>
-                    {STATUS_LABELS[p.status]}
-                  </span>
-                </TableCell>
-                {/* Menú de acciones */}
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onEditMethod(p)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Corregir método
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEditDate(p)}>
-                        <CalendarIcon className="h-4 w-4 mr-2" />
-                        Corregir fecha
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => onDelete(p)}
-                        className="text-red-600 focus:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Revertir pago
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ── Tabla de alumnos sin pagar ────────────────────────────────────────────────
-
-function UnpaidTable({
-  enrollments,
-  onRegister,
-}: {
-  enrollments: UnpaidEnrollment[];
-  onRegister: (enrollment: UnpaidEnrollment) => void;
-}) {
-  return (
-    <Card>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Alumno</TableHead>
-              <TableHead>Teléfono</TableHead>
-              <TableHead>Grupo</TableHead>
-              <TableHead className="text-right">Mensualidad</TableHead>
-              <TableHead className="text-right">Acción</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {enrollments.map((e) => (
-              <TableRow key={e.enrollment_id}>
-                <TableCell className="font-medium">{e.client_name}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Phone className="h-3 w-3" />
-                    {e.client_phone || "—"}
-                  </span>
-                </TableCell>
-                <TableCell className="text-sm">{e.class_group_name}</TableCell>
-                <TableCell className="text-right font-semibold tabular-nums text-red-600">
-                  ${e.monthly_fee.toLocaleString("es-MX")}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button size="sm" variant="outline" onClick={() => onRegister(e)}>
-                    Cobrar
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {payments.map((p) => {
+              const isOverdue = p.status === "overdue";
+              const days = isOverdue ? overdueDays(p.due_date) : 0;
+              return (
+                <TableRow key={p.id} className={isOverdue ? "bg-red-50/40" : undefined}>
+                  <TableCell className="font-medium truncate max-w-0">{p.client_name}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground tabular-nums">
+                    {p.client_phone || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm truncate max-w-0">{p.class_group_name}</TableCell>
+                  <TableCell className="text-sm tabular-nums">
+                    {p.payment_date ? formatDate(p.payment_date) : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm tabular-nums">
+                    {p.due_date ? (
+                      isOverdue ? (
+                        <span className="flex flex-col leading-tight">
+                          <span className="font-medium text-red-600">{formatDate(p.due_date)}</span>
+                          {days > 0 && (
+                            <span className="text-xs text-red-400">hace {days} día{days !== 1 ? "s" : ""}</span>
+                          )}
+                        </span>
+                      ) : formatDate(p.due_date)
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {p.payment_method ? (METHOD_LABELS[p.payment_method] ?? p.payment_method) : "—"}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    ${p.amount.toLocaleString("es-MX")}
+                  </TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[p.status]}`}>
+                      {STATUS_LABELS[p.status]}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {isOverdue ? (
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Botón cobrar solo si la inscripción sigue activa */}
+                        {onRegister && p.enrollment_status === "active" && (
+                          <Button size="sm" variant="outline" onClick={() => onRegister(p)}>
+                            Cobrar
+                          </Button>
+                        )}
+                        {/* Menú siempre visible para overdue — opciones según estado de inscripción */}
+                        {(onPause || onDrop || onReactivate) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={enrollmentActionLoading}>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {p.enrollment_status === "active" && (
+                                <>
+                                  {onPause && (
+                                    <DropdownMenuItem onClick={() => onPause(p)}>
+                                      <Pause className="h-4 w-4 mr-2" />
+                                      Pausar alumno
+                                    </DropdownMenuItem>
+                                  )}
+                                  {onDrop && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => onDrop(p)}
+                                        className="text-red-600 focus:text-red-600"
+                                      >
+                                        <UserX className="h-4 w-4 mr-2" />
+                                        Dar de baja del grupo
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                              {p.enrollment_status === "paused" && onReactivate && (
+                                <DropdownMenuItem onClick={() => onReactivate(p)}>
+                                  <UserPlus className="h-4 w-4 mr-2" />
+                                  Activar de nuevo
+                                </DropdownMenuItem>
+                              )}
+                              {p.enrollment_status === "dropped" && onReactivate && (
+                                <DropdownMenuItem onClick={() => onReactivate(p)}>
+                                  <UserPlus className="h-4 w-4 mr-2" />
+                                  Dar de alta
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    ) : (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {onEditMethod && (
+                            <DropdownMenuItem onClick={() => onEditMethod(p)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Corregir método
+                            </DropdownMenuItem>
+                          )}
+                          {onEditDate && (
+                            <DropdownMenuItem onClick={() => onEditDate(p)}>
+                              <CalendarIcon className="h-4 w-4 mr-2" />
+                              Corregir fecha
+                            </DropdownMenuItem>
+                          )}
+                          {onDelete && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => onDelete(p)}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Revertir pago
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </CardContent>
