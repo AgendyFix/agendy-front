@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================
-// NEW CLIENT PAGE - Crear nuevo cliente
+// NEW CLIENT PAGE
 // ============================================
 
 import { useRouter } from "next/navigation";
@@ -14,8 +14,9 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useClients } from "@/lib/hooks/useClients";
+import { useFeatures } from "@/lib/hooks/useFeatures";
 import type { CreateClientRequest } from "@/lib/types/api";
 
 const clientSchema = z.object({
@@ -30,6 +31,10 @@ type ClientFormData = z.infer<typeof clientSchema>;
 export default function NewClientPage() {
   const router = useRouter();
   const { createClient, isLoading } = useClients();
+  const { getFeatureName } = useFeatures();
+
+  const entityName = getFeatureName("client_groups") ?? "Clientes";
+  const entitySingular = entityName.endsWith("s") ? entityName.slice(0, -1) : entityName;
 
   const {
     register,
@@ -41,20 +46,18 @@ export default function NewClientPage() {
 
   const onSubmit = async (data: ClientFormData) => {
     try {
-      // Limpiar campos vacíos antes de enviar
       const cleanData: Partial<CreateClientRequest> = {
         name: data.name.trim(),
         last_name: data.last_name.trim(),
         phone: data.phone.trim(),
       };
-      
       if (data.email?.trim()) cleanData.email = data.email.trim();
-      
+
       await createClient(cleanData as CreateClientRequest);
-      toast.success("Cliente creado exitosamente");
+      toast.success(`${entitySingular} creado exitosamente`);
       router.push("/clients");
-    } catch (error) {
-      toast.error("Error al crear el cliente");
+    } catch {
+      toast.error(`Error al crear el ${entitySingular.toLowerCase()}`);
     }
   };
 
@@ -64,23 +67,18 @@ export default function NewClientPage() {
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Nuevo Cliente</h1>
-          <p className="text-muted-foreground">
-            Registra un nuevo cliente en tu empresa
-          </p>
-        </div>
+        <h1 className="text-3xl font-bold tracking-tight">
+          Nuevo {entitySingular}
+        </h1>
       </div>
 
-      <Card className="max-w-2xl shadow-card">
+      <Card className="max-w-2xl">
         <CardHeader>
-          <CardTitle>Información del Cliente</CardTitle>
-          <CardDescription>
-            Completa los datos del cliente
-          </CardDescription>
+          <CardTitle>Datos del {entitySingular}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">
@@ -114,23 +112,6 @@ export default function NewClientPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email (opcional)</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="cliente@ejemplo.com"
-                disabled={isLoading}
-                {...register("email")}
-              />
-              {errors.email && (
-                <p className="text-sm text-red-500">{errors.email.message}</p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Para enviar confirmaciones y recordatorios
-              </p>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="phone">
                 Teléfono <span className="text-red-500">*</span>
               </Label>
@@ -144,18 +125,25 @@ export default function NewClientPage() {
               {errors.phone && (
                 <p className="text-sm text-red-500">{errors.phone.message}</p>
               )}
-              <p className="text-xs text-muted-foreground">
-                Para contacto directo
-              </p>
             </div>
 
-            <div className="flex gap-4">
-              <Button
-                type="submit"
+            <div className="space-y-2">
+              <Label htmlFor="email">Email (opcional)</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="ejemplo@correo.com"
                 disabled={isLoading}
-                className="flex-1"
-              >
-                {isLoading ? "Creando..." : "Crear Cliente"}
+                {...register("email")}
+              />
+              {errors.email && (
+                <p className="text-sm text-red-500">{errors.email.message}</p>
+              )}
+            </div>
+
+            <div className="flex gap-4 pt-1">
+              <Button type="submit" disabled={isLoading} className="flex-1">
+                {isLoading ? "Creando..." : `Crear ${entitySingular}`}
               </Button>
               <Button
                 type="button"
@@ -166,6 +154,7 @@ export default function NewClientPage() {
                 Cancelar
               </Button>
             </div>
+
           </form>
         </CardContent>
       </Card>

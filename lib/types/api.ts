@@ -321,3 +321,84 @@ export interface TemplatePreviewResponse {
   variables: Record<string, string>;
   rendered_message: string;
 }
+
+// ============================================
+// ACADEMY MODULE
+// ============================================
+
+export interface CreateScheduleInput {
+  day_of_week: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  start_time: string; // "HH:MM"
+  end_time: string;   // "HH:MM"
+}
+
+export interface CreateClassGroupRequest {
+  name: string;
+  level?: 'all' | 'beginner' | 'intermediate' | 'advanced';
+  monthly_fee: number;
+  instructor?: string; // UUID (optional)
+  schedules?: CreateScheduleInput[];
+}
+
+export interface UpdateClassGroupRequest extends Partial<CreateClassGroupRequest> {}
+
+export interface ClassGroupListParams {
+  level?: 'all' | 'beginner' | 'intermediate' | 'advanced';
+  instructor?: string; // UUID del empleado instructor
+  search?: string;
+  ordering?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CreateEnrollmentRequest {
+  client: string;      // UUID
+  class_group: string; // UUID
+  start_date: string;  // YYYY-MM-DD
+  notes?: string;
+}
+
+export interface UpdateEnrollmentRequest {
+  status?: 'active' | 'paused' | 'dropped';
+  start_date?: string;
+  notes?: string;
+  custom_billing_day?: number | null;  // null = revertir al día de start_date
+}
+
+export interface EnrollmentListParams {
+  class_group?: string;
+  client?: string;
+  status?: 'active' | 'paused' | 'dropped';
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CreatePaymentRequest {
+  enrollment: string;           // UUID
+  payment_method?: 'cash' | 'card' | 'transfer' | 'other';
+  payment_date?: string;        // YYYY-MM-DD (default: hoy)
+}
+
+export interface UpdatePaymentRequest {
+  payment_method?: 'cash' | 'card' | 'transfer' | 'other';
+  payment_date?: string; // YYYY-MM-DD
+}
+
+export interface PaymentListParams {
+  status?: 'paid' | 'overdue' | 'waived';
+  enrollment?: string;
+  enrollment__client?: string;  // Todos los pagos de un cliente
+  payment_method?: 'cash' | 'card' | 'transfer' | 'other';
+  payment_date__month?: number; // Filtrar por mes (1-12)
+  payment_date__year?: number;  // Filtrar por año
+  search?: string;
+  ordering?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaymentSummaryParams {
+  year?: number;
+  month?: number;
+}

@@ -5,7 +5,7 @@
 import { useFeatureStore } from "../stores/featureStore";
 
 export const useFeatures = () => {
-  const { features, isLoading, error, fetchFeatures, isFeatureEnabled, getFeatureConfig, clearError } = useFeatureStore();
+  const { features, isLoading, error, fetchFeatures, isFeatureEnabled, getFeatureConfig, getFeatureName, clearError } = useFeatureStore();
 
   return {
     features,
@@ -14,6 +14,7 @@ export const useFeatures = () => {
     fetchFeatures,
     isFeatureEnabled,
     getFeatureConfig,
+    getFeatureName,
     clearError,
   };
 };

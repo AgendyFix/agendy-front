@@ -1,218 +1,349 @@
 "use client";
 
 // ============================================
-// EDIT EMPLOYEE PAGE - Editar equipos del empleado (Admin only)
+// INSTRUCTOR DETAIL PAGE
 // ============================================
 
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Shield } from "lucide-react";
+import {
+  ArrowLeft, Shield, Loader2, GraduationCap,
+  Mail, Pencil, Users, DollarSign, Calendar, X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { employeesApi } from "@/lib/api/employees";
-import { teamsApi } from "@/lib/api/teams";
-import type { Employee, Team } from "@/lib/types/models";
+import { classGroupsApi } from "@/lib/api/classGroups";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { WeeklyCalendar, GROUP_COLORS } from "@/components/schedule/WeeklyCalendar";
+import type { Employee, ClassGroup } from "@/lib/types/models";
 
-export default function EditEmployeePage() {
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const ROLE_STYLES: Record<string, string> = {
+  admin:    "bg-purple-50 text-purple-700",
+  operator: "bg-blue-50 text-blue-700",
+};
+const ROLE_LABELS: Record<string, string> = {
+  admin:    "Administrador",
+  operator: "Operador",
+};
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function InstructorDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
   const { user, currentCompany } = useAuth();
 
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
-  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(true);
+  const initialTab = searchParams.get("tab") ?? "schedule";
 
-  // Verificar si es admin
-  const currentRole = user?.employee_profiles?.find(
-    (profile) => profile.company === currentCompany?.id
-  )?.role;
-  
-  const isAdmin = currentRole === "admin";
+  const isAdmin = user?.employee_profiles?.find(
+    (p) => p.company === currentCompany?.id
+  )?.role === "admin";
+
+  const [employee, setEmployee]           = useState<Employee | null>(null);
+  const [groups, setGroups]               = useState<ClassGroup[]>([]);
+  const [isFetching, setIsFetching]       = useState(true);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [editing, setEditing]             = useState(false);
+  const [specialty, setSpecialty]         = useState("");
+  const [saving, setSaving]               = useState(false);
+  const [activeGroupIds, setActiveGroupIds] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (id: string) => {
+    setActiveGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
-    if (!isAdmin) {
-      toast.error("Solo administradores pueden editar empleados");
-      router.push("/employees");
-      return;
-    }
-
-    const loadData = async () => {
+    const load = async () => {
       try {
         setIsFetching(true);
-        
-        // Cargar empleado y teams disponibles
-        const [employeeData, teamsResponse] = await Promise.all([
-          employeesApi.getById(id),
-          teamsApi.getAll({ limit: 100, offset: 0 }) // Traer todos los teams
-        ]);
-        
-        setEmployee(employeeData);
-        setAvailableTeams(teamsResponse.results);
-        setSelectedTeams(employeeData.teams?.map(t => t.id) || []);
-      } catch (error) {
-        toast.error("Error al cargar datos");
+        const data = await employeesApi.getById(id);
+        setEmployee(data);
+        setSpecialty(data.specialty ?? "");
+      } catch {
+        toast.error("Error al cargar el instructor");
         router.push("/employees");
       } finally {
         setIsFetching(false);
       }
     };
+    load();
+  }, [id, router]);
 
-    loadData();
-  }, [id, isAdmin, router]);
-
-  const handleToggleTeam = (teamId: string) => {
-    setSelectedTeams(prev => 
-      prev.includes(teamId)
-        ? prev.filter(id => id !== teamId)
-        : [...prev, teamId]
-    );
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const fetchGroups = useCallback(async () => {
     try {
-      setIsLoading(true);
-      await employeesApi.updateTeams(id, { teams: selectedTeams });
-      toast.success("Equipos actualizados exitosamente");
-      router.push("/employees");
-    } catch (error) {
-      toast.error("Error al actualizar equipos");
+      setLoadingGroups(true);
+      const data = await classGroupsApi.getAll({ instructor: id, limit: 50 });
+      setGroups(data.results);
+    } catch {
+      // no bloqueante
     } finally {
-      setIsLoading(false);
+      setLoadingGroups(false);
+    }
+  }, [id]);
+
+  useEffect(() => { fetchGroups(); }, [fetchGroups]);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const updated = await employeesApi.updateSpecialty(id, specialty);
+      setEmployee(updated);
+      setEditing(false);
+      toast.success("Especialidad actualizada");
+    } catch {
+      toast.error("Error al actualizar la especialidad");
+    } finally {
+      setSaving(false);
     }
   };
-
-  if (!isAdmin) {
-    return null;
-  }
 
   if (isFetching) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando empleado...</p>
-        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
+  if (!employee) return null;
 
-  if (!employee) {
-    return null;
-  }
+  // Mapa de color consistente por group.id
+  const colorMap: Record<string, number> = {};
+  groups.forEach((g, i) => { colorMap[g.id] = i % GROUP_COLORS.length; });
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+
+      {/* Header */}
+      <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Editar Equipos</h1>
-          <p className="text-muted-foreground">
-            {employee.full_name} - {employee.role === "admin" ? "Administrador" : "Operador"}
-          </p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold tracking-tight truncate">{employee.full_name}</h1>
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_STYLES[employee.role]}`}>
+              {ROLE_LABELS[employee.role]}
+            </span>
+          </div>
+          {employee.specialty && (
+            <p className="text-muted-foreground text-sm">{employee.specialty}</p>
+          )}
         </div>
       </div>
 
-      <Card className="max-w-2xl shadow-card">
-        <CardHeader>
-          <CardTitle>Asignar Equipos</CardTitle>
-          <CardDescription>
-            Selecciona los equipos a los que pertenece este empleado
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              <Label>Equipos Disponibles</Label>
-              
-              {availableTeams.length === 0 ? (
-                <div className="text-center py-8 bg-muted/30 rounded-lg">
-                  <p className="text-muted-foreground">
-                    No hay equipos creados aún
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => router.push("/teams")}
-                  >
-                    Ir a Equipos
-                  </Button>
+      {/* 3 Tabs */}
+      <Tabs defaultValue={initialTab}>
+        <TabsList>
+          <TabsTrigger value="schedule" className="gap-1.5">
+            <Calendar className="h-4 w-4" />
+            Horarios
+          </TabsTrigger>
+          <TabsTrigger value="groups" className="gap-1.5">
+            <GraduationCap className="h-4 w-4" />
+            Grupos asignados
+            {!loadingGroups && groups.length > 0 && (
+              <span className="text-xs text-muted-foreground ml-0.5">({groups.length})</span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="info" className="gap-1.5">
+            <Shield className="h-4 w-4" />
+            Información
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── Tab Horarios ── */}
+        <TabsContent value="schedule" className="mt-4">
+          <Card>
+            <CardContent className="pt-4 flex flex-col gap-3">
+              {loadingGroups ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                <div className="grid gap-2">
-                  {availableTeams.map((team) => (
-                    <label
-                      key={team.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent/50 transition-colors"
+                <>
+                  {/* Grupos visibles según leyenda
+                      Altura: 100dvh menos todo lo que hay encima y abajo del calendario:
+                      header-app(64) + pad-top(24) + header-instructor(72) + gap(24)
+                      + tabsList(40) + mt-4(16) + card-pt(16) + leyenda(40) + pad-bot(24) = 320px
+                  */}
+                  <div style={{ height: "calc(100dvh - 320px)" }}>
+                    {(() => {
+                      const visibleGroups = activeGroupIds.size > 0
+                        ? groups.filter((g) => activeGroupIds.has(g.id))
+                        : groups;
+                      return (
+                        <WeeklyCalendar
+                          groups={visibleGroups}
+                          allGroups={groups}
+                          colorMap={colorMap}
+                          fillHeight
+                          onNavigate={(gid) => router.push(`/class-groups/${gid}`)}
+                        />
+                      );
+                    })()}
+                  </div>
+
+                  {/* Leyenda interactiva */}
+                  {groups.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1 border-t shrink-0">
+                      {groups.map((g) => {
+                        const isActive = activeGroupIds.has(g.id);
+                        const color    = GROUP_COLORS[colorMap[g.id]];
+                        return (
+                          <button
+                            key={g.id}
+                            onClick={() => toggleGroup(g.id)}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs transition-all
+                              ${isActive
+                                ? `${color.bg} ${color.border} ${color.text} font-medium`
+                                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                              }`}
+                          >
+                            <div className={`h-2 w-2 rounded-full shrink-0 ${color.dot}`} />
+                            {g.name}
+                          </button>
+                        );
+                      })}
+                      {activeGroupIds.size > 0 && (
+                        <button
+                          onClick={() => setActiveGroupIds(new Set())}
+                          className="flex items-center gap-1 px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                          Limpiar filtros
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Tab Grupos asignados ── */}
+        <TabsContent value="groups" className="mt-4">
+          <Card>
+            <CardContent className="pt-4">
+              {loadingGroups ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : groups.length === 0 ? (
+                <div className="flex flex-col items-center py-10 gap-2 text-center">
+                  <GraduationCap className="h-10 w-10 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">Sin grupos asignados</p>
+                  {isAdmin && (
+                    <Button variant="outline" size="sm" onClick={() => router.push("/class-groups")}>
+                      Ir a grupos
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {groups.map((group) => (
+                    <div
+                      key={group.id}
+                      className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1 transition-colors"
+                      onClick={() => router.push(`/class-groups/${group.id}`)}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedTeams.includes(team.id)}
-                        onChange={() => handleToggleTeam(team.id)}
-                        className="h-4 w-4 rounded border-gray-300"
-                        disabled={isLoading}
-                      />
-                      <div className="flex-1">
-                        <p className="font-medium">{team.name}</p>
-                        {team.description && (
-                          <p className="text-sm text-muted-foreground">
-                            {team.description}
-                          </p>
-                        )}
+                      <div className={`h-3 w-3 rounded-sm shrink-0 ${GROUP_COLORS[colorMap[group.id]].dot}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate hover:underline">{group.name}</p>
+                        <p className="text-xs text-muted-foreground">{group.schedule_display}</p>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {team.employee_count} miembro{team.employee_count !== 1 ? "s" : ""}
-                      </span>
-                    </label>
+                      <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {group.active_enrollment_count}
+                        </span>
+                        <span className="flex items-center gap-1 text-green-700 font-medium">
+                          <DollarSign className="h-3 w-3" />
+                          ${group.monthly_fee.toLocaleString("es-MX")}
+                        </span>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
-            </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <div className="bg-muted/30 p-4 rounded-lg">
-              <p className="text-sm">
-                <Shield className="inline h-4 w-4 mr-1 text-muted-foreground" />
-                <strong>Rol del empleado:</strong>{" "}
-                {employee.role === "admin" ? "Administrador" : "Operador"}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Los equipos determinan a qué recursos tiene acceso el empleado
-              </p>
-            </div>
-
-            {availableTeams.length > 0 && (
-              <div className="flex gap-4">
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1"
-                >
-                  {isLoading ? "Guardando..." : "Guardar Cambios"}
+        {/* ── Tab Información ── */}
+        <TabsContent value="info" className="mt-4">
+          <Card className="max-w-md">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-base">Datos del instructor</CardTitle>
+              {isAdmin && !editing && (
+                <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Editar
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.back()}
-                  disabled={isLoading}
-                >
-                  Cancelar
-                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span>{employee.email}</span>
               </div>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+              <div className="flex items-center gap-2 text-sm">
+                <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span>{ROLE_LABELS[employee.role]}</span>
+                <span className="text-xs text-muted-foreground">(solo desde Admin)</span>
+              </div>
+              {editing ? (
+                <div className="space-y-2 pt-1">
+                  <Label htmlFor="specialty">Especialidad</Label>
+                  <Input
+                    id="specialty"
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value)}
+                    placeholder="Ej: Salsa y Bachata"
+                    disabled={saving}
+                  />
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1">
+                      {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Guardar
+                    </Button>
+                    <Button
+                      size="sm" variant="outline"
+                      onClick={() => { setEditing(false); setSpecialty(employee.specialty ?? ""); }}
+                      disabled={saving}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Especialidad: </span>
+                  {employee.specialty
+                    ? <span className="font-medium">{employee.specialty}</span>
+                    : <span className="italic text-muted-foreground">Sin especialidad</span>}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================
-// CLIENTS LIST - Lista de clientes (tab)
+// CLIENTS LIST
 // ============================================
 
 import { useState, useRef, useEffect } from "react";
@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -32,7 +32,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useClients } from "@/lib/hooks/useClients";
 
-export function ClientsList() {
+interface ClientsListProps {
+  /** Nombre dinámico de la entidad, ej: "Alumnos", "Clientes" */
+  entityName?: string;
+}
+
+export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
   const router = useRouter();
   const {
     clients,
@@ -42,12 +47,18 @@ export function ClientsList() {
     hasNext,
     hasPrevious,
     fetchClients,
-    deleteClient
+    deleteClient,
   } = useClients();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<{ id: string; name: string } | null>(null);
   const hasFetched = useRef(false);
+
+  // Singular/plural dinámico
+  const entitySingular = entityName.endsWith("s")
+    ? entityName.slice(0, -1)
+    : entityName;
 
   useEffect(() => {
     if (!hasFetched.current) {
@@ -57,18 +68,12 @@ export function ClientsList() {
   }, []);
 
   const handlePageChange = (page: number) => {
-    fetchClients({ 
-      page, 
-      search: searchTerm || undefined 
-    });
+    fetchClients({ page, search: searchTerm || undefined });
   };
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
-    fetchClients({ 
-      page: 1, 
-      search: value || undefined 
-    });
+    fetchClients({ page: 1, search: value || undefined });
   };
 
   const openDeleteDialog = (id: string, name: string) => {
@@ -78,29 +83,25 @@ export function ClientsList() {
 
   const handleDelete = async () => {
     if (!clientToDelete) return;
-
     try {
       await deleteClient(clientToDelete.id);
-      toast.success("Cliente eliminado exitosamente");
+      toast.success(`${entitySingular} eliminado exitosamente`);
       setDeleteDialogOpen(false);
       setClientToDelete(null);
-    } catch (error) {
-      toast.error("Error al eliminar el cliente");
+    } catch {
+      toast.error(`Error al eliminar el ${entitySingular.toLowerCase()}`);
     }
   };
 
   const filteredClients = Array.isArray(clients) ? clients : [];
-  
-  const startItem = totalCount === 0 ? 0 : (currentPage - 1) * 10 + 1;
-  const endItem = Math.min(currentPage * 10, totalCount);
   const totalPages = Math.ceil(totalCount / 10);
 
   if (isLoading && clients.length === 0) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando clientes...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4" />
+          <p className="text-muted-foreground">Cargando {entityName.toLowerCase()}...</p>
         </div>
       </div>
     );
@@ -108,28 +109,29 @@ export function ClientsList() {
 
   return (
     <div className="space-y-6">
+
+      {/* Contador + botón nuevo */}
       <div className="flex items-center justify-between">
-        <div>
-          <CardDescription>
-            {totalCount > 0
-              ? `${totalCount} cliente${totalCount !== 1 ? "s" : ""} registrado${totalCount !== 1 ? "s" : ""}`
-              : "No hay clientes registrados"
-            }
-          </CardDescription>
-        </div>
+        <CardDescription>
+          {totalCount > 0
+            ? `${totalCount} ${entityName.toLowerCase()} registrado${totalCount !== 1 ? "s" : ""}`
+            : `No hay ${entityName.toLowerCase()} registrados`}
+        </CardDescription>
         <Button onClick={() => router.push("/clients/new")}>
           <Plus className="mr-2 h-4 w-4" />
-          Nuevo Cliente
+          Nuevo {entitySingular}
         </Button>
       </div>
 
-      <Card className="shadow-card">
+      <Card>
         <CardContent className="pt-6">
+
+          {/* Buscador */}
           <div className="mb-4">
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar clientes..."
+                placeholder={`Buscar ${entityName.toLowerCase()}...`}
                 value={searchTerm}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="pl-8"
@@ -141,8 +143,8 @@ export function ClientsList() {
             <div className="text-center py-12">
               <p className="text-muted-foreground">
                 {searchTerm
-                  ? "No se encontraron clientes"
-                  : "No hay clientes registrados"}
+                  ? `No se encontraron ${entityName.toLowerCase()}`
+                  : `No hay ${entityName.toLowerCase()} registrados`}
               </p>
               {!searchTerm && (
                 <Button
@@ -151,7 +153,7 @@ export function ClientsList() {
                   variant="outline"
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Crear primer cliente
+                  Crear primer {entitySingular.toLowerCase()}
                 </Button>
               )}
             </div>
@@ -160,53 +162,51 @@ export function ClientsList() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Contacto</TableHead>
-                    <TableHead>Total Citas</TableHead>
+                    <TableHead>{entitySingular}</TableHead>
+                    <TableHead>Teléfono</TableHead>
+                    <TableHead>Correo</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredClients.map((client) => (
-                    <TableRow key={client.id}>
+                    <TableRow
+                      key={client.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => router.push(`/clients/${client.id}`)}
+                    >
+
+                      {/* Nombre */}
                       <TableCell className="font-medium">
-                        <div>
-                          <p>{client.full_name}</p>
-                        </div>
+                        {client.full_name}
                       </TableCell>
+
+                      {/* Teléfono */}
                       <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {client.email && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Mail className="h-3 w-3 text-muted-foreground" />
-                              <span>{client.email}</span>
-                            </div>
-                          )}
-                          {client.phone && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Phone className="h-3 w-3 text-muted-foreground" />
-                              <span>{client.phone}</span>
-                            </div>
-                          )}
-                          {!client.email && !client.phone && (
-                            <span className="text-muted-foreground italic text-sm">
-                              Sin contacto
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {client.total_appointments > 0 ? (
-                          <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-1 text-xs font-medium">
-                            {client.total_appointments} cita{client.total_appointments !== 1 ? "s" : ""}
-                          </span>
+                        {client.phone ? (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            <span>{client.phone}</span>
+                          </div>
                         ) : (
-                          <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-600 px-2 py-1 text-xs font-medium">
-                            Sin citas
-                          </span>
+                          <span className="text-muted-foreground italic text-sm">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+
+                      {/* Correo */}
+                      <TableCell>
+                        {client.email ? (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Mail className="h-3 w-3 text-muted-foreground" />
+                            <span>{client.email}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground italic text-sm">Sin correo</span>
+                        )}
+                      </TableCell>
+
+                      {/* Acciones */}
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-2">
                           <Button
                             variant="ghost"
@@ -224,6 +224,7 @@ export function ClientsList() {
                           </Button>
                         </div>
                       </TableCell>
+
                     </TableRow>
                   ))}
                 </TableBody>
@@ -231,7 +232,7 @@ export function ClientsList() {
             </div>
           )}
 
-          {/* Pagination Controls */}
+          {/* Paginación */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-2 py-4">
               <div className="text-sm text-muted-foreground">
@@ -257,16 +258,18 @@ export function ClientsList() {
               </div>
             </div>
           )}
+
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Confirmar eliminación */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar {entitySingular.toLowerCase()}?</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Estás seguro de que deseas eliminar al cliente <strong>&quot;{clientToDelete?.name}&quot;</strong>?
+              ¿Estás seguro de que deseas eliminar a{" "}
+              <strong>&quot;{clientToDelete?.name}&quot;</strong>?
               Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -278,6 +281,7 @@ export function ClientsList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }

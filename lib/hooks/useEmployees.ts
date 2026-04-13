@@ -1,11 +1,10 @@
 // ============================================
-// useEmployees HOOK - Custom hook for employees
+// useEmployees HOOK
 // ============================================
 
 import { useState } from "react";
 import { employeesApi } from "../api/employees";
 import type { Employee } from "../types/models";
-import type { UpdateEmployeeRequest } from "../types/api";
 
 export const useEmployees = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -20,45 +19,19 @@ export const useEmployees = () => {
     try {
       setIsLoading(true);
       setError(null);
-      
-      // Convertir page a offset/limit para Django REST Framework
       const limit = 10;
       const page = params?.page || 1;
       const offset = (page - 1) * limit;
-      
       const { page: _, ...restParams } = params || {};
-      
-      const apiParams = {
-        ...restParams,
-        limit,
-        offset,
-      };
-      
-      const response = await employeesApi.getAll(apiParams);
+      const response = await employeesApi.getAll({ ...restParams, limit, offset });
       setEmployees(response.results);
       setTotalCount(response.count);
       setHasNext(!!response.next);
       setHasPrevious(!!response.previous);
       setCurrentPage(page);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar empleados");
+      setError(err instanceof Error ? err.message : "Error al cargar instructores");
       setEmployees([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updateEmployeeTeams = async (id: string, teams: string[]): Promise<Employee> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const updated = await employeesApi.updateTeams(id, { teams });
-      // Actualizar en la lista local
-      setEmployees((prev) => prev.map((e) => (e.id === id ? updated : e)));
-      return updated;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al actualizar empleado");
-      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -73,6 +46,5 @@ export const useEmployees = () => {
     hasNext,
     hasPrevious,
     fetchEmployees,
-    updateEmployeeTeams,
   };
 };

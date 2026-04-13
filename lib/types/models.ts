@@ -41,15 +41,17 @@ export interface Employee {
   full_name: string;
   email: string;
   role: "admin" | "operator";
-  company: string; // UUID
+  specialty?: string;       // Especialidad editable (ej: "Salsa y Bachata")
+  company: string;          // UUID en lista
   company_name: string;
   teams_count: number;
   is_active: boolean;
   created_at: string;
-  // Estos campos solo vienen en el detail
+  // Solo vienen en el detail
   first_name?: string;
   last_name?: string;
   username?: string;
+  updated_at?: string;
   teams?: TeamBasic[];
   teams_names?: string[];
 }
@@ -508,4 +510,99 @@ export interface TemplateCategoryOption {
   value: string;
   label: string;
   count: number;
+}
+
+// ============================================
+// ACADEMY MODULE
+// ============================================
+
+export type ClassGroupLevel = 'all' | 'beginner' | 'intermediate' | 'advanced';
+
+export interface ClassSchedule {
+  id: number;
+  day_of_week: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  day_of_week_display: string;
+  start_time: string; // HH:MM:SS
+  end_time: string;   // HH:MM:SS
+}
+
+export interface ClassGroup {
+  id: string;
+  name: string;
+  level: ClassGroupLevel;
+  level_display: string;
+  monthly_fee: number;
+  instructor_id: string | null;
+  instructor_name: string | null;
+  schedules: ClassSchedule[];
+  schedule_display: string;
+  active_enrollment_count: number;
+  company: string;
+  company_name: string;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+}
+
+export type EnrollmentStatus = 'active' | 'paused' | 'dropped';
+
+export interface Enrollment {
+  id: string;
+  client: string;           // UUID en lista
+  client_name: string;
+  client_phone: string;
+  class_group: string;      // UUID en lista
+  class_group_name: string;
+  status: EnrollmentStatus;
+  status_display: string;
+  billing_day: number;          // Día del mes efectivo (solo lectura, calculado)
+  custom_billing_day: number | null; // null = usa start_date.day
+  monthly_fee: number;          // Solo lectura, hereda del grupo
+  start_date: string;           // YYYY-MM-DD
+  notes?: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export type PaymentStatus = 'paid' | 'overdue' | 'waived';
+export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'other';
+
+export interface Payment {
+  id: string;
+  enrollment: string;       // UUID
+  client_name: string;
+  client_phone: string;
+  class_group_name: string;
+  amount: number;
+  status: PaymentStatus;
+  status_display: string;
+  due_date: string;         // YYYY-MM-DD (solo lectura)
+  payment_date: string;     // YYYY-MM-DD
+  payment_method: PaymentMethod;
+  payment_method_display: string;
+  created_at: string;
+}
+
+export interface UnpaidEnrollment {
+  enrollment_id: string;
+  client_id: string;
+  client_name: string;
+  client_phone: string;
+  class_group_name: string;
+  monthly_fee: number;
+}
+
+export interface PaymentSummary {
+  period: string; // "YYYY-MM"
+  counts: {
+    paid: number;
+    waived: number;
+    unpaid: number;
+  };
+  amounts: {
+    collected: number;
+    waived: number;
+    pending: number;
+  };
+  unpaid_enrollments: UnpaidEnrollment[];
 }

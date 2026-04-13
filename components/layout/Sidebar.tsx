@@ -11,10 +11,12 @@ import {
   Users,
   Briefcase,
   Calendar,
-  UsersRound,
+  CalendarDays,
   UserCog,
   Bell,
-  X
+  X,
+  GraduationCap,
+  CreditCard,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -29,7 +31,14 @@ const navigation = [
     href: "/",
     icon: LayoutDashboard,
     adminOnly: true,
-    featureFlag: "metabase_analytics", // Dashboard requires metabase
+    featureFlag: "metabase_analytics",
+  },
+  {
+    name: "Horarios",
+    href: "/schedule",
+    icon: CalendarDays,
+    featureFlag: "class_management",
+    fixedName: true,
   },
   {
     name: "Citas",
@@ -47,19 +56,14 @@ const navigation = [
     name: "Servicios",
     href: "/services",
     icon: Briefcase,
-    featureFlag: "appointments", // Services are part of appointments
+    featureFlag: "appointments",
   },
   {
-    name: "Equipos",
-    href: "/teams",
-    icon: UsersRound,
-    featureFlag: "teams",
-  },
-  {
-    name: "Empleados",
+    name: "Instructores",
     href: "/employees",
     icon: UserCog,
-    featureFlag: "teams", // Employees are managed through teams
+    featureFlag: "class_management",
+    fixedName: true,
   },
   {
     name: "Recordatorios",
@@ -67,13 +71,25 @@ const navigation = [
     icon: Bell,
     featureFlag: "reminders",
   },
+  {
+    name: "Grupos / Clases",
+    href: "/class-groups",
+    icon: GraduationCap,
+    featureFlag: "class_management",
+  },
+  {
+    name: "Pagos",
+    href: "/payments",
+    icon: CreditCard,
+    featureFlag: "payment_tracking",
+  },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, closeSidebar } = useUIStore();
   const { user, currentCompany } = useAuth();
-  const { isFeatureEnabled } = useFeatures();
+  const { isFeatureEnabled, getFeatureName } = useFeatures();
 
   const currentRole = user?.employee_profiles?.find(
     (profile) => profile.company === currentCompany?.id
@@ -123,6 +139,12 @@ export function Sidebar() {
             const isActive = pathname === item.href;
             const Icon = item.icon;
 
+            // Si fixedName está activo, usa siempre el nombre hardcodeado
+            // Si no, intenta usar el nombre del feature flag del API
+            const label = item.fixedName
+              ? item.name
+              : (item.featureFlag && getFeatureName(item.featureFlag)) || item.name;
+
             return (
               <Link
                 key={item.href}
@@ -135,7 +157,7 @@ export function Sidebar() {
                 )}
               >
                 <Icon className="h-5 w-5" />
-                {item.name}
+                {label}
               </Link>
             );
           })}

@@ -15,6 +15,7 @@ interface FeatureState {
   fetchFeatures: () => Promise<void>;
   isFeatureEnabled: (slug: string) => boolean;
   getFeatureConfig: <T = Record<string, unknown>>(slug: string) => T | null;
+  getFeatureName: (slug: string) => string | null;
   clearError: () => void;
 }
 
@@ -53,6 +54,12 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
     const { features } = get();
     const feature = features.find((f) => f.slug === slug);
     return feature?.config as T ?? null;
+  },
+
+  getFeatureName: (slug: string): string | null => {
+    const { features } = get();
+    const feature = features.find((f) => f.slug === slug);
+    return feature?.name ?? null;
   },
 
   clearError: () => {

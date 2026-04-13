@@ -1,26 +1,30 @@
 // ============================================
-// EMPLOYEES API - AgendyFix
-// Solo lectura + editar teams (Admin only)
+// EMPLOYEES / INSTRUCTORS API
 // ============================================
 
 import apiClient from "./client";
-import type {
-  UpdateEmployeeRequest,
-  PaginatedResponse,
-} from "../types/api";
+import type { PaginatedResponse } from "../types/api";
 import type { Employee } from "../types/models";
+
+export interface EmployeeListParams {
+  search?: string;
+  role?: "admin" | "operator";
+  is_active?: boolean;
+  limit?: number;
+  offset?: number;
+}
 
 export const employeesApi = {
   /**
-   * Get all employees with optional filters and pagination
+   * GET /api/v1/employees/
    */
-  getAll: async (params?: { search?: string; page?: number; limit?: number; offset?: number }): Promise<PaginatedResponse<Employee>> => {
+  getAll: async (params?: EmployeeListParams): Promise<PaginatedResponse<Employee>> => {
     const response = await apiClient.get<PaginatedResponse<Employee>>("/employees/", { params });
     return response.data;
   },
 
   /**
-   * Get single employee by ID
+   * GET /api/v1/employees/{id}/
    */
   getById: async (id: string): Promise<Employee> => {
     const response = await apiClient.get<Employee>(`/employees/${id}/`);
@@ -28,10 +32,11 @@ export const employeesApi = {
   },
 
   /**
-   * Update employee teams only (Admin only)
+   * PATCH /api/v1/employees/{id}/
+   * Solo permite editar specialty (Admin only).
    */
-  updateTeams: async (id: string, data: UpdateEmployeeRequest): Promise<Employee> => {
-    const response = await apiClient.patch<Employee>(`/employees/${id}/`, data);
+  updateSpecialty: async (id: string, specialty: string): Promise<Employee> => {
+    const response = await apiClient.patch<Employee>(`/employees/${id}/`, { specialty });
     return response.data;
   },
 };
