@@ -57,7 +57,7 @@ export function ClassGroupCard({ group, onDelete }: ClassGroupCardProps) {
               className="h-8 w-8"
               onClick={(e) => {
                 e.stopPropagation();
-                router.push(`/class-groups/${group.id}`);
+                router.push(`/class-groups/${group.id}?edit=true`);
               }}
             >
               <Pencil className="h-4 w-4" />

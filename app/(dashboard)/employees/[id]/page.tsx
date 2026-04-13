@@ -9,7 +9,7 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowLeft, Shield, Loader2, GraduationCap,
-  Mail, Pencil, Users, DollarSign, Calendar, X,
+  Mail, Phone, Pencil, Users, DollarSign, Calendar, X, UserMinus,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { employeesApi } from "@/lib/api/employees";
 import { classGroupsApi } from "@/lib/api/classGroups";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -26,12 +36,12 @@ import type { Employee, ClassGroup } from "@/lib/types/models";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const ROLE_STYLES: Record<string, string> = {
-  admin:    "bg-purple-50 text-purple-700",
-  operator: "bg-blue-50 text-blue-700",
+  admin:      "bg-purple-50 text-purple-700",
+  instructor: "bg-blue-50 text-blue-700",
 };
 const ROLE_LABELS: Record<string, string> = {
-  admin:    "Administrador",
-  operator: "Operador",
+  admin:      "Administrador",
+  instructor: "Instructor",
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -49,20 +59,23 @@ export default function InstructorDetailPage() {
     (p) => p.company === currentCompany?.id
   )?.role === "admin";
 
-  const [employee, setEmployee]           = useState<Employee | null>(null);
-  const [groups, setGroups]               = useState<ClassGroup[]>([]);
-  const [isFetching, setIsFetching]       = useState(true);
-  const [loadingGroups, setLoadingGroups] = useState(false);
-  const [editing, setEditing]             = useState(false);
-  const [specialty, setSpecialty]         = useState("");
-  const [saving, setSaving]               = useState(false);
-  const [activeGroupIds, setActiveGroupIds] = useState<Set<string>>(new Set());
+  const [employee, setEmployee]               = useState<Employee | null>(null);
+  const [groups, setGroups]                   = useState<ClassGroup[]>([]);
+  const [isFetching, setIsFetching]           = useState(true);
+  const [loadingGroups, setLoadingGroups]     = useState(false);
+  const [editing, setEditing]                 = useState(false);
+  const [specialty, setSpecialty]             = useState("");
+  const [phone, setPhone]                     = useState("");
+  const [saving, setSaving]                   = useState(false);
+  const [activeGroupIds, setActiveGroupIds]   = useState<Set<string>>(new Set());
+  const [showDeactivate, setShowDeactivate]   = useState(false);
+  const [deactivating, setDeactivating]       = useState(false);
 
-  const toggleGroup = (id: string) => {
+  const toggleGroup = (gid: string) => {
     setActiveGroupIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(gid)) next.delete(gid);
+      else next.add(gid);
       return next;
     });
   };
@@ -74,6 +87,7 @@ export default function InstructorDetailPage() {
         const data = await employeesApi.getById(id);
         setEmployee(data);
         setSpecialty(data.specialty ?? "");
+        setPhone(data.phone ?? "");
       } catch {
         toast.error("Error al cargar el instructor");
         router.push("/employees");
@@ -101,14 +115,30 @@ export default function InstructorDetailPage() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      const updated = await employeesApi.updateSpecialty(id, specialty);
+      const updated = await employeesApi.update(id, {
+        specialty: specialty.trim() || undefined,
+        phone:     phone.trim() || undefined,
+      });
       setEmployee(updated);
       setEditing(false);
-      toast.success("Especialidad actualizada");
+      toast.success("Datos actualizados");
     } catch {
-      toast.error("Error al actualizar la especialidad");
+      toast.error("Error al actualizar los datos");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    try {
+      setDeactivating(true);
+      await employeesApi.deactivate(id);
+      toast.success(`${employee?.full_name} dado de baja`);
+      router.push("/employees");
+    } catch {
+      toast.error("Error al dar de baja al instructor");
+      setDeactivating(false);
+      setShowDeactivate(false);
     }
   };
 
@@ -136,14 +166,26 @@ export default function InstructorDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold tracking-tight truncate">{employee.full_name}</h1>
-            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_STYLES[employee.role]}`}>
-              {ROLE_LABELS[employee.role]}
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_STYLES[employee.role] ?? "bg-gray-50 text-gray-700"}`}>
+              {ROLE_LABELS[employee.role] ?? employee.role}
             </span>
           </div>
           {employee.specialty && (
             <p className="text-muted-foreground text-sm">{employee.specialty}</p>
           )}
         </div>
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive shrink-0 disabled:opacity-40 disabled:pointer-events-none"
+            disabled={employee.role === "admin"}
+            onClick={() => setShowDeactivate(true)}
+          >
+            <UserMinus className="h-4 w-4 mr-1.5" />
+            Dar de baja
+          </Button>
+        )}
       </div>
 
       {/* 3 Tabs */}
@@ -176,11 +218,7 @@ export default function InstructorDetailPage() {
                 </div>
               ) : (
                 <>
-                  {/* Grupos visibles según leyenda
-                      Altura: 100dvh menos todo lo que hay encima y abajo del calendario:
-                      header-app(64) + pad-top(24) + header-instructor(72) + gap(24)
-                      + tabsList(40) + mt-4(16) + card-pt(16) + leyenda(40) + pad-bot(24) = 320px
-                  */}
+                  {/* Grupos visibles según leyenda */}
                   <div style={{ height: "calc(100dvh - 320px)" }}>
                     {(() => {
                       const visibleGroups = activeGroupIds.size > 0
@@ -298,25 +336,42 @@ export default function InstructorDetailPage() {
               )}
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Email (read-only) */}
               <div className="flex items-center gap-2 text-sm">
                 <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span>{employee.email}</span>
+                <span>{employee.email || <span className="text-muted-foreground italic">Sin email</span>}</span>
               </div>
+
+              {/* Rol (read-only) */}
               <div className="flex items-center gap-2 text-sm">
                 <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span>{ROLE_LABELS[employee.role]}</span>
+                <span>{ROLE_LABELS[employee.role] ?? employee.role}</span>
                 <span className="text-xs text-muted-foreground">(solo desde Admin)</span>
               </div>
+
               {editing ? (
-                <div className="space-y-2 pt-1">
-                  <Label htmlFor="specialty">Especialidad</Label>
-                  <Input
-                    id="specialty"
-                    value={specialty}
-                    onChange={(e) => setSpecialty(e.target.value)}
-                    placeholder="Ej: Salsa y Bachata"
-                    disabled={saving}
-                  />
+                <div className="space-y-3 pt-1">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-phone">Teléfono</Label>
+                    <Input
+                      id="edit-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="9991234567"
+                      disabled={saving}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-specialty">Especialidad</Label>
+                    <Input
+                      id="edit-specialty"
+                      value={specialty}
+                      onChange={(e) => setSpecialty(e.target.value)}
+                      placeholder="Ej: Salsa y Bachata"
+                      disabled={saving}
+                    />
+                  </div>
                   <div className="flex gap-2 pt-1">
                     <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1">
                       {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -324,7 +379,11 @@ export default function InstructorDetailPage() {
                     </Button>
                     <Button
                       size="sm" variant="outline"
-                      onClick={() => { setEditing(false); setSpecialty(employee.specialty ?? ""); }}
+                      onClick={() => {
+                        setEditing(false);
+                        setSpecialty(employee.specialty ?? "");
+                        setPhone(employee.phone ?? "");
+                      }}
                       disabled={saving}
                     >
                       Cancelar
@@ -332,17 +391,70 @@ export default function InstructorDetailPage() {
                   </div>
                 </div>
               ) : (
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Especialidad: </span>
-                  {employee.specialty
-                    ? <span className="font-medium">{employee.specialty}</span>
-                    : <span className="italic text-muted-foreground">Sin especialidad</span>}
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                    {employee.phone
+                      ? <span>{employee.phone}</span>
+                      : <span className="italic text-muted-foreground">Sin teléfono</span>}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Especialidad: </span>
+                    {employee.specialty
+                      ? <span className="font-medium">{employee.specialty}</span>
+                      : <span className="italic text-muted-foreground">Sin especialidad</span>}
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Confirmación de baja */}
+      <AlertDialog open={showDeactivate} onOpenChange={(v) => { if (!v) setShowDeactivate(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Dar de baja a {employee.full_name}?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                {groups.length > 0 ? (
+                  <>
+                    <p>
+                      Este instructor tiene <strong className="text-foreground">{groups.length} grupo{groups.length !== 1 ? "s" : ""} asignado{groups.length !== 1 ? "s" : ""}</strong>.
+                      Debes desasignarlo de todos los grupos antes de darlo de baja.
+                    </p>
+                    <ul className="space-y-1 border rounded-md p-3 bg-muted/40">
+                      {groups.map((g) => (
+                        <li key={g.id} className="flex items-center gap-2">
+                          <GraduationCap className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="font-medium text-foreground">{g.name}</span>
+                          <span className="text-xs">— {g.schedule_display}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p>
+                    <strong className="text-foreground">{employee.full_name}</strong> quedará inactivo
+                    y no podrá ser asignado a grupos nuevos.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deactivating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeactivate}
+              disabled={deactivating || groups.length > 0}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {deactivating ? "Procesando..." : "Dar de baja"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

@@ -6,7 +6,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, UserCog, Shield, Pencil } from "lucide-react";
+import { Search, UserCog, Shield, Pencil, UserMinus, GraduationCap, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,17 +16,31 @@ import {
   Table, TableBody, TableCell,
   TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useEmployees } from "@/lib/hooks/useEmployees";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { employeesApi } from "@/lib/api/employees";
+import { classGroupsApi } from "@/lib/api/classGroups";
+import { CreateEmployeeDialog } from "@/components/employees/CreateEmployeeDialog";
+import type { Employee, ClassGroup } from "@/lib/types/models";
 
 const ROLE_STYLES: Record<string, string> = {
-  admin:    "bg-purple-50 text-purple-700",
-  operator: "bg-blue-50 text-blue-700",
+  admin:      "bg-purple-50 text-purple-700",
+  instructor: "bg-blue-50 text-blue-700",
 };
 
 const ROLE_LABELS: Record<string, string> = {
-  admin:    "Admin",
-  operator: "Operador",
+  admin:      "Admin",
+  instructor: "Instructor",
 };
 
 export default function EmployeesPage() {
@@ -36,7 +51,11 @@ export default function EmployeesPage() {
     currentPage, hasNext, hasPrevious, fetchEmployees,
   } = useEmployees();
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm]                         = useState("");
+  const [deactivating, setDeactivating]                     = useState(false);
+  const [employeeToDeactivate, setEmployeeToDeactivate]     = useState<Employee | null>(null);
+  const [employeeGroups, setEmployeeGroups]                 = useState<ClassGroup[]>([]);
+  const [loadingGroups, setLoadingGroups]                   = useState(false);
   const hasFetched = useRef(false);
 
   const isAdmin = user?.employee_profiles?.find(
@@ -57,6 +76,37 @@ export default function EmployeesPage() {
 
   const handlePageChange = (page: number) => {
     fetchEmployees({ page, search: searchTerm || undefined });
+  };
+
+  // Al abrir el dialog de baja, carga los grupos del instructor
+  const openDeactivateDialog = async (emp: Employee) => {
+    setEmployeeToDeactivate(emp);
+    setEmployeeGroups([]);
+    try {
+      setLoadingGroups(true);
+      const data = await classGroupsApi.getAll({ instructor: emp.id, limit: 50 });
+      setEmployeeGroups(data.results);
+    } catch {
+      // no bloqueante — si falla, el dialog igual aparece vacío
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (!employeeToDeactivate) return;
+    try {
+      setDeactivating(true);
+      await employeesApi.deactivate(employeeToDeactivate.id);
+      toast.success(`${employeeToDeactivate.full_name} dado de baja`);
+      fetchEmployees({ page: currentPage, search: searchTerm || undefined });
+    } catch {
+      toast.error("Error al dar de baja al instructor");
+    } finally {
+      setDeactivating(false);
+      setEmployeeToDeactivate(null);
+      setEmployeeGroups([]);
+    }
   };
 
   const list = Array.isArray(employees) ? employees : [];
@@ -83,12 +133,19 @@ export default function EmployeesPage() {
               : "Staff de la academia"}
           </p>
         </div>
-        {!isAdmin && (
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-md">
-            <Shield className="h-4 w-4" />
-            Solo lectura
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {!isAdmin && (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-md">
+              <Shield className="h-4 w-4" />
+              Solo lectura
+            </div>
+          )}
+          {isAdmin && (
+            <CreateEmployeeDialog
+              onCreated={() => fetchEmployees({ page: 1, search: searchTerm || undefined })}
+            />
+          )}
+        </div>
       </div>
 
       {/* Buscador */}
@@ -109,6 +166,11 @@ export default function EmployeesPage() {
           <p className="text-muted-foreground font-medium">
             {searchTerm ? "Sin resultados" : "No hay instructores registrados"}
           </p>
+          {isAdmin && !searchTerm && (
+            <CreateEmployeeDialog
+              onCreated={() => fetchEmployees({ page: 1 })}
+            />
+          )}
         </div>
       ) : (
         <Card>
@@ -119,6 +181,7 @@ export default function EmployeesPage() {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Especialidad</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Teléfono</TableHead>
                   <TableHead>Rol</TableHead>
                   {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
                 </TableRow>
@@ -136,21 +199,33 @@ export default function EmployeesPage() {
                         ? <span>{emp.specialty}</span>
                         : <span className="text-muted-foreground italic text-sm">—</span>}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{emp.email}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{emp.email || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{emp.phone || "—"}</TableCell>
                     <TableCell>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_STYLES[emp.role]}`}>
-                        {ROLE_LABELS[emp.role]}
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_STYLES[emp.role] ?? "bg-gray-50 text-gray-700"}`}>
+                        {ROLE_LABELS[emp.role] ?? emp.role}
                       </span>
                     </TableCell>
                     {isAdmin && (
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => router.push(`/employees/${emp.id}?tab=info`)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => router.push(`/employees/${emp.id}?tab=info`)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-40 disabled:pointer-events-none"
+                            disabled={emp.role === "admin"}
+                            onClick={() => openDeactivateDialog(emp)}
+                          >
+                            <UserMinus className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
@@ -175,6 +250,62 @@ export default function EmployeesPage() {
           </div>
         </div>
       )}
+
+      {/* Confirmación de baja */}
+      <AlertDialog
+        open={!!employeeToDeactivate}
+        onOpenChange={(v) => { if (!v) { setEmployeeToDeactivate(null); setEmployeeGroups([]); } }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Dar de baja a {employeeToDeactivate?.full_name}?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                {loadingGroups ? (
+                  <div className="flex items-center gap-2 py-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Verificando grupos asignados...</span>
+                  </div>
+                ) : employeeGroups.length > 0 ? (
+                  <>
+                    <p>
+                      Este instructor tiene{" "}
+                      <strong className="text-foreground">
+                        {employeeGroups.length} grupo{employeeGroups.length !== 1 ? "s" : ""} asignado{employeeGroups.length !== 1 ? "s" : ""}
+                      </strong>.
+                      Debes desasignarlo de todos los grupos antes de darlo de baja.
+                    </p>
+                    <ul className="space-y-1 border rounded-md p-3 bg-muted/40">
+                      {employeeGroups.map((g) => (
+                        <li key={g.id} className="flex items-center gap-2">
+                          <GraduationCap className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="font-medium text-foreground">{g.name}</span>
+                          <span className="text-xs">— {g.schedule_display}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p>
+                    <strong className="text-foreground">{employeeToDeactivate?.full_name}</strong> quedará
+                    inactivo y no podrá ser asignado a grupos nuevos.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deactivating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeactivate}
+              disabled={deactivating || loadingGroups || employeeGroups.length > 0}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {deactivating ? "Procesando..." : "Dar de baja"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

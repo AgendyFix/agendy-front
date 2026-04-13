@@ -112,7 +112,17 @@ export interface CreateTeamRequest {
 export interface UpdateTeamRequest extends Partial<CreateTeamRequest> {}
 
 // Employees
+export interface CreateEmployeeRequest {
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  specialty?: string;
+}
+
 export interface UpdateEmployeeRequest {
+  phone?: string;
+  specialty?: string;
   teams?: string[]; // Array of team IDs
 }
 

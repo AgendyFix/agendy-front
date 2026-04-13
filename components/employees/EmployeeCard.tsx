@@ -31,7 +31,9 @@ export function EmployeeCard({ employee, isAdmin }: EmployeeCardProps) {
                 <User className="h-4 w-4 text-muted-foreground" />
                 {employee.full_name}
               </h3>
-              <p className="text-sm text-muted-foreground mt-1">{employee.email}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {employee.email || employee.phone || "—"}
+              </p>
             </div>
             {isAdmin && (
               <Button
@@ -48,7 +50,7 @@ export function EmployeeCard({ employee, isAdmin }: EmployeeCardProps) {
             )}
           </div>
 
-          {/* Rol y Equipos */}
+          {/* Rol y especialidad */}
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
@@ -57,15 +59,11 @@ export function EmployeeCard({ employee, isAdmin }: EmployeeCardProps) {
                   : "bg-blue-50 text-blue-700"
               }`}
             >
-              {employee.role === "admin" ? "Administrador" : "Operador"}
+              {employee.role === "admin" ? "Administrador" : "Instructor"}
             </span>
-            
-            {employee.teams_count > 0 ? (
-              <span className="inline-flex items-center rounded-full bg-green-50 text-green-700 px-2 py-1 text-xs font-medium">
-                {employee.teams_count} equipo{employee.teams_count !== 1 ? "s" : ""}
-              </span>
-            ) : (
-              <span className="text-muted-foreground italic text-sm">Sin equipos</span>
+
+            {employee.specialty && (
+              <span className="text-xs text-muted-foreground">{employee.specialty}</span>
             )}
           </div>
         </div>

@@ -32,7 +32,7 @@ export interface EmployeeProfile {
   id: string;
   full_name: string;
   company: string;
-  role: "admin" | "operator";
+  role: "admin" | "instructor";
   teams_names: string[];
 }
 
@@ -40,7 +40,8 @@ export interface Employee {
   id: string;
   full_name: string;
   email: string;
-  role: "admin" | "operator";
+  phone?: string;
+  role: "admin" | "instructor";
   specialty?: string;       // Especialidad editable (ej: "Salsa y Bachata")
   company: string;          // UUID en lista
   company_name: string;
@@ -127,7 +128,7 @@ export interface Team extends TeamBasic {
 export interface EmployeeBasic {
   id: string;
   full_name: string;
-  role: "admin" | "operator";
+  role: "admin" | "instructor";
   email: string;
 }
 

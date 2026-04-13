@@ -5,7 +5,7 @@
 // ============================================
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, Loader2, Users, Clock, DollarSign,
   Phone, UserPlus, Pencil, Pause, UserX, Check, X as XIcon,
@@ -67,13 +67,14 @@ const STATUS_LABELS: Record<string, string> = {
 export default function ClassGroupDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const id = params.id as string;
 
   const [group, setGroup] = useState<ClassGroup | null>(null);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loadingGroup, setLoadingGroup] = useState(true);
   const [loadingEnrollments, setLoadingEnrollments] = useState(true);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(searchParams.get("edit") === "true");
 
   // confirmación de baja de alumno
   const [dropTarget, setDropTarget] = useState<Enrollment | null>(null);
