@@ -335,7 +335,9 @@ export default function PaymentsPage() {
     }
   };
 
-  const unpaidCount = summary?.counts.unpaid ?? overdueCount;
+  // Usar siempre overdueCount (viene del fetch filtrado por mes/año),
+  // no summary.counts.unpaid que puede reflejar datos de períodos distintos.
+  const unpaidCount = overdueCount;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -396,7 +398,7 @@ export default function PaymentsPage() {
                 <p className="text-xs text-green-600 font-medium">Cobrados</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-red-50">
-                <p className="text-2xl font-bold text-red-600">{summary.counts.unpaid}</p>
+                <p className="text-2xl font-bold text-red-600">{overdueCount}</p>
                 <p className="text-xs text-red-500 font-medium">Sin pagar</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-gray-50">
@@ -411,7 +413,7 @@ export default function PaymentsPage() {
               </div>
               <div className="text-center p-3 rounded-lg bg-red-50">
                 <p className="text-2xl font-bold text-red-600">
-                  ${summary.amounts.pending.toLocaleString("es-MX")}
+                  ${overduePayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString("es-MX")}
                 </p>
                 <p className="text-xs text-red-500 font-medium">Monto pendiente</p>
               </div>
