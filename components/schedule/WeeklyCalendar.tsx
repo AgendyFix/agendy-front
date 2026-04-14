@@ -11,7 +11,7 @@ import type { ClassGroup } from "@/lib/types/models";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const SLOT_H  = 48;   // px por hora
+const SLOT_H  = 64;   // px por hora
 const HOUR_W  = 52;   // px columna horas
 const PAD     = 2;    // px entre bloques solapados
 
@@ -299,6 +299,18 @@ export function WeeklyCalendar({
 
   minHour = Math.max(0, minHour - 1);
   maxHour = Math.min(24, maxHour + 1);
+
+  // Garantizar un rango mínimo de 8 horas para que el calendario no quede muy chico.
+  // Se expande preferentemente hacia abajo; si toca el tope de 24, se sube el inicio.
+  const MIN_HOURS = 12;
+  if (maxHour - minHour < MIN_HOURS) {
+    const deficit = MIN_HOURS - (maxHour - minHour);
+    maxHour = Math.min(24, maxHour + deficit);
+    if (maxHour - minHour < MIN_HOURS) {
+      minHour = Math.max(0, maxHour - MIN_HOURS);
+    }
+  }
+
   const hours   = Array.from({ length: maxHour - minHour }, (_, i) => minHour + i);
   const totalH  = hours.length * SLOT_H;
 
@@ -392,7 +404,7 @@ export function WeeklyCalendar({
                   const h          = Math.max(rawH, 20);
                   // Si el bloque es más alto que su espacio natural, lo dejamos "salir" visualmente
                   // usando overflow-visible — el contenido se muestra completo encima de otras celdas
-                  const isShort    = rawH < 36;
+                  const isShort    = rawH < 48;
                   const color  = GROUP_COLORS[block.colorIdx];
                   const colW   = block.totalCols > 1
                     ? `calc(${100 / block.totalCols}% - ${PAD}px)`
@@ -404,9 +416,17 @@ export function WeeklyCalendar({
                   const isSelected = selected?.group.id === block.group.id
                     && selected?.scheduleIdx === block.scheduleIdx;
 
+                  // Ancho estimado en px para decidir qué texto mostrar
+                  // totalCols > 1 → cada columna es ~(colWidth / totalCols)
+                  // No podemos saber el px exacto sin medir, pero podemos estimar
+                  // si hay solapamiento (totalCols > 1) como "angosto"
+                  const isNarrow = block.totalCols > 1;
+                  const tooltipText = `${block.group.name} · ${to12h(schedule.start_time)}–${to12h(schedule.end_time)}${block.group.instructor_name ? ` · ${block.group.instructor_name}` : ""}`;
+
                   return (
                     <button
                       key={bi}
+                      title={tooltipText}
                       className={`absolute rounded border-l-[3px] px-1 py-0.5 text-left transition-all cursor-pointer shadow-sm z-[41]
                         ${isShort ? "overflow-visible" : "overflow-hidden"}
                         ${color.bg} ${color.border} ${color.text}
@@ -451,7 +471,23 @@ export function WeeklyCalendar({
                             {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
                           </span>
                         </p>
+                      ) : isNarrow ? (
+                        /* Bloque angosto (solapado): nombre truncado + horario en dos líneas */
+                        <>
+                          <p className="text-[11px] font-semibold leading-tight truncate">
+                            {block.group.name}
+                          </p>
+                          <p className="text-[10px] opacity-75 tabular-nums leading-tight">
+                            {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
+                          </p>
+                          {showInstructor && block.group.instructor_name && h > 52 && (
+                            <p className="text-[10px] opacity-65 truncate leading-tight">
+                              {block.group.instructor_name}
+                            </p>
+                          )}
+                        </>
                       ) : (
+                        /* Bloque normal: nombre + horario + instructor */
                         <>
                           <p className="text-xs font-semibold leading-tight truncate">
                             {block.group.name}
@@ -459,7 +495,7 @@ export function WeeklyCalendar({
                           <p className="text-[11px] opacity-75 tabular-nums leading-tight">
                             {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
                           </p>
-                          {showInstructor && block.group.instructor_name && h > 44 && (
+                          {showInstructor && block.group.instructor_name && h > 52 && (
                             <p className="text-[11px] opacity-65 truncate leading-tight">
                               {block.group.instructor_name}
                             </p>
