@@ -37,11 +37,17 @@ export function ClassGroupCard({ group, onDelete }: ClassGroupCardProps) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-base truncate">{group.name}</h3>
-              <span
-                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${LEVEL_COLORS[group.level] ?? LEVEL_COLORS.all}`}
-              >
-                {group.level_display}
-              </span>
+              {group.is_individual ? (
+                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700">
+                  Individual
+                </span>
+              ) : (
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${LEVEL_COLORS[group.level] ?? LEVEL_COLORS.all}`}
+                >
+                  {group.level_display}
+                </span>
+              )}
             </div>
             {group.instructor_name && (
               <p className="text-sm text-muted-foreground mt-0.5">
@@ -76,6 +82,20 @@ export function ClassGroupCard({ group, onDelete }: ClassGroupCardProps) {
           </div>
         </div>
 
+        {/* Disciplinas */}
+        {group.disciplines && group.disciplines.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {group.disciplines.map((d) => (
+              <span
+                key={d.id}
+                className="inline-flex items-center rounded-md bg-secondary text-secondary-foreground px-2 py-0.5 text-xs font-medium"
+              >
+                {d.name}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Horario */}
         {group.schedule_display && (
           <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -93,10 +113,19 @@ export function ClassGroupCard({ group, onDelete }: ClassGroupCardProps) {
               alumno{group.active_enrollment_count !== 1 ? "s" : ""}
             </span>
           </div>
-          <div className="flex items-center gap-1 text-sm font-semibold text-green-700">
-            <DollarSign className="h-4 w-4" />
-            <span>${group.monthly_fee.toLocaleString("es-MX")}/mes</span>
-          </div>
+          {(() => {
+            const fee = group.is_individual
+              ? (group.primary_enrollment_fee ?? null)
+              : group.monthly_fee;
+            return fee != null ? (
+              <div className="flex items-center gap-1 text-sm font-semibold text-green-700">
+                <DollarSign className="h-4 w-4" />
+                <span>${fee.toLocaleString("es-MX")}/mes</span>
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground italic">Sin tarifa fija</span>
+            );
+          })()}
         </div>
       </CardContent>
     </Card>

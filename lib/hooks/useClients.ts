@@ -16,12 +16,15 @@ export const useClients = () => {
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
 
-  const fetchClients = async (params?: { search?: string; page?: number }) => {
+  const fetchClients = async (params?: {
+    search?: string;
+    page?: number;
+    enrollment_status?: 'active' | 'paused' | 'dropped';
+  }) => {
     try {
       setIsLoading(true);
       setError(null);
       
-      // Convertir page a offset/limit para Django REST Framework
       const limit = 10;
       const page = params?.page || 1;
       const offset = (page - 1) * limit;

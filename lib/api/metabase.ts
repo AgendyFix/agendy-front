@@ -28,7 +28,7 @@ export const metabaseApi = {
   }): Promise<MetabaseDashboardResponse> => {
     const response = await apiClient.get<MetabaseDashboardResponse>("/metabase/dashboard/", { 
       params: {
-        dashboard_id: params?.dashboard_id || "2",
+        dashboard_id: params?.dashboard_id || "4",
         date_filter: params?.date_filter || "thisyear",
       }
     });

@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, GraduationCap, Loader2 } from "lucide-react";
+import { Plus, Search, GraduationCap, Loader2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ClassGroupCard } from "@/components/classGroups/ClassGroupCard";
+import { DisciplineManagerModal } from "@/components/disciplines/DisciplineManagerModal";
 import { useClassGroups } from "@/lib/hooks/useClassGroups";
 import type { ClassGroupLevel } from "@/lib/types/models";
 
@@ -49,6 +50,7 @@ export default function ClassGroupsPage() {
   const [levelFilter, setLevelFilter] = useState("all_levels");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [disciplinesOpen, setDisciplinesOpen] = useState(false);
 
   // Carga inicial
   useEffect(() => {
@@ -95,10 +97,16 @@ export default function ClassGroupsPage() {
               : "Gestiona los grupos y horarios de tu academia"}
           </p>
         </div>
-        <Button onClick={() => router.push("/class-groups/new")}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo grupo
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setDisciplinesOpen(true)}>
+            <BookOpen className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Disciplinas</span>
+          </Button>
+          <Button onClick={() => router.push("/class-groups/new")}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo grupo
+          </Button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -157,6 +165,12 @@ export default function ClassGroupsPage() {
           ))}
         </div>
       )}
+
+      {/* Modal catálogo de disciplinas */}
+      <DisciplineManagerModal
+        open={disciplinesOpen}
+        onOpenChange={setDisciplinesOpen}
+      />
 
       {/* Confirm delete dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

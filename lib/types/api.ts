@@ -72,14 +72,58 @@ export interface ServiceListParams {
 }
 
 // Clients
-export interface CreateClientRequest {
-  name: string;
-  last_name: string;
-  email?: string;
-  phone?: string;
+export interface CreateContactInline {
+  phone: string;
+  name?: string;
+  relationship?: 'self' | 'mother' | 'father' | 'guardian' | 'sibling' | 'other';
+  receive_notifications?: boolean;
 }
 
-export interface UpdateClientRequest extends Partial<CreateClientRequest> {}
+// Enrollment inline dentro de POST /clients/ (Flujo 1 y 2)
+export interface CreateEnrollmentInline {
+  /** Flujo 1 — clase individual: el backend crea el grupo automáticamente */
+  is_individual?: boolean;
+  /** Flujo 2 — grupo colectivo: UUID del grupo ya existente */
+  class_group?: string;
+  start_date: string;                 // YYYY-MM-DD
+  custom_billing_day?: number;        // 1-28
+  custom_monthly_fee?: number | null;
+  signup_fee?: number | null;
+  disciplines?: string[];             // Array de UUIDs
+}
+
+export interface CreateClientRequest {
+  name: string;
+  last_name?: string;
+  email?: string;
+  /** @deprecated Usar contacts[] en su lugar */
+  phone?: string;
+  birth_date?: string;    // YYYY-MM-DD
+  notes?: string;
+  /** Contactos a crear en el mismo request */
+  contacts?: CreateContactInline[];
+  /** Inscripción a crear en el mismo request (Flujo 1 o 2) */
+  enrollment?: CreateEnrollmentInline;
+}
+
+export interface ClientListParams {
+  search?: string;
+  phone?: string;
+  email?: string;
+  is_active?: boolean;
+  ordering?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface UpdateClientRequest {
+  name?: string;
+  last_name?: string;
+  email?: string;
+  birth_date?: string;
+  notes?: string;
+  // Los contactos NO se editan aquí — usar /client-contacts/
+}
 
 // Client Groups
 export interface CreateClientGroupRequest {
@@ -117,15 +161,19 @@ export interface CreateEmployeeRequest {
   last_name: string;
   email?: string;
   phone?: string;
+  /** @deprecated Usar disciplines[] en su lugar */
   specialty?: string;
+  disciplines?: string[]; // Array de UUIDs de disciplinas
 }
 
 export interface UpdateEmployeeRequest {
   first_name?: string;
   last_name?: string;
   phone?: string;
+  /** @deprecated Usar disciplines[] en su lugar */
   specialty?: string;
-  teams?: string[]; // Array of team IDs
+  disciplines?: string[]; // Array de UUIDs de disciplinas
+  teams?: string[];        // Array de team IDs
 }
 
 // Appointments
@@ -347,26 +395,23 @@ export interface CreateScheduleInput {
 export interface CreateClassGroupRequest {
   name: string;
   level?: 'all' | 'beginner' | 'intermediate' | 'advanced';
-  monthly_fee: number;
-  instructor?: string; // UUID (optional)
+  is_individual?: boolean;
+  monthly_fee?: number | null;         // null permitido si is_individual=true
+  instructor?: string;                 // UUID (optional)
+  disciplines?: string[];              // Array de UUIDs de disciplinas
   schedules?: CreateScheduleInput[];
 }
 
 export interface UpdateClassGroupRequest extends Partial<CreateClassGroupRequest> {}
 
-export interface ClassGroupListParams {
-  level?: 'all' | 'beginner' | 'intermediate' | 'advanced';
-  instructor?: string; // UUID del empleado instructor
-  search?: string;
-  ordering?: string;
-  limit?: number;
-  offset?: number;
-}
-
 export interface CreateEnrollmentRequest {
-  client: string;      // UUID
-  class_group: string; // UUID
-  start_date: string;  // YYYY-MM-DD
+  client: string;                     // UUID
+  class_group: string;                // UUID
+  start_date: string;                 // YYYY-MM-DD
+  custom_billing_day?: number;        // 1-28
+  custom_monthly_fee?: number | null;
+  signup_fee?: number | null;
+  disciplines?: string[];             // Array de UUIDs
   notes?: string;
 }
 
@@ -375,13 +420,27 @@ export interface UpdateEnrollmentRequest {
   start_date?: string;
   notes?: string;
   custom_billing_day?: number | null;  // null = revertir al día de start_date
+  custom_monthly_fee?: number | null;  // null = usar precio del grupo
+  disciplines?: string[];              // reemplaza el array completo
 }
 
 export interface EnrollmentListParams {
   class_group?: string;
   client?: string;
   status?: 'active' | 'paused' | 'dropped';
+  is_active?: boolean;
   search?: string;
+  ordering?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ClassGroupListParams {
+  level?: 'all' | 'beginner' | 'intermediate' | 'advanced';
+  instructor?: string;
+  is_individual?: boolean;
+  search?: string;
+  ordering?: string;
   limit?: number;
   offset?: number;
 }

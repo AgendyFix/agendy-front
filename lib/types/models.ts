@@ -42,7 +42,9 @@ export interface Employee {
   email: string;
   phone?: string;
   role: "admin" | "instructor";
-  specialty?: string;       // Especialidad editable (ej: "Salsa y Bachata")
+  /** @deprecated Usar disciplines[] en su lugar */
+  specialty?: string;
+  disciplines?: DisciplineBasic[];    // M2M — viene en lista y detalle
   company: string;          // UUID en lista
   company_name: string;
   teams_count: number;
@@ -73,15 +75,29 @@ export interface Service {
   updated_at?: string;
 }
 
+export type ClientEnrollmentStatus = 'active' | 'paused' | 'dropped';
+
 export interface Client {
   id: string;
   name: string;
   last_name: string;
   full_name: string;
-  email?: string;
-  phone?: string;
-  company: CompanyBasic;
-  total_appointments: number;
+  email?: string | null;
+  /** @deprecated Usar primary_contact_phone en su lugar */
+  phone?: string | null;
+  /** Teléfono del primer contacto con receive_notifications: true */
+  primary_contact_phone?: string | null;
+  birth_date?: string | null;         // YYYY-MM-DD
+  notes?: string;
+  company: CompanyBasic | string;     // UUID en lista, objeto en detalle
+  company_name?: string;
+  /** Solo viene en el detalle (/clients/{id}/) */
+  contacts?: ClientContact[];
+  /** Estado de inscripción consolidado del alumno */
+  enrollment_status?: ClientEnrollmentStatus;
+  /** Número de inscripciones activas */
+  active_enrollment_count?: number;
+  total_appointments?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -517,6 +533,38 @@ export interface TemplateCategoryOption {
 // ACADEMY MODULE
 // ============================================
 
+// ── Disciplines ────────────────────────────────────────────────────────────
+
+export interface DisciplineBasic {
+  id: string;
+  name: string;
+}
+
+export interface Discipline {
+  id: string;
+  name: string;
+  description?: string;
+  metadata?: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Client Contacts ────────────────────────────────────────────────────────
+
+export type ContactRelationship = 'self' | 'mother' | 'father' | 'guardian' | 'sibling' | 'other';
+
+export interface ClientContact {
+  id: string;
+  client: string;                     // UUID del alumno
+  name: string;
+  phone: string;
+  relationship: ContactRelationship;
+  relationship_display: string;
+  receive_notifications: boolean;
+  is_active: boolean;
+}
+
 export type ClassGroupLevel = 'all' | 'beginner' | 'intermediate' | 'advanced';
 
 export interface ClassSchedule {
@@ -532,9 +580,20 @@ export interface ClassGroup {
   name: string;
   level: ClassGroupLevel;
   level_display: string;
-  monthly_fee: number;
+  is_individual: boolean;
+  /** null para clases individuales — el precio vive en el Enrollment */
+  monthly_fee: number | null;
+  /** Solo en grupos individuales: mensualidad del enrollment activo */
+  primary_enrollment_fee?: number | null;
+  /** Solo en grupos individuales: alumno principal */
+  primary_client?: {
+    id: string;
+    full_name: string;
+    primary_contact_phone?: string | null;
+  } | null;
   instructor_id: string | null;
   instructor_name: string | null;
+  disciplines: DisciplineBasic[];     // M2M
   schedules: ClassSchedule[];
   schedule_display: string;
   active_enrollment_count: number;
@@ -549,17 +608,21 @@ export type EnrollmentStatus = 'active' | 'paused' | 'dropped';
 
 export interface Enrollment {
   id: string;
-  client: string;           // UUID en lista
+  client: string;                       // UUID en lista
   client_name: string;
   client_phone: string;
-  class_group: string;      // UUID en lista
+  class_group: string;                  // UUID en lista
   class_group_name: string;
   status: EnrollmentStatus;
   status_display: string;
-  billing_day: number;          // Día del mes efectivo (solo lectura, calculado)
-  custom_billing_day: number | null; // null = usa start_date.day
-  monthly_fee: number;          // Solo lectura, hereda del grupo
-  start_date: string;           // YYYY-MM-DD
+  billing_day: number;                  // Día efectivo (calculado, read-only)
+  custom_billing_day: number | null;    // null = usa start_date.day
+  monthly_fee: number;                  // Alias de effective_monthly_fee (read-only)
+  effective_monthly_fee: number;        // Precio real: custom o el del grupo
+  custom_monthly_fee: number | null;    // null = usa precio del grupo
+  signup_fee: number | null;            // Inscripción única
+  disciplines: DisciplineBasic[];       // Disciplinas de la inscripción
+  start_date: string;                   // YYYY-MM-DD
   notes?: string;
   is_active: boolean;
   created_at: string;

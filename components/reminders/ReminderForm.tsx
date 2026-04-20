@@ -252,7 +252,7 @@ export function ReminderForm({ onSubmit, onCancel, initialData }: ReminderFormPr
         // Agregar teléfono (solo WhatsApp por ahora)
         const selectedClient = clients.find(c => c.id === data.client);
         if (selectedClient) {
-          request.phone_number = selectedClient.phone;
+          request.phone_number = selectedClient.primary_contact_phone ?? selectedClient.phone ?? undefined;
         }
       } else if (data.targetType === "group" && data.clientGroup) {
         request.client_group = data.clientGroup;

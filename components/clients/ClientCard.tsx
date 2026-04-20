@@ -63,27 +63,25 @@ export function ClientCard({ client, onDelete }: ClientCardProps) {
                 <span>{client.email}</span>
               </div>
             )}
-            {client.phone && (
+            {(client.primary_contact_phone ?? client.phone) && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Phone className="h-3 w-3" />
-                <span>{client.phone}</span>
+                <span>{client.primary_contact_phone ?? client.phone}</span>
               </div>
             )}
-            {!client.email && !client.phone && (
+            {!client.email && !(client.primary_contact_phone ?? client.phone) && (
               <span className="text-muted-foreground italic text-sm">Sin contacto</span>
             )}
           </div>
 
           {/* Total citas */}
-          <div className="pt-2 border-t">
-            {client.total_appointments > 0 ? (
+          {(client.total_appointments ?? 0) > 0 && (
+            <div className="pt-2 border-t">
               <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-1 text-xs font-medium">
                 {client.total_appointments} cita{client.total_appointments !== 1 ? "s" : ""}
               </span>
-            ) : (
-              <span className="text-muted-foreground italic text-sm">Sin citas</span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

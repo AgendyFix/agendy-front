@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { employeesApi } from "@/lib/api/employees";
+import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
 import type { Employee } from "@/lib/types/models";
 
 interface CreateEmployeeDialogProps {
@@ -29,18 +30,18 @@ export function CreateEmployeeDialog({ onCreated }: CreateEmployeeDialogProps) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName]   = useState("");
-  const [email, setEmail]         = useState("");
-  const [phone, setPhone]         = useState("");
-  const [specialty, setSpecialty] = useState("");
+  const [firstName, setFirstName]       = useState("");
+  const [lastName, setLastName]         = useState("");
+  const [email, setEmail]               = useState("");
+  const [phone, setPhone]               = useState("");
+  const [disciplines, setDisciplines]   = useState<string[]>([]);
 
   const reset = () => {
     setFirstName("");
     setLastName("");
     setEmail("");
     setPhone("");
-    setSpecialty("");
+    setDisciplines([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,11 +59,11 @@ export function CreateEmployeeDialog({ onCreated }: CreateEmployeeDialogProps) {
     try {
       setSaving(true);
       const created = await employeesApi.create({
-        first_name: firstName.trim(),
-        last_name:  lastName.trim(),
-        email:      email.trim() || undefined,
-        phone:      phone.trim() || undefined,
-        specialty:  specialty.trim() || undefined,
+        first_name:  firstName.trim(),
+        last_name:   lastName.trim(),
+        email:       email.trim() || undefined,
+        phone:       phone.trim() || undefined,
+        disciplines: disciplines.length > 0 ? disciplines : undefined,
       });
       toast.success("Instructor creado correctamente");
       onCreated(created);
@@ -153,13 +154,12 @@ export function CreateEmployeeDialog({ onCreated }: CreateEmployeeDialogProps) {
           </p>
 
           <div className="space-y-1.5">
-            <Label htmlFor="emp-specialty">Especialidad</Label>
-            <Input
-              id="emp-specialty"
-              value={specialty}
-              onChange={(e) => setSpecialty(e.target.value)}
-              placeholder="Ej: Baile urbano, ritmos latinos..."
+            <Label>Disciplinas</Label>
+            <DisciplineMultiSelect
+              value={disciplines}
+              onChange={setDisciplines}
               disabled={saving}
+              placeholder="Ej: Salsa, Guitarra..."
             />
           </div>
 

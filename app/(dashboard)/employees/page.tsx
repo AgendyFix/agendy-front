@@ -179,7 +179,7 @@ export default function EmployeesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Especialidad</TableHead>
+                   <TableHead>Disciplinas</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Teléfono</TableHead>
                   <TableHead>Rol</TableHead>
@@ -195,9 +195,20 @@ export default function EmployeesPage() {
                   >
                     <TableCell className="font-medium">{emp.full_name}</TableCell>
                     <TableCell>
-                      {emp.specialty
-                        ? <span>{emp.specialty}</span>
-                        : <span className="text-muted-foreground italic text-sm">—</span>}
+                      {emp.disciplines && emp.disciplines.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {emp.disciplines.map((d) => (
+                            <span
+                              key={d.id}
+                              className="inline-flex items-center rounded-md bg-secondary text-secondary-foreground px-1.5 py-0.5 text-xs font-medium"
+                            >
+                              {d.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground italic text-sm">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{emp.email || "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{emp.phone || "—"}</TableCell>

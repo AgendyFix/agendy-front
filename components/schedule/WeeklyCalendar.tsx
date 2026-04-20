@@ -92,10 +92,23 @@ function DetailPanel({
   group: ClassGroup;
   scheduleIdx: number;
   onClose: () => void;
-  onNavigate?: (id: string) => void;
+  onNavigate?: (group: ClassGroup) => void;
   pos: { top: number; left?: number; right?: number; fromRight?: boolean };
 }) {
   const schedule = group.schedules[scheduleIdx];
+
+  // Para clases individuales, mostrar el nombre del alumno en lugar del nombre del grupo
+  const displayTitle = group.is_individual && group.primary_client
+    ? group.primary_client.full_name
+    : group.name;
+  const displaySubtitle = group.is_individual
+    ? "Clase individual"
+    : (LEVEL_LABELS[group.level] ?? group.level);
+
+  // Precio: para individuales usar primary_enrollment_fee
+  const displayFee = group.is_individual
+    ? (group.primary_enrollment_fee ?? null)
+    : group.monthly_fee;
 
   return (
     <div
@@ -111,10 +124,8 @@ function DetailPanel({
       {/* Header */}
       <div className="flex items-start justify-between gap-2 p-4 border-b">
         <div className="min-w-0">
-          <h3 className="font-semibold text-sm leading-tight">{group.name}</h3>
-          <span className="text-xs text-muted-foreground">
-            {LEVEL_LABELS[group.level] ?? group.level}
-          </span>
+          <h3 className="font-semibold text-sm leading-tight">{displayTitle}</h3>
+          <span className="text-xs text-muted-foreground">{displaySubtitle}</span>
         </div>
         <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 -mt-0.5" onClick={onClose}>
           <X className="h-4 w-4" />
@@ -122,6 +133,21 @@ function DetailPanel({
       </div>
 
       <div className="p-4 space-y-4">
+
+        {/* Disciplinas */}
+        {group.disciplines && group.disciplines.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {group.disciplines.map((d) => (
+              <span
+                key={d.id}
+                className="inline-flex items-center rounded-md bg-secondary text-secondary-foreground px-2 py-0.5 text-xs font-medium"
+              >
+                {d.name}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Horario del bloque clickeado */}
         <div className="flex items-center gap-2 text-sm">
           <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -133,21 +159,23 @@ function DetailPanel({
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-lg bg-muted/40 p-3 text-center">
-            <div className="flex items-center justify-center gap-1 mb-0.5">
-              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+        {/* Stats — para colectivos: alumnos + mensualidad; para individuales: solo mensualidad */}
+        <div className={`grid gap-2 ${group.is_individual ? "grid-cols-1" : "grid-cols-2"}`}>
+          {!group.is_individual && (
+            <div className="rounded-lg bg-muted/40 p-3 text-center">
+              <div className="flex items-center justify-center gap-1 mb-0.5">
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+              <p className="text-xl font-bold">{group.active_enrollment_count}</p>
+              <p className="text-xs text-muted-foreground">Alumnos</p>
             </div>
-            <p className="text-xl font-bold">{group.active_enrollment_count}</p>
-            <p className="text-xs text-muted-foreground">Alumnos</p>
-          </div>
+          )}
           <div className="rounded-lg bg-green-50 p-3 text-center">
             <div className="flex items-center justify-center gap-1 mb-0.5">
               <DollarSign className="h-3.5 w-3.5 text-green-600" />
             </div>
             <p className="text-xl font-bold text-green-700">
-              ${group.monthly_fee.toLocaleString("es-MX")}
+              {displayFee != null ? `$${displayFee.toLocaleString("es-MX")}` : "—"}
             </p>
             <p className="text-xs text-muted-foreground">Mensualidad</p>
           </div>
@@ -157,7 +185,7 @@ function DetailPanel({
         {group.schedules.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Horario completo
+              {group.is_individual ? "Horarios" : "Horario completo"}
             </p>
             {group.schedules.map((s) => (
               <div key={s.id} className="flex items-center justify-between text-sm">
@@ -170,11 +198,19 @@ function DetailPanel({
           </div>
         )}
 
-        {/* Instructor */}
-        {group.instructor_name && (
+        {/* Instructor — solo para grupos colectivos */}
+        {!group.is_individual && group.instructor_name && (
           <div className="text-xs">
             <span className="text-muted-foreground">Instructor: </span>
             <span className="font-medium">{group.instructor_name}</span>
+          </div>
+        )}
+
+        {/* Teléfono del alumno — solo para individuales */}
+        {group.is_individual && group.primary_client?.primary_contact_phone && (
+          <div className="text-xs">
+            <span className="text-muted-foreground">Teléfono: </span>
+            <span className="font-medium">{group.primary_client.primary_contact_phone}</span>
           </div>
         )}
 
@@ -184,9 +220,9 @@ function DetailPanel({
             variant="outline"
             className="w-full"
             size="sm"
-            onClick={() => onNavigate(group.id)}
+            onClick={() => onNavigate(group)}
           >
-            Ver grupo completo
+            {group.is_individual ? "Ver ficha del alumno" : "Ver grupo completo"}
             <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         )}
@@ -202,7 +238,7 @@ interface WeeklyCalendarProps {
   /** Todos los grupos (para calcular rango de horas incluso con filtro activo) */
   allGroups?: ClassGroup[];
   colorMap?: Record<string, number>;
-  onNavigate?: (groupId: string) => void;
+  onNavigate?: (group: ClassGroup) => void;
   showInstructor?: boolean;
   /** Si true, muestra la línea de hora actual (solo dashboard principal) */
   showCurrentTime?: boolean;
@@ -416,12 +452,19 @@ export function WeeklyCalendar({
                   const isSelected = selected?.group.id === block.group.id
                     && selected?.scheduleIdx === block.scheduleIdx;
 
-                  // Ancho estimado en px para decidir qué texto mostrar
-                  // totalCols > 1 → cada columna es ~(colWidth / totalCols)
-                  // No podemos saber el px exacto sin medir, pero podemos estimar
-                  // si hay solapamiento (totalCols > 1) como "angosto"
                   const isNarrow = block.totalCols > 1;
-                  const tooltipText = `${block.group.name} · ${to12h(schedule.start_time)}–${to12h(schedule.end_time)}${block.group.instructor_name ? ` · ${block.group.instructor_name}` : ""}`;
+
+                  // Nombre principal: para individuales mostrar el alumno, no el nombre técnico del grupo
+                  const displayName = block.group.is_individual && block.group.primary_client?.full_name
+                    ? block.group.primary_client.full_name
+                    : block.group.name;
+
+                  // Disciplinas del grupo (primera si hay varias, para no ocupar espacio)
+                  const disciplineLabel = block.group.disciplines?.length
+                    ? block.group.disciplines.map((d) => d.name).join(" · ")
+                    : null;
+
+                  const tooltipText = `${displayName}${disciplineLabel ? ` · ${disciplineLabel}` : ""} · ${to12h(schedule.start_time)}–${to12h(schedule.end_time)}${block.group.instructor_name ? ` · ${block.group.instructor_name}` : ""}`;
 
                   return (
                     <button
@@ -464,39 +507,44 @@ export function WeeklyCalendar({
                       }}
                     >
                       {isShort ? (
-                        /* Bloque corto: nombre + horario en una sola línea compacta */
-                        <p className="text-[11px] font-semibold leading-tight whitespace-nowrap">
-                          {block.group.name}
-                          <span className="font-normal opacity-75 ml-1 tabular-nums">
+                        /* Bloque corto (< 48px): nombre en una línea + hora compacta */
+                        <p className="text-[11px] font-semibold leading-tight truncate">
+                          {displayName}
+                          <span className="font-normal opacity-70 ml-1 tabular-nums">
                             {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
                           </span>
                         </p>
                       ) : isNarrow ? (
-                        /* Bloque angosto (solapado): nombre truncado + horario en dos líneas */
+                        /* Bloque angosto (solapado): nombre + hora en dos líneas */
                         <>
                           <p className="text-[11px] font-semibold leading-tight truncate">
-                            {block.group.name}
+                            {displayName}
                           </p>
-                          <p className="text-[10px] opacity-75 tabular-nums leading-tight">
+                          <p className="text-[10px] opacity-70 tabular-nums leading-tight">
                             {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
                           </p>
-                          {showInstructor && block.group.instructor_name && h > 52 && (
+                          {disciplineLabel && h > 52 && (
                             <p className="text-[10px] opacity-65 truncate leading-tight">
-                              {block.group.instructor_name}
+                              {disciplineLabel}
                             </p>
                           )}
                         </>
                       ) : (
-                        /* Bloque normal: nombre + horario + instructor */
+                        /* Bloque normal: nombre + disciplina + hora */
                         <>
                           <p className="text-xs font-semibold leading-tight truncate">
-                            {block.group.name}
+                            {displayName}
                           </p>
-                          <p className="text-[11px] opacity-75 tabular-nums leading-tight">
+                          {disciplineLabel && (
+                            <p className="text-[11px] opacity-80 truncate leading-tight">
+                              {disciplineLabel}
+                            </p>
+                          )}
+                          <p className="text-[11px] opacity-65 tabular-nums leading-tight">
                             {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
                           </p>
-                          {showInstructor && block.group.instructor_name && h > 52 && (
-                            <p className="text-[11px] opacity-65 truncate leading-tight">
+                          {showInstructor && block.group.instructor_name && h > 72 && (
+                            <p className="text-[11px] opacity-55 truncate leading-tight">
                               {block.group.instructor_name}
                             </p>
                           )}
@@ -526,7 +574,7 @@ export function WeeklyCalendar({
           scheduleIdx={selected.scheduleIdx}
           pos={panelPos}
           onClose={() => setSelected(null)}
-          onNavigate={onNavigate ? (id) => { setSelected(null); onNavigate(id); } : undefined}
+          onNavigate={onNavigate ? (g) => { setSelected(null); onNavigate(g); } : undefined}
         />
       )}
     </div>

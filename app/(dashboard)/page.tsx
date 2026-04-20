@@ -89,7 +89,7 @@ export default function DashboardPage() {
       try {
         setIsLoading(true);
         const data = await metabaseApi.getDashboard({
-          dashboard_id: "2",
+          dashboard_id: "4",
           date_filter: "thisyear",
         });
         setIframeUrl(data.iframe_url);

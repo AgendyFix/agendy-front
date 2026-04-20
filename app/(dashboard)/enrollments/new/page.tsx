@@ -33,15 +33,31 @@ import { useEnrollments } from "@/lib/hooks/useEnrollments";
 import { clientsApi } from "@/lib/api/clients";
 import { classGroupsApi } from "@/lib/api/classGroups";
 import { enrollmentsApi } from "@/lib/api/enrollments";
+import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
 import type { Client, ClassGroup } from "@/lib/types/models";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 const schema = z.object({
-  client: z.string().min(1, "Selecciona un alumno"),
-  class_group: z.string().min(1, "Selecciona un grupo"),
-  start_date: z.string().min(1, "Selecciona la fecha de inicio"),
-  notes: z.string().optional(),
+  mode:               z.enum(["group", "individual"]),
+  client:             z.string().min(1, "Selecciona un alumno"),
+  // group mode
+  class_group:        z.string().optional(),
+  // individual mode
+  ind_monthly_fee:    z.string().optional(),
+  // common
+  start_date:         z.string().min(1, "Selecciona la fecha de inicio"),
+  custom_billing_day: z.string().optional(),
+  custom_monthly_fee: z.string().optional(), // precio especial en modo grupo
+  signup_fee:         z.string().optional(),
+  notes:              z.string().optional(),
+}).superRefine((val, ctx) => {
+  if (val.mode === "group" && !val.class_group) {
+    ctx.addIssue({ code: "custom", path: ["class_group"], message: "Selecciona un grupo" });
+  }
+  if (val.mode === "individual" && (!val.ind_monthly_fee || isNaN(Number(val.ind_monthly_fee)))) {
+    ctx.addIssue({ code: "custom", path: ["ind_monthly_fee"], message: "La mensualidad es requerida" });
+  }
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -63,6 +79,7 @@ export default function NewEnrollmentPage() {
   const [clientOpen, setClientOpen]               = useState(false);
   const [preselectedGroup, setPreselectedGroup]   = useState<ClassGroup | null>(null);
   const [preselectedClient, setPreselectedClient] = useState<Client | null>(null);
+  const [disciplines, setDisciplines]             = useState<string[]>([]);
 
   // IDs de alumnos ya inscritos en el grupo seleccionado
   const [enrolledClientIds, setEnrolledClientIds] = useState<Set<string>>(new Set());
@@ -72,15 +89,21 @@ export default function NewEnrollmentPage() {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      client:      preselectedClientId,
-      class_group: preselectedGroupId,
-      start_date:  new Date().toISOString().slice(0, 10),
-      notes:       "",
+      mode:               preselectedGroupId ? "group" : "group",
+      client:             preselectedClientId,
+      class_group:        preselectedGroupId,
+      ind_monthly_fee:    "",
+      start_date:         new Date().toISOString().slice(0, 10),
+      custom_billing_day: "",
+      custom_monthly_fee: "",
+      signup_fee:         "",
+      notes:              "",
     },
   });
 
+  const mode             = form.watch("mode");
   const selectedClientId = form.watch("client");
-  const selectedGroupId  = form.watch("class_group");
+  const selectedGroupId  = form.watch("class_group") ?? "";
   const selectedClient   = clients.find((c) => c.id === selectedClientId) ?? preselectedClient;
   const selectedGroup    = groups.find((g) => g.id === selectedGroupId) ?? preselectedGroup;
 
@@ -153,22 +176,46 @@ export default function NewEnrollmentPage() {
   }, [selectedClientId, preselectedClientId]);
 
   const handleSubmit = async (values: FormValues) => {
-    // Validación previa client-side
-    if (enrolledClientIds.has(values.client)) {
-      toast.error("Este alumno ya está inscrito en el grupo seleccionado");
-      return;
-    }
-    if (enrolledGroupIds.has(values.class_group)) {
-      toast.error("El alumno ya está inscrito en este grupo");
-      return;
-    }
     try {
+      let classGroupId = values.class_group ?? "";
+
+      if (values.mode === "individual") {
+        // ── Flujo individual: crear ClassGroup primero, luego Enrollment ──
+        // Obtener el nombre del cliente seleccionado para el nombre del grupo
+        const client = clients.find((c) => c.id === values.client) ?? preselectedClient;
+        const clientName = client?.full_name ?? "Alumno";
+        const group = await classGroupsApi.create({
+          name:         `Clase individual - ${clientName}`,
+          is_individual: true,
+          monthly_fee:  null,
+          disciplines:  disciplines.length > 0 ? disciplines : undefined,
+        });
+        classGroupId = group.id;
+      } else {
+        // ── Flujo grupal: validar duplicados ──
+        if (enrolledClientIds.has(values.client)) {
+          toast.error("Este alumno ya está inscrito en el grupo seleccionado");
+          return;
+        }
+        if (enrolledGroupIds.has(classGroupId)) {
+          toast.error("El alumno ya está inscrito en este grupo");
+          return;
+        }
+      }
+
       await createEnrollment({
-        client:      values.client,
-        class_group: values.class_group,
-        start_date:  values.start_date,
-        notes:       values.notes || undefined,
+        client:             values.client,
+        class_group:        classGroupId,
+        start_date:         values.start_date,
+        custom_billing_day: values.custom_billing_day ? Number(values.custom_billing_day) : undefined,
+        custom_monthly_fee: values.mode === "individual"
+          ? (values.ind_monthly_fee ? Number(values.ind_monthly_fee) : undefined)
+          : (values.custom_monthly_fee ? Number(values.custom_monthly_fee) : undefined),
+        signup_fee:         values.signup_fee ? Number(values.signup_fee) : null,
+        disciplines:        disciplines.length > 0 ? disciplines : undefined,
+        notes:              values.notes || undefined,
       });
+
       toast.success("Alumno inscrito exitosamente");
       if (preselectedClientId) {
         router.push(`/clients/${preselectedClientId}`);
@@ -180,7 +227,6 @@ export default function NewEnrollmentPage() {
     } catch (err: unknown) {
       const apiErrors = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
       if (apiErrors && typeof apiErrors === "object") {
-        // non_field_errors: duplicado → mensaje amigable
         const nonField = apiErrors.non_field_errors;
         if (nonField) {
           toast.error("Este alumno ya está inscrito en este grupo");
@@ -224,6 +270,40 @@ export default function NewEnrollmentPage() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
 
+              {/* ── Tipo de clase ── */}
+              {!preselectedGroupId && (
+                <FormField
+                  control={form.control}
+                  name="mode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de clase</FormLabel>
+                      <div className="grid grid-cols-2 gap-2">
+                        {([
+                          { value: "group",      label: "Grupo colectivo", desc: "Se une a un grupo existente" },
+                          { value: "individual", label: "Clase individual", desc: "Crea su propio grupo" },
+                        ] as const).map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => field.onChange(opt.value)}
+                            className={`rounded-lg border p-3 text-left transition-colors ${
+                              field.value === opt.value
+                                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                : "border-input hover:bg-muted/50"
+                            }`}
+                          >
+                            <p className="text-sm font-medium">{opt.label}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
+                          </button>
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               {/* ── Selector de alumno (Combobox) ── */}
               <FormField
                 control={form.control}
@@ -251,9 +331,9 @@ export default function NewEnrollmentPage() {
                             ) : selectedClient ? (
                               <span className="flex items-center gap-2">
                                 <span className="font-medium">{selectedClient.full_name}</span>
-                                {selectedClient.phone && (
+                                {(selectedClient.primary_contact_phone ?? selectedClient.phone) && (
                                   <span className="text-muted-foreground text-xs">
-                                    {selectedClient.phone}
+                                    {selectedClient.primary_contact_phone ?? selectedClient.phone}
                                   </span>
                                 )}
                               </span>
@@ -275,7 +355,7 @@ export default function NewEnrollmentPage() {
                                 return (
                                   <CommandItem
                                     key={c.id}
-                                    value={`${c.full_name} ${c.phone ?? ""}`}
+                                    value={`${c.full_name} ${c.primary_contact_phone ?? c.phone ?? ""}`}
                                     disabled={isEnrolled}
                                     onSelect={() => {
                                       if (isEnrolled) return;
@@ -292,8 +372,8 @@ export default function NewEnrollmentPage() {
                                     />
                                     <div className="flex flex-col flex-1">
                                       <span className="font-medium">{c.full_name}</span>
-                                      {c.phone && (
-                                        <span className="text-xs text-muted-foreground">{c.phone}</span>
+                                      {(c.primary_contact_phone ?? c.phone) && (
+                                        <span className="text-xs text-muted-foreground">{c.primary_contact_phone ?? c.phone}</span>
                                       )}
                                     </div>
                                     {isEnrolled && (
@@ -314,77 +394,108 @@ export default function NewEnrollmentPage() {
                 )}
               />
 
-              {/* ── Selector de grupo ── */}
-              <FormField
-                control={form.control}
-                name="class_group"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Grupo / Clase *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={loadingGroups || !!preselectedGroupId}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          {loadingGroups ? (
-                            <span className="flex items-center gap-2 text-muted-foreground">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Cargando grupos...
-                            </span>
-                          ) : (
-                            <SelectValue placeholder="Seleccionar grupo" />
-                          )}
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {groups.map((g) => {
-                          const isEnrolled = enrolledGroupIds.has(g.id);
-                          return (
-                            <SelectItem
-                              key={g.id}
-                              value={g.id}
-                              disabled={isEnrolled}
-                              className={cn(isEnrolled && "opacity-50")}
-                            >
-                              <div className="flex flex-col">
-                                <span>
-                                  {g.name}
-                                  {isEnrolled && (
-                                    <span className="ml-2 text-xs text-muted-foreground">· Ya inscrito</span>
-                                  )}
+              {/* ── Modo grupo: selector de grupo + info ── */}
+              {mode === "group" && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="class_group"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Grupo *</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value ?? ""}
+                          disabled={loadingGroups || !!preselectedGroupId}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              {loadingGroups ? (
+                                <span className="flex items-center gap-2 text-muted-foreground">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Cargando grupos...
                                 </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {g.level_display} · ${g.monthly_fee.toLocaleString("es-MX")}/mes
-                                </span>
-                              </div>
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                              ) : (
+                                <SelectValue placeholder="Seleccionar grupo" />
+                              )}
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {groups.filter((g) => !g.is_individual).map((g) => {
+                              const isEnrolled = enrolledGroupIds.has(g.id);
+                              return (
+                                <SelectItem
+                                  key={g.id}
+                                  value={g.id}
+                                  disabled={isEnrolled}
+                                  className={cn(isEnrolled && "opacity-50")}
+                                >
+                                  <div className="flex flex-col">
+                                    <span>
+                                      {g.name}
+                                      {isEnrolled && <span className="ml-2 text-xs text-muted-foreground">· Ya inscrito</span>}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {g.level_display}{g.monthly_fee != null ? ` · $${g.monthly_fee.toLocaleString("es-MX")}/mes` : ""}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              {/* ── Info del grupo seleccionado ── */}
-              {selectedGroup && (
-                <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
-                  <p className="font-medium text-sm">{selectedGroup.name}</p>
-                  {selectedGroup.schedule_display && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5 shrink-0" />
-                      <span>{selectedGroup.schedule_display}</span>
+                  {selectedGroup && (
+                    <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5 text-sm">
+                      {selectedGroup.schedule_display && (
+                        <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                          <Clock className="h-3.5 w-3.5 shrink-0" />
+                          <span>{selectedGroup.schedule_display}</span>
+                        </div>
+                      )}
+                      {selectedGroup.monthly_fee != null && (
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-green-700">
+                          <DollarSign className="h-3.5 w-3.5" />
+                          <span>${selectedGroup.monthly_fee.toLocaleString("es-MX")}/mes</span>
+                        </div>
+                      )}
                     </div>
                   )}
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-green-700">
-                    <DollarSign className="h-3.5 w-3.5" />
-                    <span>${selectedGroup.monthly_fee.toLocaleString("es-MX")}/mes</span>
-                  </div>
-                </div>
+                </>
               )}
+
+              {/* ── Modo individual: mensualidad requerida ── */}
+              {mode === "individual" && (
+                <FormField
+                  control={form.control}
+                  name="ind_monthly_fee"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mensualidad *</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} step={50} placeholder="1200" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* ── Disciplinas ── */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium leading-none">
+                  Disciplinas <span className="text-muted-foreground font-normal">(opcional)</span>
+                </label>
+                <DisciplineMultiSelect
+                  value={disciplines}
+                  onChange={setDisciplines}
+                  disabled={isLoading}
+                />
+              </div>
 
               {/* ── Fecha de inicio ── */}
               <FormField
@@ -404,6 +515,55 @@ export default function NewEnrollmentPage() {
                   </FormItem>
                 )}
               />
+
+              {/* ── Opciones: día de pago + precio especial (grupo) + inscripción ── */}
+              <div className="grid gap-3 grid-cols-3">
+                <FormField
+                  control={form.control}
+                  name="custom_billing_day"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Día de pago <span className="text-muted-foreground font-normal text-xs">(1-28)</span></FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} max={28} placeholder="Ej: 15" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {mode === "group" && (
+                  <FormField
+                    control={form.control}
+                    name="custom_monthly_fee"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Precio especial <span className="text-muted-foreground font-normal text-xs">(opc.)</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number" min={0}
+                            placeholder={selectedGroup?.monthly_fee != null ? String(selectedGroup.monthly_fee) : "Del grupo"}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                <FormField
+                  control={form.control}
+                  name="signup_fee"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Inscripción <span className="text-muted-foreground font-normal text-xs">(opc.)</span></FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} placeholder="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               {/* ── Notas ── */}
               <FormField

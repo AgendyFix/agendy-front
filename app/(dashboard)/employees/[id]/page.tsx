@@ -31,6 +31,7 @@ import { employeesApi } from "@/lib/api/employees";
 import { classGroupsApi } from "@/lib/api/classGroups";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { WeeklyCalendar, GROUP_COLORS } from "@/components/schedule/WeeklyCalendar";
+import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
 import type { Employee, ClassGroup } from "@/lib/types/models";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ export default function InstructorDetailPage() {
   const [editing, setEditing]                 = useState(false);
   const [firstName, setFirstName]             = useState("");
   const [lastName, setLastName]               = useState("");
-  const [specialty, setSpecialty]             = useState("");
+  const [disciplines, setDisciplines]         = useState<string[]>([]);
   const [phone, setPhone]                     = useState("");
   const [saving, setSaving]                   = useState(false);
   const [activeGroupIds, setActiveGroupIds]   = useState<Set<string>>(new Set());
@@ -90,7 +91,7 @@ export default function InstructorDetailPage() {
         setEmployee(data);
         setFirstName(data.first_name ?? "");
         setLastName(data.last_name ?? "");
-        setSpecialty(data.specialty ?? "");
+        setDisciplines(data.disciplines?.map((d) => d.id) ?? []);
         setPhone(data.phone ?? "");
       } catch {
         toast.error("Error al cargar el instructor");
@@ -124,10 +125,10 @@ export default function InstructorDetailPage() {
     try {
       setSaving(true);
       const updated = await employeesApi.update(id, {
-        first_name: firstName.trim(),
-        last_name:  lastName.trim(),
-        specialty:  specialty.trim() || undefined,
-        phone:      phone.trim() || undefined,
+        first_name:  firstName.trim(),
+        last_name:   lastName.trim(),
+        disciplines: disciplines,
+        phone:       phone.trim() || undefined,
       });
       setEmployee(updated);
       setEditing(false);
@@ -180,8 +181,14 @@ export default function InstructorDetailPage() {
               {ROLE_LABELS[employee.role] ?? employee.role}
             </span>
           </div>
-          {employee.specialty && (
-            <p className="text-muted-foreground text-sm">{employee.specialty}</p>
+          {employee.disciplines && employee.disciplines.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              {employee.disciplines.map((d) => (
+                <span key={d.id} className="inline-flex items-center rounded-md bg-secondary text-secondary-foreground px-2 py-0.5 text-xs font-medium">
+                  {d.name}
+                </span>
+              ))}
+            </div>
           )}
         </div>
         {isAdmin && (
@@ -320,10 +327,12 @@ export default function InstructorDetailPage() {
                           <Users className="h-3 w-3" />
                           {group.active_enrollment_count}
                         </span>
-                        <span className="flex items-center gap-1 text-green-700 font-medium">
-                          <DollarSign className="h-3 w-3" />
-                          ${group.monthly_fee.toLocaleString("es-MX")}
-                        </span>
+                        {group.monthly_fee != null && (
+                          <span className="flex items-center gap-1 text-green-700 font-medium">
+                            <DollarSign className="h-3 w-3" />
+                            ${group.monthly_fee.toLocaleString("es-MX")}
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -395,13 +404,12 @@ export default function InstructorDetailPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="edit-specialty">Especialidad</Label>
-                    <Input
-                      id="edit-specialty"
-                      value={specialty}
-                      onChange={(e) => setSpecialty(e.target.value)}
-                      placeholder="Ej: Baile urbano, ritmos latinos..."
+                    <Label>Disciplinas</Label>
+                    <DisciplineMultiSelect
+                      value={disciplines}
+                      onChange={setDisciplines}
                       disabled={saving}
+                      placeholder="Ej: Salsa, Guitarra..."
                     />
                   </div>
                   <div className="flex gap-2 pt-1">
@@ -415,7 +423,7 @@ export default function InstructorDetailPage() {
                         setEditing(false);
                         setFirstName(employee.first_name ?? "");
                         setLastName(employee.last_name ?? "");
-                        setSpecialty(employee.specialty ?? "");
+                        setDisciplines(employee.disciplines?.map((d) => d.id) ?? []);
                         setPhone(employee.phone ?? "");
                       }}
                       disabled={saving}
@@ -433,10 +441,18 @@ export default function InstructorDetailPage() {
                       : <span className="italic text-muted-foreground">Sin teléfono</span>}
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Especialidad: </span>
-                    {employee.specialty
-                      ? <span className="font-medium">{employee.specialty}</span>
-                      : <span className="italic text-muted-foreground">Sin especialidad</span>}
+                    <span className="text-muted-foreground text-sm">Disciplinas: </span>
+                    {employee.disciplines && employee.disciplines.length > 0 ? (
+                      <span className="flex flex-wrap gap-1 mt-1">
+                        {employee.disciplines.map((d) => (
+                          <span key={d.id} className="inline-flex items-center rounded-md bg-secondary text-secondary-foreground px-2 py-0.5 text-xs font-medium">
+                            {d.name}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="italic text-muted-foreground text-sm">Sin disciplinas asignadas</span>
+                    )}
                   </div>
                 </div>
               )}

@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Trash2, Loader2, UserX } from "lucide-react";
+import { Plus, Trash2, Loader2, UserX, Info } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import {
 import type { ClassGroup, Employee } from "@/lib/types/models";
 import type { CreateClassGroupRequest } from "@/lib/types/api";
 import { employeesApi } from "@/lib/api/employees";
+import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
 
 // ── Schema ─────────────────────────────────────────────────────────────────
 
@@ -43,8 +44,9 @@ const scheduleSchema = z.object({
 const classGroupSchema = z.object({
   name: z.string().min(2, "Mínimo 2 caracteres").max(120, "Máximo 120 caracteres"),
   level: z.enum(["all", "beginner", "intermediate", "advanced"]),
-  monthly_fee: z.number().min(0, "Debe ser mayor o igual a 0"),
+  monthly_fee: z.number().min(0, "Debe ser mayor o igual a 0").optional(),
   instructor: z.string().optional(),
+  disciplines: z.array(z.string()),
   schedules: z.array(scheduleSchema),
 });
 
@@ -91,6 +93,8 @@ export function ClassGroupForm({
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
 
+  const isIndividual = initialData?.is_individual ?? false;
+
   // Cargar empleados para el selector de instructor
   useEffect(() => {
     const load = async () => {
@@ -112,8 +116,9 @@ export function ClassGroupForm({
     defaultValues: {
       name: initialData?.name ?? "",
       level: (initialData?.level as ClassGroupFormValues["level"]) ?? "all",
-      monthly_fee: initialData?.monthly_fee ?? 0,
+      monthly_fee: initialData?.monthly_fee ?? undefined,
       instructor: initialData?.instructor_id ?? "",
+      disciplines: initialData?.disciplines?.map((d) => d.id) ?? [],
       schedules: initialData?.schedules?.map((s) => ({
         day_of_week: s.day_of_week,
         start_time: s.start_time.slice(0, 5), // "HH:MM"
@@ -133,8 +138,9 @@ export function ClassGroupForm({
       const payload: CreateClassGroupRequest = {
         name: values.name,
         level: values.level,
-        monthly_fee: values.monthly_fee,
+        monthly_fee: isIndividual ? null : (values.monthly_fee ?? null),
         instructor: values.instructor || undefined,
+        disciplines: values.disciplines.length > 0 ? values.disciplines : undefined,
         schedules: values.schedules.map((s) => ({
           day_of_week: s.day_of_week as 0|1|2|3|4|5|6,
           start_time: s.start_time,
@@ -178,61 +184,71 @@ export function ClassGroupForm({
           )}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Nivel */}
-          <FormField
-            control={form.control}
-            name="level"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nivel *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar nivel" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {LEVELS.map((l) => (
-                      <SelectItem key={l.value} value={l.value}>
-                        {l.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        {/* Nivel — solo para grupos colectivos */}
+        {!isIndividual && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="level"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nivel *</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar nivel" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {LEVELS.map((l) => (
+                        <SelectItem key={l.value} value={l.value}>
+                          {l.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          {/* Mensualidad */}
-          <FormField
-            control={form.control}
-            name="monthly_fee"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Mensualidad (MXN) *</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min={0}
-                    placeholder="350"
-                    value={field.value === 0 && field.value !== undefined ? "" : field.value}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      field.onChange(raw === "" ? 0 : parseFloat(raw));
-                    }}
-                    onFocus={(e) => {
-                      // Selecciona todo al hacer foco para facilitar reemplazar el valor
-                      e.target.select();
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+            {/* Mensualidad — solo para grupos colectivos */}
+            <FormField
+              control={form.control}
+              name="monthly_fee"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mensualidad (MXN) *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="350"
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        field.onChange(raw === "" ? undefined : parseFloat(raw));
+                      }}
+                      onFocus={(e) => e.target.select()}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
+
+        {/* Nota para clases individuales */}
+        {isIndividual && (
+          <div className="flex items-start gap-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2.5 text-xs text-blue-700">
+            <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>
+              La mensualidad de una clase individual se gestiona desde la ficha del alumno,
+              en la sección de inscripciones.
+            </span>
+          </div>
+        )}
 
         {/* Instructor */}
         <FormField
@@ -272,6 +288,26 @@ export function ClassGroupForm({
                   ))}
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Disciplinas */}
+        <FormField
+          control={form.control}
+          name="disciplines"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Disciplinas</FormLabel>
+              <FormControl>
+                <DisciplineMultiSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={busy}
+                  placeholder="Ej: Salsa, Guitarra..."
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

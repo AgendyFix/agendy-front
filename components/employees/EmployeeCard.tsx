@@ -50,7 +50,7 @@ export function EmployeeCard({ employee, isAdmin }: EmployeeCardProps) {
             )}
           </div>
 
-          {/* Rol y especialidad */}
+          {/* Rol y disciplinas */}
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
@@ -62,9 +62,14 @@ export function EmployeeCard({ employee, isAdmin }: EmployeeCardProps) {
               {employee.role === "admin" ? "Administrador" : "Instructor"}
             </span>
 
-            {employee.specialty && (
-              <span className="text-xs text-muted-foreground">{employee.specialty}</span>
-            )}
+            {employee.disciplines?.map((d) => (
+              <span
+                key={d.id}
+                className="inline-flex items-center rounded-md bg-secondary text-secondary-foreground px-1.5 py-0.5 text-xs font-medium"
+              >
+                {d.name}
+              </span>
+            ))}
           </div>
         </div>
       </CardContent>

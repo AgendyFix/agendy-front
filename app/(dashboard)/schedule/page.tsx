@@ -4,9 +4,9 @@
 // SCHEDULE PAGE - Calendario global de clases
 // ============================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Users } from "lucide-react";
+import { Loader2, Users, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -26,6 +26,9 @@ export default function SchedulePage() {
   const [loadingFilter, setLoadingFilter]       = useState(false);
   const [filterInstructor, setFilterInstructor] = useState("all");
   const [activeGroupIds, setActiveGroupIds]     = useState<Set<string>>(new Set());
+  const [legendExpanded, setLegendExpanded]     = useState(false);
+
+  const LEGEND_COLLAPSE_THRESHOLD = 12;
 
   // Carga inicial: todos los grupos + todos los employees
   useEffect(() => {
@@ -64,10 +67,22 @@ export default function SchedulePage() {
     }
   };
 
-  // Grupos visibles: si hay activos en leyenda, solo esos; si no, todos los filtrados
+  // Solo grupos con horario asignado — los sin schedules no aparecen en el calendario
+  const groupsWithSchedule = useMemo(
+    () => filteredGroups.filter((g) => g.schedules.length > 0),
+    [filteredGroups]
+  );
+
+  // Grupos visibles: si hay activos en leyenda, solo esos; si no, todos con horario
   const visibleGroups = activeGroupIds.size > 0
-    ? filteredGroups.filter((g) => activeGroupIds.has(g.id))
-    : filteredGroups;
+    ? groupsWithSchedule.filter((g) => activeGroupIds.has(g.id))
+    : groupsWithSchedule;
+
+  // Nombre a mostrar en la leyenda
+  const legendName = (g: ClassGroup) =>
+    g.is_individual && g.primary_client?.full_name
+      ? g.primary_client.full_name
+      : g.name;
 
   // Mapa de color consistente (basado en índice global, no filtrado)
   const colorMap: Record<string, number> = {};
@@ -132,42 +147,67 @@ export default function SchedulePage() {
               showInstructor
               showCurrentTime
               fillHeight
-              onNavigate={(gid) => router.push(`/class-groups/${gid}`)}
+              onNavigate={(group) => {
+                if (group.is_individual && group.primary_client?.id) {
+                  router.push(`/clients/${group.primary_client.id}`);
+                } else {
+                  router.push(`/class-groups/${group.id}`);
+                }
+              }}
             />
           </div>
 
-          {/* Leyenda interactiva */}
-          {filteredGroups.length > 0 && (
-            <div className="flex flex-wrap gap-2 shrink-0 pb-1">
-              {filteredGroups.map((g) => {
-                const isActive = activeGroupIds.has(g.id);
-                const color    = GROUP_COLORS[colorMap[g.id]];
-                return (
+          {/* Leyenda interactiva — solo grupos con horario */}
+          {groupsWithSchedule.length > 0 && (
+            <div className="shrink-0 pb-1 space-y-1.5">
+              <div className="flex flex-wrap gap-1.5">
+                {(legendExpanded
+                  ? groupsWithSchedule
+                  : groupsWithSchedule.slice(0, LEGEND_COLLAPSE_THRESHOLD)
+                ).map((g) => {
+                  const isActive = activeGroupIds.has(g.id);
+                  const color    = GROUP_COLORS[colorMap[g.id]];
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => toggleGroup(g.id)}
+                      title={g.name}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs transition-all
+                        ${isActive
+                          ? `${color.bg} ${color.border} ${color.text} font-medium`
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                        }`}
+                    >
+                      <div className={`h-2 w-2 rounded-full shrink-0 ${color.dot}`} />
+                      {legendName(g)}
+                    </button>
+                  );
+                })}
+
+                {/* Expandir / colapsar */}
+                {groupsWithSchedule.length > LEGEND_COLLAPSE_THRESHOLD && (
                   <button
-                    key={g.id}
-                    onClick={() => toggleGroup(g.id)}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs transition-all
-                      ${isActive
-                        ? `${color.bg} ${color.border} ${color.text} font-medium`
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                      }`}
+                    onClick={() => setLegendExpanded((v) => !v)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <div className={`h-2 w-2 rounded-full shrink-0 ${color.dot}`} />
-                    {g.name}
-                    {g.instructor_name && (
-                      <span className="opacity-60">· {g.instructor_name}</span>
+                    {legendExpanded ? (
+                      <><ChevronUp className="h-3 w-3" />Colapsar</>
+                    ) : (
+                      <><ChevronDown className="h-3 w-3" />+{groupsWithSchedule.length - LEGEND_COLLAPSE_THRESHOLD} más</>
                     )}
                   </button>
-                );
-              })}
-              {activeGroupIds.size > 0 && (
-                <button
-                  onClick={() => setActiveGroupIds(new Set())}
-                  className="px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Limpiar filtros
-                </button>
-              )}
+                )}
+
+                {/* Limpiar filtros */}
+                {activeGroupIds.size > 0 && (
+                  <button
+                    onClick={() => setActiveGroupIds(new Set())}
+                    className="px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -193,8 +233,10 @@ export default function SchedulePage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{emp.full_name}</p>
-                    {emp.specialty && (
-                      <p className="text-xs text-muted-foreground truncate">{emp.specialty}</p>
+                    {emp.disciplines && emp.disciplines.length > 0 && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {emp.disciplines.map((d) => d.name).join(", ")}
+                      </p>
                     )}
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span>{instrGroups.length} grupo{instrGroups.length !== 1 ? "s" : ""}</span>

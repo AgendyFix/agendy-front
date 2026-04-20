@@ -208,6 +208,14 @@ export default function ClassGroupDetailPage() {
   if (!group) return null;
 
   const activeCount = enrollments.filter((e) => e.status === "active").length;
+  // Para clases individuales, el precio viene de primary_enrollment_fee (backend)
+  // o como fallback del enrollment activo cargado localmente
+  const activeEnrollment = group.is_individual
+    ? enrollments.find((e) => e.status === "active")
+    : null;
+  const displayFee = group.is_individual
+    ? (group.primary_enrollment_fee ?? activeEnrollment?.monthly_fee ?? null)
+    : group.monthly_fee;
 
   return (
     <div className="space-y-6">
@@ -286,8 +294,12 @@ export default function ClassGroupDetailPage() {
                   <DollarSign className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">${group.monthly_fee.toLocaleString("es-MX")}</p>
-                  <p className="text-xs text-muted-foreground">Mensualidad MXN</p>
+                  <p className="text-2xl font-bold">
+                    {displayFee != null ? `$${displayFee.toLocaleString("es-MX")}` : "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {group.is_individual ? "Mensualidad del alumno" : "Mensualidad base"}
+                  </p>
                 </div>
               </CardContent>
             </Card>

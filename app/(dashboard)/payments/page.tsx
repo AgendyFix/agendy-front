@@ -74,8 +74,7 @@ const MONTHS = [
 
 function formatDate(date: string) {
   if (!date) return "—";
-  const [, m, d] = date.split("-");
-  const [y] = date.split("-");
+  const [y, m, d] = date.split("-");
   return `${d}/${m}/${y}`;
 }
 
