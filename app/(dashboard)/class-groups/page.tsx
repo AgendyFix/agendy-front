@@ -4,7 +4,7 @@
 // CLASS GROUPS PAGE - Lista de grupos/clases
 // ============================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Search, GraduationCap, Loader2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
@@ -34,17 +34,19 @@ import { useClassGroups } from "@/lib/hooks/useClassGroups";
 import type { ClassGroupLevel } from "@/lib/types/models";
 
 const LEVELS = [
-  { value: "all_levels", label: "Todos los niveles" },
-  { value: "all",        label: "Sin nivel" },
-  { value: "beginner",   label: "Principiante" },
-  { value: "intermediate", label: "Intermedio" },
-  { value: "advanced",   label: "Avanzado" },
+  { value: "all_levels",    label: "Todos los niveles" },
+  { value: "all",           label: "Sin nivel" },
+  { value: "beginner",      label: "Principiante" },
+  { value: "intermediate",  label: "Intermedio" },
+  { value: "advanced",      label: "Avanzado" },
 ];
 
 export default function ClassGroupsPage() {
   const router = useRouter();
-  const { classGroups, isLoading, totalCount, fetchClassGroups, deleteClassGroup } =
-    useClassGroups();
+  const {
+    classGroups, isLoading, isLoadingMore, totalCount, hasNext,
+    fetchClassGroups, loadMore, deleteClassGroup,
+  } = useClassGroups();
 
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState("all_levels");
@@ -52,25 +54,51 @@ export default function ClassGroupsPage() {
   const [deleting, setDeleting] = useState(false);
   const [disciplinesOpen, setDisciplinesOpen] = useState(false);
 
-  // Carga inicial
+  // Sentinel para IntersectionObserver (scroll infinito)
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // ── Carga inicial ──────────────────────────────────────────────────────
   useEffect(() => {
     fetchClassGroups({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Buscar con debounce
+  // ── Búsqueda / filtro con debounce ────────────────────────────────────
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     const timeout = setTimeout(() => {
       fetchClassGroups({
         search: search || undefined,
         level: levelFilter !== "all_levels" ? (levelFilter as ClassGroupLevel) : undefined,
-        page: 1,
       });
     }, 400);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, levelFilter]);
 
+  // ── IntersectionObserver — carga la siguiente página al llegar al final ─
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNext && !isLoadingMore) {
+          loadMore();
+        }
+      },
+      { rootMargin: "200px" } // empieza a cargar 200px antes del final
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasNext, isLoadingMore, loadMore]);
+
+  // ── Handlers ───────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -85,15 +113,17 @@ export default function ClassGroupsPage() {
     }
   };
 
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
+
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Grupos / Clases</h1>
           <p className="text-muted-foreground">
             {totalCount > 0
-              ? `${totalCount} grupo${totalCount !== 1 ? "s" : ""} activo${totalCount !== 1 ? "s" : ""}`
+              ? `${classGroups.length} de ${totalCount} grupo${totalCount !== 1 ? "s" : ""}`
               : "Gestiona los grupos y horarios de tu academia"}
           </p>
         </div>
@@ -155,15 +185,31 @@ export default function ClassGroupsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {classGroups.map((group) => (
-            <ClassGroupCard
-              key={group.id}
-              group={group}
-              onDelete={(id, name) => setDeleteTarget({ id, name })}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {classGroups.map((group) => (
+              <ClassGroupCard
+                key={group.id}
+                group={group}
+                onDelete={(id, name) => setDeleteTarget({ id, name })}
+              />
+            ))}
+          </div>
+
+          {/* Sentinel — dispara loadMore al entrar en viewport */}
+          <div ref={sentinelRef} className="py-2 flex justify-center">
+            {isLoadingMore && (
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            )}
+          </div>
+
+          {/* Indicador de total cuando ya se cargó todo */}
+          {!hasNext && !isLoadingMore && totalCount > 0 && (
+            <p className="text-center text-xs text-muted-foreground pb-2">
+              {totalCount} grupo{totalCount !== 1 ? "s" : ""} en total
+            </p>
+          )}
+        </>
       )}
 
       {/* Modal catálogo de disciplinas */}
@@ -172,7 +218,7 @@ export default function ClassGroupsPage() {
         onOpenChange={setDisciplinesOpen}
       />
 
-      {/* Confirm delete dialog */}
+      {/* Confirm delete */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -11,6 +11,7 @@ import { z } from "zod";
 import { Loader2, ChevronsUpDown, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -41,9 +42,10 @@ import type { Enrollment, Payment, UnpaidEnrollment } from "@/lib/types/models";
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 const schema = z.object({
-  enrollment: z.string().min(1, "Selecciona un alumno"),
+  enrollment:     z.string().min(1, "Selecciona un alumno"),
   payment_method: z.enum(["cash", "card", "transfer", "other"]),
-  payment_date: z.string().min(1, "Selecciona la fecha"),
+  payment_date:   z.string().min(1, "Selecciona la fecha"),
+  amount_paid:    z.string().min(1, "Ingresa el monto"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -55,6 +57,7 @@ interface RegisterPaymentFormProps {
     enrollment: string;
     payment_method: Payment["payment_method"];
     payment_date: string;
+    amount_paid: number;
   }) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
@@ -80,9 +83,13 @@ export function RegisterPaymentForm({
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      enrollment: preselectedEnrollment?.enrollment_id ?? "",
+      enrollment:     preselectedEnrollment?.enrollment_id ?? "",
       payment_method: "cash",
-      payment_date: new Date().toISOString().slice(0, 10),
+      payment_date:   new Date().toISOString().slice(0, 10),
+      // Prellenar con el monto conocido; si no se conoce todavía, vacío
+      amount_paid:    preselectedEnrollment?.monthly_fee
+                        ? String(preselectedEnrollment.monthly_fee)
+                        : "",
     },
   });
 
@@ -107,14 +114,37 @@ export function RegisterPaymentForm({
     load();
   }, [preselectedEnrollment, clientFilter]);
 
-  const selectedId = form.watch("enrollment");
+  const selectedId         = form.watch("enrollment");
+  const amountPaidRaw      = form.watch("amount_paid");
   const selectedEnrollment = enrollments.find((e) => e.id === selectedId) ?? null;
 
+  // Monto total de la mensualidad
+  const monthlyFee =
+    preselectedEnrollment?.monthly_fee ??
+    selectedEnrollment?.monthly_fee ??
+    null;
+
+  // Cuando el usuario elige una inscripción del combobox, prellenar el monto
+  useEffect(() => {
+    if (selectedEnrollment?.monthly_fee) {
+      form.setValue("amount_paid", String(selectedEnrollment.monthly_fee));
+    }
+  }, [selectedEnrollment?.monthly_fee]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const amountPaidNum = amountPaidRaw ? parseFloat(amountPaidRaw) : null;
+  const isParcial = amountPaidNum !== null && monthlyFee !== null && amountPaidNum < monthlyFee;
+  const isComplete = amountPaidNum !== null && monthlyFee !== null && amountPaidNum >= monthlyFee;
+  const balance   = isParcial && monthlyFee !== null && amountPaidNum !== null
+    ? monthlyFee - amountPaidNum
+    : null;
+
   const handleSubmit = async (values: FormValues) => {
+    // Siempre enviar amount_paid con el valor del campo
     await onSubmit({
-      enrollment: values.enrollment,
+      enrollment:     values.enrollment,
       payment_method: values.payment_method,
-      payment_date: values.payment_date,
+      payment_date:   values.payment_date,
+      amount_paid:    parseFloat(values.amount_paid),
     });
   };
 
@@ -242,6 +272,45 @@ export function RegisterPaymentForm({
           />
         )}
 
+        {/* ── Monto pagado (opcional — vacío = pago completo) ── */}
+        <FormField
+          control={form.control}
+          name="amount_paid"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Monto recibido{" "}
+                {monthlyFee && (
+                  <span className="text-muted-foreground font-normal text-xs">
+                    (mensualidad: ${monthlyFee.toLocaleString("es-MX")})
+                  </span>
+                )}
+              </FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Ej: 1200"
+                  {...field}
+                />
+              </FormControl>
+              {/* Feedback reactivo */}
+              {isComplete && (
+                <p className="text-xs text-green-600 font-medium mt-1">
+                  ✓ Pago completo
+                </p>
+              )}
+              {isParcial && balance !== null && (
+                <p className="text-xs text-orange-600 font-medium mt-1">
+                  Pago parcial — saldo pendiente: ${balance.toLocaleString("es-MX")}
+                </p>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div className="grid grid-cols-2 gap-4">
           {/* Método de pago */}
           <FormField
@@ -301,7 +370,7 @@ export function RegisterPaymentForm({
           </Button>
           <Button type="submit" disabled={isLoading} className="flex-1">
             {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Registrar pago
+            {isParcial ? "Registrar anticipo" : "Registrar pago"}
           </Button>
         </div>
 

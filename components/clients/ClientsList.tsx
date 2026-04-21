@@ -58,6 +58,8 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<{ id: string; name: string } | null>(null);
   const hasFetched = useRef(false);
+  // true solo en la primera carga — no en búsquedas posteriores
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const entitySingular = entityName.endsWith("s") ? entityName.slice(0, -1) : entityName;
 
@@ -73,10 +75,10 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
 
   useEffect(() => {
     if (!hasFetched.current) {
-      doFetch(1, "", "all");
       hasFetched.current = true;
+      fetchClients({ page: 1 }).finally(() => setInitialLoading(false));
     }
-  }, [doFetch]);
+  }, [fetchClients]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -119,9 +121,9 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
   const filteredClients = Array.isArray(clients) ? clients : [];
   const totalPages = Math.ceil(totalCount / 10);
 
-  // ── Loading inicial ────────────────────────────────────────────────────
+  // ── Loading inicial (solo la primera carga, no en búsquedas) ─────────
 
-  if (isLoading && clients.length === 0) {
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">

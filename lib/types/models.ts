@@ -88,7 +88,7 @@ export interface Client {
   /** Teléfono del primer contacto con receive_notifications: true */
   primary_contact_phone?: string | null;
   birth_date?: string | null;         // YYYY-MM-DD
-  notes?: string;
+  notes?: string | null;
   company: CompanyBasic | string;     // UUID en lista, objeto en detalle
   company_name?: string;
   /** Solo viene en el detalle (/clients/{id}/) */
@@ -620,7 +620,9 @@ export interface Enrollment {
   monthly_fee: number;                  // Alias de effective_monthly_fee (read-only)
   effective_monthly_fee: number;        // Precio real: custom o el del grupo
   custom_monthly_fee: number | null;    // null = usa precio del grupo
-  signup_fee: number | null;            // Inscripción única
+  signup_fee: number | null;            // Inscripción única (costo total)
+  signup_fee_paid: number | null;       // Cuánto pagó de la inscripción
+  signup_fee_balance: number;           // read-only: saldo pendiente de inscripción
   disciplines: DisciplineBasic[];       // Disciplinas de la inscripción
   start_date: string;                   // YYYY-MM-DD
   notes?: string;
@@ -628,7 +630,7 @@ export interface Enrollment {
   created_at: string;
 }
 
-export type PaymentStatus = 'paid' | 'overdue' | 'waived';
+export type PaymentStatus = 'pending' | 'partial' | 'paid' | 'overdue' | 'waived';
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'other';
 
 export interface Payment {
@@ -639,10 +641,12 @@ export interface Payment {
   client_phone: string;
   class_group_name: string;
   amount: number;
+  amount_paid: number | null;   // null = no ha pagado nada
+  balance: number;              // read-only: amount - amount_paid
   status: PaymentStatus;
   status_display: string;
   due_date: string;         // YYYY-MM-DD (solo lectura)
-  payment_date: string;     // YYYY-MM-DD
+  payment_date: string | null; // YYYY-MM-DD
   payment_method: PaymentMethod;
   payment_method_display: string;
   created_at: string;

@@ -206,6 +206,7 @@ export default function PaymentsPage() {
     enrollment: string;
     payment_method: Payment["payment_method"];
     payment_date: string;
+    amount_paid: number;
   }) => {
     try {
       setRegistering(true);

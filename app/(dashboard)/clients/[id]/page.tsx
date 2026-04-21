@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
@@ -87,12 +88,16 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-700",
+  partial: "bg-orange-100 text-orange-700",
   paid:    "bg-green-100 text-green-700",
   overdue: "bg-red-100 text-red-700",
   waived:  "bg-gray-100 text-gray-600",
 };
 
 const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  pending: "Pendiente",
+  partial: "Pago parcial",
   paid:    "Pagado",
   overdue: "Vencido",
   waived:  "Condonado",
@@ -199,12 +204,31 @@ export default function ClientDetailPage() {
   const [savingBillingDay, setSavingBillingDay]   = useState(false);
 
   // ── Edit enrollment dialog ──────────────────────────────────────────────────
-  const [editEnrollment, setEditEnrollment]       = useState<Enrollment | null>(null);
-  const [editEnrFee, setEditEnrFee]               = useState("");
-  const [editEnrBillingDay, setEditEnrBillingDay] = useState("");
+  const [editEnrollment, setEditEnrollment]         = useState<Enrollment | null>(null);
+  const [editEnrFee, setEditEnrFee]                 = useState("");
+  const [editEnrBillingDay, setEditEnrBillingDay]   = useState("");
   const [editEnrDisciplines, setEditEnrDisciplines] = useState<string[]>([]);
-  const [editEnrStatus, setEditEnrStatus]         = useState<"active"|"paused"|"dropped">("active");
-  const [savingEnrollment, setSavingEnrollment]   = useState(false);
+  const [editEnrStatus, setEditEnrStatus]           = useState<"active"|"paused"|"dropped">("active");
+  const [editEnrSignupFee, setEditEnrSignupFee]     = useState("");       // costo total inscripción
+  const [editEnrSignupPaid, setEditEnrSignupPaid]   = useState("");       // cuánto pagó ya
+  const [savingEnrollment, setSavingEnrollment]     = useState(false);
+
+  // ── Liquidar pago parcial ───────────────────────────────────────────────────
+  const [settlePayment, setSettlePayment]         = useState<Payment | null>(null);
+  const [settleAmount, setSettleAmount]           = useState("");
+  const [settleMethod, setSettleMethod]           = useState<Payment["payment_method"]>("cash");
+  const [settleDate, setSettleDate]               = useState(new Date().toISOString().slice(0, 10));
+  const [savingSettle, setSavingSettle]           = useState(false);
+
+  // ── Liquidar saldo de inscripción ───────────────────────────────────────────
+  const [settleSignup, setSettleSignup]           = useState<Enrollment | null>(null);
+  const [settleSignupAmount, setSettleSignupAmount] = useState("");
+  const [settleSignupMethod, setSettleSignupMethod] = useState<Payment["payment_method"]>("cash");
+  const [savingSignupSettle, setSavingSignupSettle] = useState(false);
+
+  // ── Eliminar pago ───────────────────────────────────────────────────────────
+  const [deletePaymentTarget, setDeletePaymentTarget] = useState<Payment | null>(null);
+  const [deletingPayment, setDeletingPayment]         = useState(false);
 
   // ── Forms ───────────────────────────────────────────────────────────────────
   const clientForm = useForm<ClientFormData>({
@@ -288,12 +312,38 @@ export default function ClientDetailPage() {
   const onClientSubmit = async (data: ClientFormData) => {
     try {
       setIsSaving(true);
-      const payload: UpdateClientRequest = {
-        name:      data.name.trim(),
-        last_name: data.last_name?.trim() || undefined,
-        email:     data.email?.trim() || undefined,
-        notes:     data.notes?.trim() || undefined,
-      };
+
+      // Construir el payload con solo los campos presentes.
+      // - name: siempre presente (Zod garantiza min(1)), nunca null.
+      // - last_name / email / notes: enviar "" o null cuando se borran
+      //   para que DRF los limpie; enviar el valor cuando tienen contenido.
+      //   Nunca incluir name: null (el backend lo rechaza con 400).
+      const trimmedName = data.name.trim();
+      if (!trimmedName) return; // Zod ya lo valida, pero doble-seguro
+
+      const payload: UpdateClientRequest = { name: trimmedName };
+
+      const last_name = data.last_name?.trim() ?? "";
+      const email     = data.email?.trim()     ?? "";
+      const notes     = data.notes?.trim()     ?? "";
+
+      // Solo incluir si difiere del valor actual (evita PATCHes innecesarios).
+      // Normalizar null/"" del backend a "" para comparar correctamente.
+      // Cuando el campo se vacía se envía null para que DRF lo limpie.
+      const currentLastName = client?.last_name ?? "";
+      const currentEmail    = client?.email     ?? "";
+      const currentNotes    = client?.notes     ?? "";
+
+      if (last_name !== currentLastName) {
+        payload.last_name = last_name || null;
+      }
+      if (email !== currentEmail) {
+        payload.email = email || null;
+      }
+      if (notes !== currentNotes) {
+        payload.notes = notes || null;
+      }
+
       const updated = await clientsApi.update(id, payload);
       setClient(updated);
       setEditDialogOpen(false);
@@ -463,17 +513,28 @@ export default function ClientDetailPage() {
     setEditEnrBillingDay(enrollment.custom_billing_day != null ? String(enrollment.custom_billing_day) : "");
     setEditEnrDisciplines(enrollment.disciplines?.map((d) => d.id) ?? []);
     setEditEnrStatus(enrollment.status as "active"|"paused"|"dropped");
+    setEditEnrSignupFee(enrollment.signup_fee != null ? String(enrollment.signup_fee) : "");
+    setEditEnrSignupPaid(enrollment.signup_fee_paid != null ? String(enrollment.signup_fee_paid) : "");
   };
 
   const handleSaveEnrollment = async () => {
     if (!editEnrollment) return;
     try {
       setSavingEnrollment(true);
+
+      // Incluir signup_fee / signup_fee_paid solo si cambiaron
+      const origSignupFee  = editEnrollment.signup_fee  != null ? String(editEnrollment.signup_fee)  : "";
+      const origSignupPaid = editEnrollment.signup_fee_paid != null ? String(editEnrollment.signup_fee_paid) : "";
+      const signupFeeChanged  = editEnrSignupFee  !== origSignupFee;
+      const signupPaidChanged = editEnrSignupPaid !== origSignupPaid;
+
       await enrollmentsApi.update(editEnrollment.id, {
         status:             editEnrStatus,
         custom_monthly_fee: editEnrFee.trim()        ? Number(editEnrFee)        : null,
         custom_billing_day: editEnrBillingDay.trim() ? Number(editEnrBillingDay) : null,
         disciplines:        editEnrDisciplines.length > 0 ? editEnrDisciplines : [],
+        ...(signupFeeChanged  && { signup_fee:      editEnrSignupFee.trim()  ? Number(editEnrSignupFee)  : null }),
+        ...(signupPaidChanged && { signup_fee_paid: editEnrSignupPaid.trim() ? Number(editEnrSignupPaid) : null }),
       });
       toast.success("Inscripción actualizada");
       setEditEnrollment(null);
@@ -557,11 +618,14 @@ export default function ClientDetailPage() {
     enrollment: string;
     payment_method: Payment["payment_method"];
     payment_date: string;
+    amount_paid: number;
   }) => {
     try {
       setRegisteringPayment(true);
       await paymentsApi.create(data);
-      toast.success("Pago registrado");
+      const monthlyFee = enrollments.find((e) => e.id === data.enrollment)?.monthly_fee;
+      const isParcial  = monthlyFee !== undefined && data.amount_paid < monthlyFee;
+      toast.success(isParcial ? "Anticipo registrado" : "Pago registrado");
       setRegisterPaymentOpen(false);
       fetchPayments();
     } catch (err: unknown) {
@@ -577,6 +641,80 @@ export default function ClientDetailPage() {
       }
     } finally {
       setRegisteringPayment(false);
+    }
+  };
+
+  // ── Handlers — liquidar pago parcial ───────────────────────────────────────
+
+  const openSettlePayment = (payment: Payment) => {
+    setSettlePayment(payment);
+    setSettleAmount(String(payment.balance));
+    setSettleMethod("cash");
+    setSettleDate(new Date().toISOString().slice(0, 10));
+  };
+
+  const handleSettlePayment = async () => {
+    if (!settlePayment) return;
+    const newPaid = (settlePayment.amount_paid ?? 0) + (parseFloat(settleAmount) || 0);
+    try {
+      setSavingSettle(true);
+      await paymentsApi.update(settlePayment.id, {
+        amount_paid:    newPaid,
+        payment_method: settleMethod,
+        payment_date:   settleDate,
+      });
+      toast.success(newPaid >= settlePayment.amount ? "Pago liquidado" : "Anticipo actualizado");
+      setSettlePayment(null);
+      fetchPayments();
+    } catch {
+      toast.error("No se pudo actualizar el pago");
+    } finally {
+      setSavingSettle(false);
+    }
+  };
+
+  // ── Handlers — liquidar saldo de inscripción ────────────────────────────────
+
+  const openSettleSignup = (enrollment: Enrollment) => {
+    setSettleSignup(enrollment);
+    setSettleSignupAmount(String(enrollment.signup_fee_balance));
+    setSettleSignupMethod("cash");
+  };
+
+  const handleSettleSignup = async () => {
+    if (!settleSignup) return;
+    const newPaid = (settleSignup.signup_fee_paid ?? 0) + (parseFloat(settleSignupAmount) || 0);
+    try {
+      setSavingSignupSettle(true);
+      await enrollmentsApi.update(settleSignup.id, { signup_fee_paid: newPaid });
+      toast.success(
+        newPaid >= (settleSignup.signup_fee ?? 0)
+          ? "Inscripción liquidada"
+          : "Anticipo de inscripción actualizado"
+      );
+      setSettleSignup(null);
+      fetchEnrollments();
+    } catch {
+      toast.error("No se pudo actualizar el saldo de inscripción");
+    } finally {
+      setSavingSignupSettle(false);
+    }
+  };
+
+  // ── Handlers — eliminar pago ────────────────────────────────────────────────
+
+  const handleDeletePayment = async () => {
+    if (!deletePaymentTarget) return;
+    try {
+      setDeletingPayment(true);
+      await paymentsApi.delete(deletePaymentTarget.id);
+      toast.success("Pago eliminado");
+      setDeletePaymentTarget(null);
+      fetchPayments();
+    } catch {
+      toast.error("No se pudo eliminar el pago");
+    } finally {
+      setDeletingPayment(false);
     }
   };
 
@@ -731,6 +869,42 @@ export default function ClientDetailPage() {
                         )}
                       </div>
 
+                      {/* ── Inscripción (signup_fee) con saldo pendiente ── */}
+                      {enrollment.signup_fee != null && enrollment.signup_fee > 0 && (
+                        <div className={`flex items-center justify-between rounded-md px-3 py-2 text-sm ${
+                          enrollment.signup_fee_balance > 0
+                            ? "bg-orange-50 border border-orange-200"
+                            : "bg-green-50 border border-green-200"
+                        }`}>
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 items-center">
+                            <span className="font-medium text-foreground">
+                              Inscripción: ${enrollment.signup_fee.toLocaleString("es-MX")}
+                            </span>
+                            {enrollment.signup_fee_paid != null && (
+                              <span className="text-muted-foreground text-xs">
+                                Pagado: ${enrollment.signup_fee_paid.toLocaleString("es-MX")}
+                              </span>
+                            )}
+                            {enrollment.signup_fee_balance > 0 ? (
+                              <span className="text-orange-700 font-semibold text-xs">
+                                Saldo: ${enrollment.signup_fee_balance.toLocaleString("es-MX")}
+                              </span>
+                            ) : (
+                              <span className="text-green-700 text-xs font-medium">Liquidada ✓</span>
+                            )}
+                          </div>
+                          {!isDropped && enrollment.signup_fee_balance > 0 && (
+                            <Button
+                              size="sm" variant="outline"
+                              className="h-7 px-2 text-xs shrink-0 border-orange-300 text-orange-700 hover:bg-orange-50"
+                              onClick={() => openSettleSignup(enrollment)}
+                            >
+                              Liquidar
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
                       {/* ── Horarios (solo clases individuales) ── */}
                       {isIndividual && !isDropped && (
                         <div className="space-y-1.5 pt-1 border-t">
@@ -825,7 +999,7 @@ export default function ClientDetailPage() {
                 {client.notes && (
                   <div className="flex gap-2">
                     <dt className="text-muted-foreground w-20 shrink-0">Notas</dt>
-                    <dd className="text-muted-foreground italic text-xs">{client.notes}</dd>
+                    <dd className="text-foreground/80 italic text-sm">{client.notes}</dd>
                   </div>
                 )}
               </dl>
@@ -938,54 +1112,106 @@ export default function ClientDetailPage() {
             </div>
           ) : (
             <div className="divide-y">
-              {payments.map((payment) => (
-                <div
-                  key={payment.id}
-                  className={`flex items-center gap-3 py-3 first:pt-0 last:pb-0 ${
-                    payment.status === "overdue" ? "bg-red-50/50 -mx-6 px-6 rounded" : ""
-                  }`}
-                >
-                  <div className="shrink-0">
-                    {payment.status === "paid" ? (
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                    ) : payment.status === "overdue" ? (
-                      <AlertTriangle className="h-5 w-5 text-red-500" />
-                    ) : (
-                      <CheckCircle className="h-5 w-5 text-gray-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{payment.class_group_name}</p>
-                    <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                      {payment.payment_date && <span>{formatDate(payment.payment_date)}</span>}
-                      <span>{METHOD_LABELS[payment.payment_method] ?? payment.payment_method}</span>
-                      {payment.due_date && payment.status === "overdue" && (
-                        <span className="text-red-600 font-medium">Venció: {formatDate(payment.due_date)}</span>
+              {payments.map((payment) => {
+                const isOverdue  = payment.status === "overdue";
+                const isPartial  = payment.status === "partial";
+                const isPending  = payment.status === "pending";
+                const needAction = isOverdue || isPartial || isPending;
+
+                return (
+                  <div
+                    key={payment.id}
+                    className={`flex items-center gap-3 py-3 first:pt-0 last:pb-0 ${
+                      isOverdue ? "bg-red-50/50 -mx-6 px-6 rounded" :
+                      isPartial ? "bg-orange-50/40 -mx-6 px-6 rounded" : ""
+                    }`}
+                  >
+                    {/* Icono de estado */}
+                    <div className="shrink-0">
+                      {payment.status === "paid" ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : isOverdue ? (
+                        <AlertTriangle className="h-5 w-5 text-red-500" />
+                      ) : isPartial ? (
+                        <AlertTriangle className="h-5 w-5 text-orange-500" />
+                      ) : (
+                        <CheckCircle className="h-5 w-5 text-gray-300" />
                       )}
                     </div>
-                  </div>
-                  <p className={`font-semibold text-sm shrink-0 ${payment.status === "overdue" ? "text-red-600" : ""}`}>
-                    ${payment.amount.toLocaleString("es-MX")}
-                  </p>
-                  {payment.status === "overdue" ? (
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{payment.class_group_name}</p>
+                      <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                        {payment.payment_date && <span>{formatDate(payment.payment_date)}</span>}
+                        {payment.payment_method && (
+                          <span>{METHOD_LABELS[payment.payment_method] ?? payment.payment_method}</span>
+                        )}
+                        {payment.due_date && isOverdue && (
+                          <span className="text-red-600 font-medium">Venció: {formatDate(payment.due_date)}</span>
+                        )}
+                        {/* Saldo pendiente en parciales */}
+                        {isPartial && payment.balance > 0 && (
+                          <span className="text-orange-600 font-medium">
+                            Saldo: ${payment.balance.toLocaleString("es-MX")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Monto */}
+                    <div className="text-right shrink-0">
+                      <p className={`font-semibold text-sm ${isOverdue ? "text-red-600" : isPartial ? "text-orange-600" : ""}`}>
+                        {isPartial && payment.amount_paid != null
+                          ? `$${payment.amount_paid.toLocaleString("es-MX")}`
+                          : `$${payment.amount.toLocaleString("es-MX")}`}
+                      </p>
+                      {isPartial && (
+                        <p className="text-xs text-muted-foreground">
+                          de ${payment.amount.toLocaleString("es-MX")}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Acción principal */}
+                    {needAction ? (
+                      <Button
+                        size="sm" variant="outline"
+                        className={`shrink-0 ${
+                          isOverdue
+                            ? "border-red-200 text-red-600 hover:bg-red-50"
+                            : "border-orange-200 text-orange-700 hover:bg-orange-50"
+                        }`}
+                        onClick={() => {
+                          if (isPartial) {
+                            openSettlePayment(payment);
+                          } else {
+                            const enrollment = enrollments.find((e) => e.id === payment.enrollment);
+                            if (enrollment) openRegisterPayment(enrollment);
+                            else openRegisterPayment();
+                          }
+                        }}
+                      >
+                        {isPartial ? "Liquidar" : "Cobrar"}
+                      </Button>
+                    ) : (
+                      <span className={`hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0 ${PAYMENT_STATUS_STYLES[payment.status]}`}>
+                        {PAYMENT_STATUS_LABELS[payment.status]}
+                      </span>
+                    )}
+
+                    {/* Eliminar pago */}
                     <Button
-                      size="sm" variant="outline"
-                      className="shrink-0 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                      onClick={() => {
-                        const enrollment = enrollments.find((e) => e.id === payment.enrollment);
-                        if (enrollment) openRegisterPayment(enrollment);
-                        else openRegisterPayment();
-                      }}
+                      variant="ghost" size="icon"
+                      className="h-7 w-7 shrink-0 hover:bg-red-50 text-muted-foreground/40 hover:text-red-500"
+                      title="Eliminar pago"
+                      onClick={() => setDeletePaymentTarget(payment)}
                     >
-                      Cobrar
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                  ) : (
-                    <span className={`hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0 ${PAYMENT_STATUS_STYLES[payment.status]}`}>
-                      {PAYMENT_STATUS_LABELS[payment.status]}
-                    </span>
-                  )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -993,7 +1219,7 @@ export default function ClientDetailPage() {
 
       {/* ── Modal: Editar inscripción ── */}
       <Dialog open={!!editEnrollment} onOpenChange={(o) => !o && setEditEnrollment(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Editar inscripción</DialogTitle>
           </DialogHeader>
@@ -1064,6 +1290,60 @@ export default function ClientDetailPage() {
                   onChange={setEditEnrDisciplines}
                   disabled={savingEnrollment}
                 />
+              </div>
+
+              {/* ── Inscripción (signup_fee) ── */}
+              <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Inscripción (pago único)
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="enr-signup-fee">
+                      Costo <span className="text-muted-foreground text-xs">(MXN)</span>
+                    </Label>
+                    <Input
+                      id="enr-signup-fee"
+                      type="number"
+                      min={0}
+                      placeholder={editEnrollment.signup_fee != null ? String(editEnrollment.signup_fee) : "Sin cargo"}
+                      value={editEnrSignupFee}
+                      onChange={(e) => setEditEnrSignupFee(e.target.value)}
+                      disabled={savingEnrollment}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="enr-signup-paid">
+                      Ya pagó <span className="text-muted-foreground text-xs">(MXN)</span>
+                    </Label>
+                    <Input
+                      id="enr-signup-paid"
+                      type="number"
+                      min={0}
+                      max={editEnrSignupFee ? Number(editEnrSignupFee) : undefined}
+                      placeholder="0"
+                      value={editEnrSignupPaid}
+                      onChange={(e) => setEditEnrSignupPaid(e.target.value)}
+                      disabled={savingEnrollment}
+                    />
+                  </div>
+                </div>
+                {/* Resumen en tiempo real */}
+                {editEnrSignupFee && Number(editEnrSignupFee) > 0 && (
+                  <div className={`text-xs font-medium rounded px-2 py-1 ${
+                    Number(editEnrSignupPaid) >= Number(editEnrSignupFee)
+                      ? "bg-green-100 text-green-700"
+                      : Number(editEnrSignupPaid) > 0
+                        ? "bg-orange-100 text-orange-700"
+                        : "bg-muted text-muted-foreground"
+                  }`}>
+                    {Number(editEnrSignupPaid) >= Number(editEnrSignupFee)
+                      ? "✓ Inscripción liquidada"
+                      : Number(editEnrSignupPaid) > 0
+                        ? `Saldo pendiente: $${(Number(editEnrSignupFee) - Number(editEnrSignupPaid)).toLocaleString("es-MX")}`
+                        : `Pendiente de pago: $${Number(editEnrSignupFee).toLocaleString("es-MX")}`}
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2 pt-1">
@@ -1378,6 +1658,166 @@ export default function ClientDetailPage() {
             <AlertDialogAction onClick={handleDrop} disabled={dropping} className="bg-red-600 hover:bg-red-700">
               {dropping && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Dar de baja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Modal: Liquidar pago parcial ── */}
+      <Dialog open={!!settlePayment} onOpenChange={(o) => !o && setSettlePayment(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Liquidar pago parcial</DialogTitle>
+          </DialogHeader>
+          {settlePayment && (
+            <div className="space-y-4 mt-1">
+              <div className="rounded-lg border bg-muted/20 p-3 text-sm space-y-1">
+                <p className="font-medium">{settlePayment.class_group_name}</p>
+                <div className="flex gap-4 text-muted-foreground">
+                  <span>Total: <strong className="text-foreground">${settlePayment.amount.toLocaleString("es-MX")}</strong></span>
+                  <span>Pagado: <strong className="text-foreground">${(settlePayment.amount_paid ?? 0).toLocaleString("es-MX")}</strong></span>
+                  <span className="text-orange-700 font-semibold">Saldo: ${settlePayment.balance.toLocaleString("es-MX")}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="settle-amount">Monto a pagar ahora</Label>
+                <Input
+                  id="settle-amount"
+                  type="number"
+                  min={1}
+                  max={settlePayment.balance}
+                  placeholder={`Máx. $${settlePayment.balance.toLocaleString("es-MX")}`}
+                  value={settleAmount}
+                  onChange={(e) => setSettleAmount(e.target.value)}
+                  disabled={savingSettle}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Método</Label>
+                  <Select value={settleMethod} onValueChange={(v) => setSettleMethod(v as Payment["payment_method"])} disabled={savingSettle}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Efectivo</SelectItem>
+                      <SelectItem value="card">Tarjeta</SelectItem>
+                      <SelectItem value="transfer">Transferencia</SelectItem>
+                      <SelectItem value="other">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Fecha</Label>
+                  <DatePicker value={settleDate} onChange={setSettleDate} placeholder="dd/mm/yyyy" />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button onClick={handleSettlePayment} disabled={savingSettle || !settleAmount} className="flex-1">
+                  {savingSettle && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Confirmar pago
+                </Button>
+                <Button variant="outline" onClick={() => setSettlePayment(null)} disabled={savingSettle}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: Liquidar saldo de inscripción ── */}
+      <Dialog open={!!settleSignup} onOpenChange={(o) => !o && setSettleSignup(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Liquidar saldo de inscripción</DialogTitle>
+          </DialogHeader>
+          {settleSignup && (
+            <div className="space-y-4 mt-1">
+              <div className="rounded-lg border bg-muted/20 p-3 text-sm space-y-1">
+                <p className="font-medium">{settleSignup.class_group_name}</p>
+                <div className="flex gap-4 text-muted-foreground">
+                  <span>Total: <strong className="text-foreground">${(settleSignup.signup_fee ?? 0).toLocaleString("es-MX")}</strong></span>
+                  <span>Pagado: <strong className="text-foreground">${(settleSignup.signup_fee_paid ?? 0).toLocaleString("es-MX")}</strong></span>
+                  <span className="text-orange-700 font-semibold">Saldo: ${settleSignup.signup_fee_balance.toLocaleString("es-MX")}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="settle-signup-amount">Monto a pagar ahora</Label>
+                <Input
+                  id="settle-signup-amount"
+                  type="number"
+                  min={1}
+                  max={settleSignup.signup_fee_balance}
+                  placeholder={`Máx. $${settleSignup.signup_fee_balance.toLocaleString("es-MX")}`}
+                  value={settleSignupAmount}
+                  onChange={(e) => setSettleSignupAmount(e.target.value)}
+                  disabled={savingSignupSettle}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Método</Label>
+                <Select value={settleSignupMethod} onValueChange={(v) => setSettleSignupMethod(v as Payment["payment_method"])} disabled={savingSignupSettle}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Efectivo</SelectItem>
+                    <SelectItem value="card">Tarjeta</SelectItem>
+                    <SelectItem value="transfer">Transferencia</SelectItem>
+                    <SelectItem value="other">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button onClick={handleSettleSignup} disabled={savingSignupSettle || !settleSignupAmount} className="flex-1">
+                  {savingSignupSettle && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Confirmar pago
+                </Button>
+                <Button variant="outline" onClick={() => setSettleSignup(null)} disabled={savingSignupSettle}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── AlertDialog: Eliminar pago ── */}
+      <AlertDialog
+        open={!!deletePaymentTarget}
+        onOpenChange={(open) => !open && setDeletePaymentTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este pago?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletePaymentTarget && (
+                <>
+                  Se eliminará el pago de{" "}
+                  <strong>
+                    {deletePaymentTarget.amount_paid != null
+                      ? `$${deletePaymentTarget.amount_paid.toLocaleString("es-MX")} de $${deletePaymentTarget.amount.toLocaleString("es-MX")}`
+                      : `$${deletePaymentTarget.amount.toLocaleString("es-MX")}`}
+                  </strong>{" "}
+                  ({deletePaymentTarget.class_group_name}
+                  {deletePaymentTarget.payment_date ? ` · ${formatDate(deletePaymentTarget.payment_date)}` : ""}).
+                  {" "}Esta acción no se puede deshacer.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingPayment}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePayment}
+              disabled={deletingPayment}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deletingPayment && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Eliminar pago
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

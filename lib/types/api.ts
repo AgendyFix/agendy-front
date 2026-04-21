@@ -79,6 +79,17 @@ export interface CreateContactInline {
   receive_notifications?: boolean;
 }
 
+/**
+ * Pago inicial de la mensualidad al momento de inscribirse.
+ * DISTINTO a signup_fee (cuota de inscripción one-time).
+ * Si se omite, Celery genera el cobro cuando venza el billing_day.
+ */
+export interface InitialPaymentInline {
+  amount_paid: number;                                        // > 0, requerido
+  payment_method?: 'cash' | 'card' | 'transfer' | 'other';  // default: cash
+  payment_date?: string;                                      // YYYY-MM-DD, default: hoy
+}
+
 // Enrollment inline dentro de POST /clients/ (Flujo 1 y 2)
 export interface CreateEnrollmentInline {
   /** Flujo 1 — clase individual: el backend crea el grupo automáticamente */
@@ -88,7 +99,12 @@ export interface CreateEnrollmentInline {
   start_date: string;                 // YYYY-MM-DD
   custom_billing_day?: number;        // 1-28
   custom_monthly_fee?: number | null;
+  /** Cuota de inscripción one-time a la academia (puede ser 0 o null) */
   signup_fee?: number | null;
+  /** Anticipo de la cuota de inscripción one-time */
+  signup_fee_paid?: number | null;
+  /** Pago inicial de la mensualidad del mes actual — omitir si no pagó nada hoy */
+  initial_payment?: InitialPaymentInline;
   disciplines?: string[];             // Array de UUIDs
 }
 
@@ -118,10 +134,10 @@ export interface ClientListParams {
 
 export interface UpdateClientRequest {
   name?: string;
-  last_name?: string;
-  email?: string;
+  last_name?: string | null;  // null = borrar el apellido
+  email?: string | null;      // null = borrar el email
   birth_date?: string;
-  notes?: string;
+  notes?: string | null;      // null = borrar las notas
   // Los contactos NO se editan aquí — usar /client-contacts/
 }
 
@@ -411,6 +427,7 @@ export interface CreateEnrollmentRequest {
   custom_billing_day?: number;        // 1-28
   custom_monthly_fee?: number | null;
   signup_fee?: number | null;
+  signup_fee_paid?: number | null;    // Anticipo de inscripción (opcional)
   disciplines?: string[];             // Array de UUIDs
   notes?: string;
 }
@@ -421,6 +438,8 @@ export interface UpdateEnrollmentRequest {
   notes?: string;
   custom_billing_day?: number | null;  // null = revertir al día de start_date
   custom_monthly_fee?: number | null;  // null = usar precio del grupo
+  signup_fee?: number | null;          // Editar el costo total de inscripción
+  signup_fee_paid?: number | null;     // Editar cuánto ha pagado ya
   disciplines?: string[];              // reemplaza el array completo
 }
 
@@ -447,17 +466,20 @@ export interface ClassGroupListParams {
 
 export interface CreatePaymentRequest {
   enrollment: string;           // UUID
+  amount_paid?: number | null;  // null = pago completo; número = anticipo/parcial
   payment_method?: 'cash' | 'card' | 'transfer' | 'other';
   payment_date?: string;        // YYYY-MM-DD (default: hoy)
 }
 
 export interface UpdatePaymentRequest {
+  amount_paid?: number | null;  // Para liquidar o corregir el monto pagado
   payment_method?: 'cash' | 'card' | 'transfer' | 'other';
-  payment_date?: string; // YYYY-MM-DD
+  payment_date?: string;        // YYYY-MM-DD
+  status?: 'waived' | 'overdue'; // Solo para forzar estados manuales
 }
 
 export interface PaymentListParams {
-  status?: 'paid' | 'overdue' | 'waived';
+  status?: 'pending' | 'partial' | 'paid' | 'overdue' | 'waived';
   enrollment?: string;
   enrollment__client?: string;  // Todos los pagos de un cliente
   payment_method?: 'cash' | 'card' | 'transfer' | 'other';
