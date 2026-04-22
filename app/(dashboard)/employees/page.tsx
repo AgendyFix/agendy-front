@@ -97,11 +97,11 @@ export default function EmployeesPage() {
     if (!employeeToDeactivate) return;
     try {
       setDeactivating(true);
-      await employeesApi.deactivate(employeeToDeactivate.id);
-      toast.success(`${employeeToDeactivate.full_name} dado de baja`);
+      await employeesApi.delete(employeeToDeactivate.id);
+      toast.success(`${employeeToDeactivate.full_name} eliminado`);
       fetchEmployees({ page: currentPage, search: searchTerm || undefined });
     } catch {
-      toast.error("Error al dar de baja al instructor");
+      toast.error("Error al eliminar el instructor");
     } finally {
       setDeactivating(false);
       setEmployeeToDeactivate(null);
@@ -230,7 +230,8 @@ export default function EmployeesPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-40 disabled:pointer-events-none"
+                            title="Eliminar instructor"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:pointer-events-none"
                             disabled={emp.role === "admin"}
                             onClick={() => openDeactivateDialog(emp)}
                           >
@@ -262,14 +263,14 @@ export default function EmployeesPage() {
         </div>
       )}
 
-      {/* Confirmación de baja */}
+      {/* Confirmación de eliminación */}
       <AlertDialog
         open={!!employeeToDeactivate}
         onOpenChange={(v) => { if (!v) { setEmployeeToDeactivate(null); setEmployeeGroups([]); } }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Dar de baja a {employeeToDeactivate?.full_name}?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar a {employeeToDeactivate?.full_name}?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm text-muted-foreground">
                 {loadingGroups ? (
@@ -284,7 +285,7 @@ export default function EmployeesPage() {
                       <strong className="text-foreground">
                         {employeeGroups.length} grupo{employeeGroups.length !== 1 ? "s" : ""} asignado{employeeGroups.length !== 1 ? "s" : ""}
                       </strong>.
-                      Debes desasignarlo de todos los grupos antes de darlo de baja.
+                      Debes desasignarlo de todos los grupos antes de eliminarlo.
                     </p>
                     <ul className="space-y-1 border rounded-md p-3 bg-muted/40">
                       {employeeGroups.map((g) => (
@@ -298,8 +299,9 @@ export default function EmployeesPage() {
                   </>
                 ) : (
                   <p>
-                    <strong className="text-foreground">{employeeToDeactivate?.full_name}</strong> quedará
-                    inactivo y no podrá ser asignado a grupos nuevos.
+                    El registro de{" "}
+                    <strong className="text-foreground">{employeeToDeactivate?.full_name}</strong>{" "}
+                    será eliminado permanentemente. Esta acción no se puede deshacer.
                   </p>
                 )}
               </div>
@@ -310,9 +312,9 @@ export default function EmployeesPage() {
             <AlertDialogAction
               onClick={handleDeactivate}
               disabled={deactivating || loadingGroups || employeeGroups.length > 0}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              className="bg-red-600 hover:bg-red-700 disabled:opacity-50"
             >
-              {deactivating ? "Procesando..." : "Dar de baja"}
+              {deactivating ? "Eliminando..." : "Eliminar instructor"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

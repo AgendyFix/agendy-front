@@ -8,7 +8,7 @@
 // Flujo 3: Solo alumno + contacto (sin inscripción)
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -114,11 +114,18 @@ function todayISO() {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function NewClientPage() {
-  const router = useRouter();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
   const { getFeatureName } = useFeatures();
 
   const entityName     = getFeatureName("client_groups") ?? "Clientes";
   const entitySingular = entityName.endsWith("s") ? entityName.slice(0, -1) : entityName;
+
+  // Si viene de /class-groups/new con ?enrollment=individual, preseleccionar el modo
+  const enrollmentParam = searchParams.get("enrollment");
+  const defaultMode = enrollmentParam === "individual" ? "individual"
+                    : enrollmentParam === "group"      ? "group"
+                    : "none";
 
   const [saving, setSaving]           = useState(false);
   const [disciplines, setDisciplines] = useState<string[]>([]);
@@ -135,7 +142,7 @@ export default function NewClientPage() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      enrollment_mode: "none",
+      enrollment_mode: defaultMode as "none" | "individual" | "group",
       ind_start_date:  todayISO(),
       grp_start_date:  todayISO(),
     },

@@ -60,9 +60,10 @@ export const employeesApi = {
 
   /**
    * DELETE /api/v1/employees/{id}/
-   * Marca el employee como is_active: false. Solo admins.
+   * Eliminación física (hard delete) del instructor. No se puede recuperar.
+   * Solo admins.
    */
-  deactivate: async (id: string): Promise<void> => {
+  delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/employees/${id}/`);
   },
 };

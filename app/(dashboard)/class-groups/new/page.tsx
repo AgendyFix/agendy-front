@@ -31,9 +31,9 @@ export default function NewClassGroupPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Nuevo grupo</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Nuevo grupo / clase</h1>
           <p className="text-muted-foreground text-sm">
-            Crea un grupo con sus horarios y mensualidad
+            Crea un grupo colectivo o una clase individual
           </p>
         </div>
       </div>

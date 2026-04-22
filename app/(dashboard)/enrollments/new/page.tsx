@@ -177,22 +177,22 @@ export default function NewEnrollmentPage() {
 
   const handleSubmit = async (values: FormValues) => {
     try {
-      let classGroupId = values.class_group ?? "";
-
       if (values.mode === "individual") {
-        // ── Flujo individual: crear ClassGroup primero, luego Enrollment ──
-        // Obtener el nombre del cliente seleccionado para el nombre del grupo
-        const client = clients.find((c) => c.id === values.client) ?? preselectedClient;
-        const clientName = client?.full_name ?? "Alumno";
-        const group = await classGroupsApi.create({
-          name:         `Clase individual - ${clientName}`,
-          is_individual: true,
-          monthly_fee:  null,
-          disciplines:  disciplines.length > 0 ? disciplines : undefined,
+        // ── Flujo individual: un solo POST /enrollments/ con is_individual: true ──
+        // El backend crea "Clase individual — [Nombre del alumno]" automáticamente
+        await createEnrollment({
+          client:             values.client,
+          is_individual:      true,
+          start_date:         values.start_date,
+          custom_billing_day: values.custom_billing_day ? Number(values.custom_billing_day) : undefined,
+          custom_monthly_fee: values.ind_monthly_fee ? Number(values.ind_monthly_fee) : undefined,
+          signup_fee:         values.signup_fee ? Number(values.signup_fee) : null,
+          disciplines:        disciplines,
+          notes:              values.notes || undefined,
         });
-        classGroupId = group.id;
       } else {
         // ── Flujo grupal: validar duplicados ──
+        const classGroupId = values.class_group ?? "";
         if (enrolledClientIds.has(values.client)) {
           toast.error("Este alumno ya está inscrito en el grupo seleccionado");
           return;
@@ -201,20 +201,17 @@ export default function NewEnrollmentPage() {
           toast.error("El alumno ya está inscrito en este grupo");
           return;
         }
+        await createEnrollment({
+          client:             values.client,
+          class_group:        classGroupId,
+          start_date:         values.start_date,
+          custom_billing_day: values.custom_billing_day ? Number(values.custom_billing_day) : undefined,
+          custom_monthly_fee: values.custom_monthly_fee ? Number(values.custom_monthly_fee) : undefined,
+          signup_fee:         values.signup_fee ? Number(values.signup_fee) : null,
+          disciplines:        disciplines.length > 0 ? disciplines : undefined,
+          notes:              values.notes || undefined,
+        });
       }
-
-      await createEnrollment({
-        client:             values.client,
-        class_group:        classGroupId,
-        start_date:         values.start_date,
-        custom_billing_day: values.custom_billing_day ? Number(values.custom_billing_day) : undefined,
-        custom_monthly_fee: values.mode === "individual"
-          ? (values.ind_monthly_fee ? Number(values.ind_monthly_fee) : undefined)
-          : (values.custom_monthly_fee ? Number(values.custom_monthly_fee) : undefined),
-        signup_fee:         values.signup_fee ? Number(values.signup_fee) : null,
-        disciplines:        disciplines.length > 0 ? disciplines : undefined,
-        notes:              values.notes || undefined,
-      });
 
       toast.success("Alumno inscrito exitosamente");
       if (preselectedClientId) {

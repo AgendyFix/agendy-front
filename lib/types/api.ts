@@ -422,7 +422,10 @@ export interface UpdateClassGroupRequest extends Partial<CreateClassGroupRequest
 
 export interface CreateEnrollmentRequest {
   client: string;                     // UUID
-  class_group: string;                // UUID
+  /** Grupo colectivo existente — mutuamente excluyente con is_individual */
+  class_group?: string;               // UUID
+  /** Clase individual — el backend crea el grupo automáticamente */
+  is_individual?: boolean;
   start_date: string;                 // YYYY-MM-DD
   custom_billing_day?: number;        // 1-28
   custom_monthly_fee?: number | null;
