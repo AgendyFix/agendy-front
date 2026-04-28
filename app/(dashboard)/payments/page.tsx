@@ -139,6 +139,13 @@ export default function PaymentsPage() {
   const [actionLoading, setActionLoading]       = useState(false);
   const isFirstRender = useRef(true);
 
+  // Liquidar pago parcial
+  const [settleTarget, setSettleTarget]   = useState<Payment | null>(null);
+  const [settleAmount, setSettleAmount]   = useState("");
+  const [settleMethod, setSettleMethod]   = useState<Payment["payment_method"]>("cash");
+  const [settleDate, setSettleDate]       = useState(new Date().toISOString().slice(0, 10));
+  const [savingSettle, setSavingSettle]   = useState(false);
+
   // ── Fetches ────────────────────────────────────────────────────────────────
 
   const fetchOverdue = useCallback(async (params?: { search?: string; month?: number; year?: number }) => {
@@ -281,6 +288,36 @@ export default function PaymentsPage() {
       toast.error("Error al revertir el pago");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // ── Liquidar pago parcial ─────────────────────────────────────────────────
+
+  const openSettlePayment = (payment: Payment) => {
+    setSettleTarget(payment);
+    setSettleAmount(String(payment.balance));
+    setSettleMethod("cash");
+    setSettleDate(new Date().toISOString().slice(0, 10));
+  };
+
+  const handleSettlePayment = async () => {
+    if (!settleTarget) return;
+    const newPaid = (settleTarget.amount_paid ?? 0) + (parseFloat(settleAmount) || 0);
+    try {
+      setSavingSettle(true);
+      await updatePayment(settleTarget.id, {
+        amount_paid:    newPaid,
+        payment_method: settleMethod,
+        payment_date:   settleDate,
+      });
+      toast.success(newPaid >= settleTarget.amount ? "Pago liquidado" : "Anticipo actualizado");
+      setSettleTarget(null);
+      fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear });
+      fetchSummary({ year: summaryYear, month: summaryMonth });
+    } catch {
+      toast.error("No se pudo actualizar el pago");
+    } finally {
+      setSavingSettle(false);
     }
   };
 
@@ -502,6 +539,7 @@ export default function PaymentsPage() {
               onEditDate={(p) => { setEditDateTarget(p); setEditValue(p.payment_date ?? ""); }}
               onDelete={(p) => setDeleteTarget(p)}
               onRegister={(p) => { setPreselectedEnrollment(paymentToUnpaid(p)); setRegisterOpen(true); }}
+              onSettle={openSettlePayment}
               onPause={(p) => setPauseTarget(p)}
               onDrop={(p) => setDropTarget(p)}
               onReactivate={handleReactivateEnrollment}
@@ -527,6 +565,7 @@ export default function PaymentsPage() {
             <PaymentsTable
               payments={overduePayments}
               onRegister={(p) => { setPreselectedEnrollment(paymentToUnpaid(p)); setRegisterOpen(true); }}
+              onSettle={openSettlePayment}
               onPause={(p) => setPauseTarget(p)}
               onDrop={(p) => setDropTarget(p)}
               onReactivate={handleReactivateEnrollment}
@@ -691,6 +730,70 @@ export default function PaymentsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Modal: Liquidar pago parcial ── */}
+      <Dialog open={!!settleTarget} onOpenChange={(o) => !o && setSettleTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Liquidar pago parcial</DialogTitle>
+          </DialogHeader>
+          {settleTarget && (
+            <div className="space-y-4 mt-1">
+              <div className="rounded-lg border bg-muted/20 p-3 text-sm space-y-1">
+                <p className="font-medium">{settleTarget.client_name} — {settleTarget.class_group_name}</p>
+                <div className="flex gap-4 text-muted-foreground">
+                  <span>Total: <strong className="text-foreground">${settleTarget.amount.toLocaleString("es-MX")}</strong></span>
+                  <span>Pagado: <strong className="text-foreground">${(settleTarget.amount_paid ?? 0).toLocaleString("es-MX")}</strong></span>
+                  <span className="text-orange-700 font-semibold">Saldo: ${settleTarget.balance.toLocaleString("es-MX")}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="settle-amount">Monto a pagar ahora</Label>
+                <Input
+                  id="settle-amount"
+                  type="number"
+                  min={1}
+                  max={settleTarget.balance}
+                  placeholder={`Máx. $${settleTarget.balance.toLocaleString("es-MX")}`}
+                  value={settleAmount}
+                  onChange={(e) => setSettleAmount(e.target.value)}
+                  disabled={savingSettle}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Método</Label>
+                  <Select value={settleMethod} onValueChange={(v) => setSettleMethod(v as Payment["payment_method"])} disabled={savingSettle}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Efectivo</SelectItem>
+                      <SelectItem value="card">Tarjeta</SelectItem>
+                      <SelectItem value="transfer">Transferencia</SelectItem>
+                      <SelectItem value="other">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Fecha</Label>
+                  <DatePicker value={settleDate} onChange={setSettleDate} placeholder="dd/mm/yyyy" />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button onClick={handleSettlePayment} disabled={savingSettle || !settleAmount} className="flex-1">
+                  {savingSettle && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Confirmar pago
+                </Button>
+                <Button variant="outline" onClick={() => setSettleTarget(null)} disabled={savingSettle}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
@@ -703,6 +806,7 @@ function PaymentsTable({
   onEditDate,
   onDelete,
   onRegister,
+  onSettle,
   onPause,
   onDrop,
   onReactivate,
@@ -713,6 +817,7 @@ function PaymentsTable({
   onEditDate?: (p: Payment) => void;
   onDelete?: (p: Payment) => void;
   onRegister?: (p: Payment) => void;
+  onSettle?: (p: Payment) => void;
   onPause?: (p: Payment) => void;
   onDrop?: (p: Payment) => void;
   onReactivate?: (p: Payment) => void;
@@ -723,15 +828,15 @@ function PaymentsTable({
       <CardContent className="p-0">
         <Table style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
-            <col style={{ width: "16%" }} />
-            <col style={{ width: "12%" }} />
-            <col style={{ width: "18%" }} />
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "15%" }} />
             <col style={{ width: "10%" }} />
             <col style={{ width: "12%" }} />
-            <col style={{ width: "11%" }} />
+            <col style={{ width: "9%" }} />
             <col style={{ width: "8%" }} />
-            <col style={{ width: "7%" }} />
-            <col style={{ width: "6%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "11%" }} />
           </colgroup>
           <TableHeader>
             <TableRow>
@@ -790,7 +895,7 @@ function PaymentsTable({
                       `$${p.amount.toLocaleString("es-MX")}`
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[p.status]}`}>
                       {STATUS_LABELS[p.status]}
                     </span>
@@ -853,10 +958,9 @@ function PaymentsTable({
                       </div>
                     ) : isPartial ? (
                       <div className="flex items-center justify-end gap-1">
-                        {/* Botón cobrar para registrar pago adicional sobre el parcial */}
-                        {onRegister && p.enrollment_status === "active" && (
-                          <Button size="sm" variant="outline" onClick={() => onRegister(p)}>
-                            Cobrar
+                        {onSettle && p.enrollment_status === "active" && (
+                          <Button size="sm" variant="outline" onClick={() => onSettle(p)}>
+                            Liquidar
                           </Button>
                         )}
                         <DropdownMenu>
