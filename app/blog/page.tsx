@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllPosts } from "@/lib/blog";
 import { Calendar, Clock, ArrowRight } from "lucide-react";
+import { BlogCta } from "@/components/blog/BlogCta";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.agendyfix.com";
 
@@ -114,21 +115,8 @@ export default function BlogPage() {
             <div key={post.slug}>
               {/* Mid-list CTA */}
               {index === 3 && (
-                <div className="rounded-2xl bg-gradient-to-br from-secondary via-secondary/80 to-accent border border-accent/40 p-6 md:p-8 text-center mb-5">
-                  <h3 className="text-xl md:text-2xl font-extrabold text-white mb-2">
-                    Deja de administrar tu academia con papel y WhatsApp
-                  </h3>
-                  <p className="text-white/85 mb-5 max-w-lg mx-auto text-sm leading-relaxed">
-                    Centraliza alumnos, inscripciones, pagos y clases. Envía
-                    recordatorios automáticos y enfócate en enseñar.
-                  </p>
-                  <Link
-                    href="/login"
-                    className="inline-flex items-center gap-2 rounded-xl bg-white text-secondary font-bold px-6 py-3 text-sm hover:bg-white/90 transition-colors"
-                  >
-                    Probar gratis
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
+                <div className="mb-5">
+                  <BlogCta variant="mid" />
                 </div>
               )}
 
@@ -181,21 +169,8 @@ export default function BlogPage() {
 
           {/* Bottom CTA */}
           {posts.length > 0 && (
-            <div className="rounded-2xl bg-gradient-to-br from-secondary via-secondary/80 to-accent border border-accent/40 p-6 md:p-8 text-center mt-8">
-              <h3 className="text-xl md:text-2xl font-extrabold text-white mb-2">
-                Pon en práctica lo que leíste
-              </h3>
-              <p className="text-white/85 mb-5 max-w-md mx-auto text-sm leading-relaxed">
-                Registra tu academia, organiza tus grupos y envía recordatorios
-                automáticos a tus alumnos en minutos.
-              </p>
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 rounded-xl bg-white text-secondary font-bold px-6 py-3 text-sm hover:bg-white/90 transition-colors"
-              >
-                Empezar gratis
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+            <div className="mt-8">
+              <BlogCta variant="bottom" />
             </div>
           )}
         </div>

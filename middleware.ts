@@ -13,12 +13,14 @@ export function middleware(request: NextRequest) {
   // For now, we'll implement a basic check
   
   // Public routes that don't require authentication
-  const publicRoutes = ["/login", "/blog"];
+  const publicRoutes = ["/login", "/blog", "/"];
   
   // Check if the current path is public
-  const isPublicRoute = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  );
+  const isPublicRoute =
+    pathname === "/" ||
+    publicRoutes.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    );
   
   if (isPublicRoute) {
     return NextResponse.next();

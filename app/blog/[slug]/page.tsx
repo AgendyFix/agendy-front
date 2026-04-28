@@ -4,6 +4,8 @@ import Link from "next/link";
 import { getAllPosts, getPostBySlug } from "@/lib/blog";
 import MarkdownContent from "@/components/blog/MarkdownContent";
 import { Calendar, Clock, ArrowLeft, ArrowRight } from "lucide-react";
+import { BlogTracker } from "@/components/blog/BlogTracker";
+import { BlogCta } from "@/components/blog/BlogCta";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.agendyfix.com";
 
@@ -130,6 +132,7 @@ export default async function BlogArticlePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(combinedJsonLd) }}
       />
+      <BlogTracker slug={slug} title={post.title} keywords={post.keywords} />
 
       <article className="py-8 md:py-12">
         <div className="mx-auto max-w-3xl px-4 md:px-6">
@@ -199,21 +202,8 @@ export default async function BlogArticlePage({
           </div>
 
           {/* Inline CTA */}
-          <div className="rounded-2xl bg-gradient-to-br from-secondary via-secondary/80 to-accent border border-accent/40 p-6 text-center my-10">
-            <h3 className="text-lg md:text-xl font-extrabold text-white mb-2">
-              Administra tu academia sin complicaciones
-            </h3>
-            <p className="text-white/85 mb-4 max-w-md mx-auto text-sm leading-relaxed">
-              Centraliza alumnos, inscripciones, pagos y clases grupales.
-              Envía recordatorios por WhatsApp. Empieza en minutos.
-            </p>
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 rounded-xl bg-white text-secondary font-bold px-6 py-2.5 text-sm hover:bg-white/90 transition-colors"
-            >
-              Probar AgendyFix gratis
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+          <div className="my-10">
+            <BlogCta variant="mid" />
           </div>
 
           {/* Content second half */}

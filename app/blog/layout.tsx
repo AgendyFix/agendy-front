@@ -1,5 +1,6 @@
 import BlogNavbar from "@/components/blog/BlogNavbar";
 import BlogFooter from "@/components/blog/BlogFooter";
+import { WhatsAppFab } from "@/components/landing/WhatsAppFab";
 
 export default function BlogLayout({
   children,
@@ -11,6 +12,7 @@ export default function BlogLayout({
       <BlogNavbar />
       <main className="flex-1">{children}</main>
       <BlogFooter />
+      <WhatsAppFab />
     </div>
   );
 }

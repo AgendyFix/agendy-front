@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { MessageCircle } from "lucide-react";
+import { buildWaUrl } from "@/lib/tracking";
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.agendyfix.com";
+const WA_MSG = "Hola, quiero saber mas sobre AgendyFix.";
 
 export default function BlogFooter() {
   return (
@@ -10,10 +12,13 @@ export default function BlogFooter() {
           <div className="text-center md:text-left">
             <p className="font-bold text-foreground">AgendyFix</p>
             <p className="text-sm text-muted-foreground mt-1">
-              La plataforma para academias y escuelas en Latinoamérica
+              La plataforma para academias y escuelas en Latinoamerica
             </p>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <Link href="/" className="hover:text-foreground transition-colors">
+              Inicio
+            </Link>
             <Link href="/blog" className="hover:text-foreground transition-colors">
               Blog
             </Link>
@@ -21,12 +26,13 @@ export default function BlogFooter() {
               Acceder
             </Link>
             <a
-              href={siteUrl}
+              href={buildWaUrl(WA_MSG)}
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors"
             >
-              Sitio web
+              <MessageCircle className="h-3.5 w-3.5" />
+              Contactar
             </a>
           </div>
         </div>

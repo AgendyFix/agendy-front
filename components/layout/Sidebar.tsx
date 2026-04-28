@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 const navigation = [
   {
     name: "Dashboard",
-    href: "/",
+    href: "/home",
     icon: LayoutDashboard,
     adminOnly: true,
     featureFlag: "metabase_analytics",
