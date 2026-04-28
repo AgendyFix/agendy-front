@@ -637,6 +637,7 @@ export interface Payment {
   id: string;
   enrollment: string;       // UUID
   enrollment_status: "active" | "paused" | "dropped";
+  client_id: string;
   client_name: string;
   client_phone: string;
   class_group_name: string;
