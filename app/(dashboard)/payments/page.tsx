@@ -39,6 +39,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
 import { usePayments } from "@/lib/hooks/usePayments";
 import { RegisterPaymentForm } from "@/components/payments/RegisterPaymentForm";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -748,10 +749,15 @@ function PaymentsTable({
           <TableBody>
             {payments.map((p) => {
               const isOverdue = p.status === "overdue";
+              const isPartial = p.status === "partial";
               const days = isOverdue ? overdueDays(p.due_date) : 0;
               return (
                 <TableRow key={p.id} className={isOverdue ? "bg-red-50/40" : undefined}>
-                  <TableCell className="font-medium truncate max-w-0">{p.client_name}</TableCell>
+                  <TableCell className="font-medium truncate max-w-0">
+                    <Link href={`/clients/${p.client_id}`} className="hover:underline">
+                      {p.client_name}
+                    </Link>
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground tabular-nums">
                     {p.client_phone || "—"}
                   </TableCell>
@@ -775,7 +781,14 @@ function PaymentsTable({
                     {p.payment_method ? (METHOD_LABELS[p.payment_method] ?? p.payment_method) : "—"}
                   </TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">
-                    ${p.amount.toLocaleString("es-MX")}
+                    {isPartial && p.amount_paid != null ? (
+                      <span className="flex flex-col items-end leading-tight">
+                        <span>${p.amount_paid.toLocaleString("es-MX")}</span>
+                        <span className="text-xs font-normal text-muted-foreground">de ${p.amount.toLocaleString("es-MX")}</span>
+                      </span>
+                    ) : (
+                      `$${p.amount.toLocaleString("es-MX")}`
+                    )}
                   </TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[p.status]}`}>
@@ -837,6 +850,48 @@ function PaymentsTable({
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
+                      </div>
+                    ) : isPartial ? (
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Botón cobrar para registrar pago adicional sobre el parcial */}
+                        {onRegister && p.enrollment_status === "active" && (
+                          <Button size="sm" variant="outline" onClick={() => onRegister(p)}>
+                            Cobrar
+                          </Button>
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {onEditMethod && (
+                              <DropdownMenuItem onClick={() => onEditMethod(p)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Corregir método
+                              </DropdownMenuItem>
+                            )}
+                            {onEditDate && (
+                              <DropdownMenuItem onClick={() => onEditDate(p)}>
+                                <CalendarIcon className="h-4 w-4 mr-2" />
+                                Corregir fecha
+                              </DropdownMenuItem>
+                            )}
+                            {onDelete && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => onDelete(p)}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Revertir pago
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     ) : (
                       <DropdownMenu>
