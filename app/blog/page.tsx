@@ -6,21 +6,21 @@ import { Calendar, Clock, ArrowRight } from "lucide-react";
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.agendyfix.com";
 
 export const metadata: Metadata = {
-  title: "Blog — Gestión de Citas, Servicios y Negocios | AgendyFix",
+  title: "Blog — Software para Academias y Escuelas | AgendyFix",
   description:
-    "Guías prácticas para empresas de servicios: gestión de citas, retención de clientes, automatización con WhatsApp, recordatorios y estrategias para hacer crecer tu negocio.",
+    "Guías prácticas para academias de música, danza, yoga, artes marciales y más: gestión de alumnos, inscripciones, control de pagos, clases grupales y comunicación con WhatsApp.",
   keywords: [
-    "gestión de citas",
-    "agenda de servicios",
-    "software para negocios de servicios",
-    "recordatorios WhatsApp",
-    "retención de clientes",
-    "automatización de agenda",
+    "software para academias",
+    "gestión de academias",
+    "control de alumnos",
+    "inscripciones academia",
+    "control de pagos academia",
+    "clases grupales",
     "AgendyFix blog",
-    "negocio de servicios",
     "academia de música",
+    "escuela de danza",
     "estudio de yoga",
-    "barbería gestión",
+    "artes marciales gestión",
   ],
   alternates: { canonical: "/blog" },
   openGraph: {
@@ -28,9 +28,9 @@ export const metadata: Metadata = {
     locale: "es_MX",
     url: `${siteUrl}/blog`,
     siteName: "AgendyFix",
-    title: "Blog — Gestión de Citas y Servicios | AgendyFix",
+    title: "Blog — Software para Academias y Escuelas | AgendyFix",
     description:
-      "Guías prácticas para empresas de servicios. Aprende a gestionar citas, retener clientes, automatizar recordatorios y hacer crecer tu negocio.",
+      "Guías prácticas para academias y escuelas. Aprende a gestionar alumnos, inscripciones, pagos, clases grupales y comunicación con padres de familia.",
     images: [
       {
         url: `${siteUrl}/logo.png`,
@@ -40,11 +40,11 @@ export const metadata: Metadata = {
       },
     ],
   },
-  twitter: {
+    twitter: {
     card: "summary_large_image",
-    title: "Blog — Gestión de Citas y Servicios | AgendyFix",
+    title: "Blog — Software para Academias y Escuelas | AgendyFix",
     description:
-      "Guías prácticas para empresas de servicios: gestión de citas, retención de clientes y automatización.",
+      "Guías prácticas para academias: gestión de alumnos, inscripciones, pagos y comunicación con WhatsApp.",
   },
 };
 
@@ -58,7 +58,7 @@ export default function BlogPage() {
         "@type": "Blog",
         name: "Blog de AgendyFix",
         description:
-          "Guías prácticas para empresas de servicios en Latinoamérica.",
+          "Guías prácticas para academias y escuelas en Latinoamérica.",
         url: `${siteUrl}/blog`,
         publisher: {
           "@type": "Organization",
@@ -93,8 +93,8 @@ export default function BlogPage() {
             Blog de AgendyFix
           </h1>
           <p className="text-white/85 text-lg md:text-xl max-w-2xl leading-relaxed">
-            Guías prácticas para gestionar tu negocio de servicios: citas,
-            clientes, automatización con WhatsApp y estrategias de crecimiento.
+            Guías prácticas para administrar tu academia: alumnos,
+            inscripciones, pagos, clases grupales y comunicación con WhatsApp.
           </p>
         </div>
       </section>
@@ -116,11 +116,11 @@ export default function BlogPage() {
               {index === 3 && (
                 <div className="rounded-2xl bg-gradient-to-br from-secondary via-secondary/80 to-accent border border-accent/40 p-6 md:p-8 text-center mb-5">
                   <h3 className="text-xl md:text-2xl font-extrabold text-white mb-2">
-                    Deja de perder clientes por no dar seguimiento
+                    Deja de administrar tu academia con papel y WhatsApp
                   </h3>
                   <p className="text-white/85 mb-5 max-w-lg mx-auto text-sm leading-relaxed">
-                    Centraliza tu agenda, envía recordatorios automáticos por
-                    WhatsApp y haz que tus clientes regresen.
+                    Centraliza alumnos, inscripciones, pagos y clases. Envía
+                    recordatorios automáticos y enfócate en enseñar.
                   </p>
                   <Link
                     href="/login"
@@ -186,8 +186,8 @@ export default function BlogPage() {
                 Pon en práctica lo que leíste
               </h3>
               <p className="text-white/85 mb-5 max-w-md mx-auto text-sm leading-relaxed">
-                Registra tu negocio, organiza tu agenda y envía recordatorios
-                automáticos a tus clientes en minutos.
+                Registra tu academia, organiza tus grupos y envía recordatorios
+                automáticos a tus alumnos en minutos.
               </p>
               <Link
                 href="/login"

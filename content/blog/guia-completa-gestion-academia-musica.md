@@ -85,7 +85,7 @@ Un alumno que deja de venir 2 semanas seguidas probablemente no va a volver por 
 
 ## Cómo la tecnología simplifica todo
 
-Herramientas como AgendyFix están diseñadas específicamente para negocios como academias de música. En vez de usar 5 herramientas diferentes (Excel + WhatsApp + libreta + app de notas + calculadora), puedes centralizar:
+Herramientas como AgendyFix están diseñadas específicamente para academias de música y otras disciplinas. En vez de usar 5 herramientas diferentes (Excel + WhatsApp + libreta + app de notas + calculadora), puedes centralizar:
 
 - Alumnos y sus datos de contacto
 - Grupos y clases con horarios

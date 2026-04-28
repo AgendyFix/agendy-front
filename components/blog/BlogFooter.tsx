@@ -10,7 +10,7 @@ export default function BlogFooter() {
           <div className="text-center md:text-left">
             <p className="font-bold text-foreground">AgendyFix</p>
             <p className="text-sm text-muted-foreground mt-1">
-              La plataforma para empresas de servicios en Latinoamérica
+              La plataforma para academias y escuelas en Latinoamérica
             </p>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">

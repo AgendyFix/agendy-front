@@ -201,11 +201,11 @@ export default async function BlogArticlePage({
           {/* Inline CTA */}
           <div className="rounded-2xl bg-gradient-to-br from-secondary via-secondary/80 to-accent border border-accent/40 p-6 text-center my-10">
             <h3 className="text-lg md:text-xl font-extrabold text-white mb-2">
-              Organiza tu agenda sin esfuerzo
+              Administra tu academia sin complicaciones
             </h3>
             <p className="text-white/85 mb-4 max-w-md mx-auto text-sm leading-relaxed">
-              Centraliza citas, envía recordatorios por WhatsApp y haz que tus
-              clientes regresen. Empieza en minutos.
+              Centraliza alumnos, inscripciones, pagos y clases grupales.
+              Envía recordatorios por WhatsApp. Empieza en minutos.
             </p>
             <Link
               href="/login"

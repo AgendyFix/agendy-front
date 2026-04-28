@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AgendyFix - Panel Administrativo",
-  description: "Sistema de gestión de citas y servicios",
+  description: "Software de gestión para academias y escuelas",
 };
 
 // Polyfills inline para Safari/iOS 15 y browsers sin soporte completo de ES2022+
