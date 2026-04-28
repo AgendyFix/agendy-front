@@ -6,9 +6,9 @@ import type { Components } from "react-markdown";
 
 const components: Components = {
   h1: ({ children }) => (
-    <h2 className="mt-10 mb-4 text-2xl md:text-3xl font-bold text-foreground break-words">
+    <h1 className="mt-10 mb-4 text-2xl md:text-3xl font-bold text-foreground break-words">
       {children}
-    </h2>
+    </h1>
   ),
   h2: ({ children }) => (
     <h2 className="mt-10 mb-4 text-xl md:text-2xl font-bold text-foreground break-words">

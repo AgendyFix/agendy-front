@@ -118,11 +118,11 @@ export default async function BlogArticlePage({
     "@graph": graphItems,
   };
 
-  // Split content into chunks for inline CTA
-  const paragraphs = post.content.split(/\n\n/);
-  const midpoint = Math.floor(paragraphs.length / 2);
-  const firstHalf = paragraphs.slice(0, midpoint).join("\n\n");
-  const secondHalf = paragraphs.slice(midpoint).join("\n\n");
+  // Split content at section boundaries for inline CTA
+  const sections = post.content.split(/(?=^## )/m);
+  const midpoint = Math.floor(sections.length / 2);
+  const firstHalf = sections.slice(0, Math.max(1, midpoint)).join("");
+  const secondHalf = sections.slice(Math.max(1, midpoint)).join("");
 
   return (
     <>

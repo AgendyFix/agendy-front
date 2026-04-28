@@ -16,7 +16,9 @@ export function middleware(request: NextRequest) {
   const publicRoutes = ["/login", "/blog"];
   
   // Check if the current path is public
-  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
+  const isPublicRoute = publicRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
   
   if (isPublicRoute) {
     return NextResponse.next();

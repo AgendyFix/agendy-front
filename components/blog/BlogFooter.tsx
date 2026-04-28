@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.agendyfix.com";
+
 export default function BlogFooter() {
   return (
     <footer className="border-t border-border bg-muted/50">
@@ -19,12 +21,12 @@ export default function BlogFooter() {
               Acceder
             </Link>
             <a
-              href="https://agendyfix.com"
+              href={siteUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-foreground transition-colors"
             >
-              agendyfix.com
+              Sitio web
             </a>
           </div>
         </div>

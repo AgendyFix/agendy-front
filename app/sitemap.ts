@@ -18,8 +18,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
         priority: 0.7,
       })
     );
-  } catch {
-    // blog posts not available at build time
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[sitemap] Could not load blog posts:", error);
+    }
   }
 
   return [

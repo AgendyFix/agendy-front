@@ -33,7 +33,7 @@ export const metadata: Metadata = {
       "Guías prácticas para empresas de servicios. Aprende a gestionar citas, retener clientes, automatizar recordatorios y hacer crecer tu negocio.",
     images: [
       {
-        url: "/logo.png",
+        url: `${siteUrl}/logo.png`,
         width: 512,
         height: 512,
         alt: "AgendyFix Blog",
