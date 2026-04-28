@@ -819,7 +819,7 @@ export default function ClientDetailPage() {
                             className={`font-semibold text-base text-left truncate w-full leading-tight ${
                               !isDropped ? "hover:text-primary hover:underline" : "text-muted-foreground cursor-default"
                             }`}
-                            onClick={() => !isDropped && router.push(`/class-groups/${enrollment.class_group}`)}
+                            onClick={() => !isDropped && router.push(`/class-groups/${enrollment.class_group}?from=/clients/${id}`)}
                             disabled={isDropped}
                           >
                             {enrollment.class_group_name}

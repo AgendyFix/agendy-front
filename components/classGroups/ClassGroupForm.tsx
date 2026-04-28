@@ -42,6 +42,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { ClassGroup, Client, Employee } from "@/lib/types/models";
 import type { CreateClassGroupRequest } from "@/lib/types/api";
@@ -276,6 +277,34 @@ export function ClassGroupForm({
 
   const busy = isLoading || submitting;
 
+  // Estado para edición de clase individual (solo instructor + disciplinas)
+  const [indInstructor, setIndInstructor] = useState<string>(initialData?.instructor_id ?? "");
+  const [indDisciplines, setIndDisciplines] = useState<string[]>(
+    initialData?.disciplines?.map((d) => d.id) ?? []
+  );
+
+  const handleIndividualEditSubmit = async () => {
+    try {
+      setSubmitting(true);
+      await onSubmit({
+        instructor:  indInstructor || undefined,
+        disciplines: indDisciplines,
+      } as CreateClassGroupRequest);
+    } catch (err: any) {
+      const apiErrors = err?.response?.data;
+      if (apiErrors && typeof apiErrors === "object") {
+        Object.entries(apiErrors).forEach(([field, messages]) => {
+          const msg = Array.isArray(messages) ? messages[0] : String(messages);
+          toast.error(`${field}: ${msg}`);
+        });
+      } else {
+        toast.error("Error al guardar");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
@@ -305,9 +334,58 @@ export function ClassGroupForm({
       )}
 
       {/* ════════════════════════════════════════
+          FORM — EDITAR CLASE INDIVIDUAL
+          Solo instructor y disciplinas — los demás campos no aplican
+      ════════════════════════════════════════ */}
+      {isEditing && isIndividual && (
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Instructor <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
+            <Select
+              value={indInstructor || "none"}
+              onValueChange={(v) => setIndInstructor(v === "none" ? "" : v)}
+              disabled={loadingEmployees}
+            >
+              <SelectTrigger>
+                {loadingEmployees
+                  ? <span className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Cargando...</span>
+                  : <SelectValue placeholder="Sin instructor asignado" />}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  <span className="flex items-center gap-2 text-muted-foreground"><UserX className="h-4 w-4" />Sin instructor</span>
+                </SelectItem>
+                {employees.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.id}>{emp.full_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Disciplinas <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
+            <DisciplineMultiSelect
+              value={indDisciplines}
+              onChange={setIndDisciplines}
+              disabled={busy}
+              placeholder="Ej: Guitarra, Piano..."
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onCancel} disabled={busy} className="flex-1">Cancelar</Button>
+            <Button type="button" onClick={handleIndividualEditSubmit} disabled={busy} className="flex-1">
+              {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Guardar cambios
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
           FORM — CLASE GRUPAL
       ════════════════════════════════════════ */}
-      {(!isIndividual || isEditing) && (
+      {!isIndividual && (
         <Form {...collectiveForm}>
           <form onSubmit={collectiveForm.handleSubmit(handleCollectiveSubmit)} className="space-y-6">
 
