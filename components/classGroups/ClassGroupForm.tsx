@@ -51,6 +51,7 @@ import { clientsApi } from "@/lib/api/clients";
 import { enrollmentsApi } from "@/lib/api/enrollments";
 import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
 import { DatePicker } from "@/components/ui/date-picker";
+import { todayLocalISO } from "@/lib/dates";
 
 // ── Schemas ────────────────────────────────────────────────────────────────
 
@@ -111,7 +112,7 @@ const DAYS = [
 ];
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocalISO();
 }
 
 // ── Props ──────────────────────────────────────────────────────────────────
@@ -387,7 +388,7 @@ export function ClassGroupForm({
       ════════════════════════════════════════ */}
       {!isIndividual && (
         <Form {...collectiveForm}>
-          <form onSubmit={collectiveForm.handleSubmit(handleCollectiveSubmit)} className="space-y-6">
+          <form noValidate onSubmit={collectiveForm.handleSubmit(handleCollectiveSubmit)} className="space-y-6">
 
             {/* Nombre */}
             <FormField
@@ -570,7 +571,7 @@ export function ClassGroupForm({
       ════════════════════════════════════════ */}
       {isIndividual && !isEditing && (
         <Form {...individualForm}>
-          <form onSubmit={individualForm.handleSubmit(handleIndividualSubmit)} className="space-y-5">
+          <form noValidate onSubmit={individualForm.handleSubmit(handleIndividualSubmit)} className="space-y-5">
 
             {/* Alumno */}
             {!preselectedClientId ? (

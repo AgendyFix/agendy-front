@@ -41,6 +41,7 @@ import { clientsApi } from "@/lib/api/clients";
 import { enrollmentsApi } from "@/lib/api/enrollments";
 import { paymentsApi } from "@/lib/api/payments";
 import { classGroupsApi } from "@/lib/api/classGroups";
+import { todayLocalISO } from "@/lib/dates";
 import { useFeatures } from "@/lib/hooks/useFeatures";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useClientContacts } from "@/lib/hooks/useClientContacts";
@@ -217,7 +218,7 @@ export default function ClientDetailPage() {
   const [settlePayment, setSettlePayment]         = useState<Payment | null>(null);
   const [settleAmount, setSettleAmount]           = useState("");
   const [settleMethod, setSettleMethod]           = useState<Payment["payment_method"]>("cash");
-  const [settleDate, setSettleDate]               = useState(new Date().toISOString().slice(0, 10));
+  const [settleDate, setSettleDate]               = useState(todayLocalISO());
   const [savingSettle, setSavingSettle]           = useState(false);
 
   // ── Liquidar saldo de inscripción ───────────────────────────────────────────
@@ -650,12 +651,17 @@ export default function ClientDetailPage() {
     setSettlePayment(payment);
     setSettleAmount(String(payment.balance));
     setSettleMethod("cash");
-    setSettleDate(new Date().toISOString().slice(0, 10));
+    setSettleDate(todayLocalISO());
   };
 
   const handleSettlePayment = async () => {
     if (!settlePayment) return;
-    const newPaid = (settlePayment.amount_paid ?? 0) + (parseFloat(settleAmount) || 0);
+    const amount = parseFloat(settleAmount);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > settlePayment.balance) {
+      toast.error(`El monto debe ser mayor a 0 y no exceder el saldo de $${settlePayment.balance.toLocaleString("es-MX")}`);
+      return;
+    }
+    const newPaid = (settlePayment.amount_paid ?? 0) + amount;
     try {
       setSavingSettle(true);
       await paymentsApi.update(settlePayment.id, {
@@ -683,7 +689,13 @@ export default function ClientDetailPage() {
 
   const handleSettleSignup = async () => {
     if (!settleSignup) return;
-    const newPaid = (settleSignup.signup_fee_paid ?? 0) + (parseFloat(settleSignupAmount) || 0);
+    const amount = parseFloat(settleSignupAmount);
+    const balance = settleSignup.signup_fee_balance ?? 0;
+    if (!Number.isFinite(amount) || amount <= 0 || amount > balance) {
+      toast.error(`El monto debe ser mayor a 0 y no exceder el saldo de $${balance.toLocaleString("es-MX")}`);
+      return;
+    }
+    const newPaid = (settleSignup.signup_fee_paid ?? 0) + amount;
     try {
       setSavingSignupSettle(true);
       await enrollmentsApi.update(settleSignup.id, { signup_fee_paid: newPaid });

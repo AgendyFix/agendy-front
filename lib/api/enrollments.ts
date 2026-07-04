@@ -11,6 +11,20 @@ import type {
 } from "@/lib/types/api";
 import type { Enrollment } from "@/lib/types/models";
 
+/** Periodo objetivo de cobro de una inscripción (GET billing-status). */
+export interface BillingStatus {
+  /** liquidar = hay deuda abierta · nuevo = mes actual · adelanto = mes siguiente */
+  mode: "liquidar" | "nuevo" | "adelanto";
+  /** Fecha de vencimiento del periodo objetivo (YYYY-MM-DD) */
+  period: string;
+  /** "julio 2026" */
+  period_label: string;
+  /** Saldo cobrable del periodo objetivo */
+  balance: number;
+  monthly_fee: number;
+  open_payment_id: string | null;
+}
+
 export const enrollmentsApi = {
   /**
    * GET /api/v1/enrollments/
@@ -54,5 +68,14 @@ export const enrollmentsApi = {
    */
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/enrollments/${id}/`);
+  },
+
+  /**
+   * GET /api/v1/enrollments/{id}/billing-status/
+   * A qué periodo se aplicaría un cobro y con qué saldo.
+   */
+  getBillingStatus: async (id: string): Promise<BillingStatus> => {
+    const response = await apiClient.get(`/enrollments/${id}/billing-status/`);
+    return response.data;
   },
 };
