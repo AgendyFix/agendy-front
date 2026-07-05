@@ -22,6 +22,23 @@ export interface CreateDisciplineRequest {
 
 export interface UpdateDisciplineRequest extends Partial<CreateDisciplineRequest> {}
 
+/**
+ * Resumen de uso de una disciplina: cuántos registros la referencian
+ * y cuáles son (para mostrar en el diálogo de borrado/fusión).
+ */
+export interface DisciplineUsage {
+  discipline: { id: string; name: string };
+  counts: {
+    employees: number;
+    class_groups: number;
+    enrollments: number;
+    total: number;
+  };
+  employees: { id: string; name: string }[];
+  class_groups: { id: string; name: string }[];
+  enrollments: { id: string; client_id: string; client_name: string }[];
+}
+
 export const disciplinesApi = {
   /**
    * Lista todas las disciplinas del catálogo de la academia actual.
@@ -58,9 +75,31 @@ export const disciplinesApi = {
 
   /**
    * Soft-delete de una disciplina. Solo admin.
+   * Si la disciplina está en uso (instructores, grupos o inscripciones),
+   * el backend responde 409 con el detalle de uso (mismo shape que getUsage).
    */
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/disciplines/${id}/`);
+  },
+
+  /**
+   * Detalle de uso de una disciplina: instructores, grupos e inscripciones
+   * que la referencian. Útil antes de eliminar o fusionar.
+   */
+  getUsage: async (id: string): Promise<DisciplineUsage> => {
+    const response = await apiClient.get<DisciplineUsage>(`/disciplines/${id}/usage/`);
+    return response.data;
+  },
+
+  /**
+   * Fusiona esta disciplina (source) en otra (target): reasigna
+   * instructores/grupos/inscripciones a target y desactiva source.
+   */
+  merge: async (sourceId: string, targetId: string): Promise<Discipline> => {
+    const response = await apiClient.post<Discipline>(`/disciplines/${sourceId}/merge/`, {
+      target_id: targetId,
+    });
+    return response.data;
   },
 };
 
