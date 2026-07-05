@@ -11,8 +11,9 @@
 // No navega a otra ruta — es un Dialog, así el usuario
 // no pierde el estado del formulario que lo invocó.
 
-import { useEffect, useState, useRef } from "react";
-import { Plus, Pencil, Trash2, Check, X as XIcon, Loader2, BookOpen } from "lucide-react";
+import { useEffect, useState, useRef, type MouseEvent } from "react";
+import Link from "next/link";
+import { Plus, Pencil, Trash2, Check, X as XIcon, Loader2, BookOpen, Merge, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -23,6 +24,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -34,8 +37,49 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useDisciplines } from "@/lib/hooks/useDisciplines";
+import { disciplinesApi } from "@/lib/api/disciplines";
 import type { Discipline } from "@/lib/types/models";
+
+// ── Uso de una disciplina (viene en el 409 de delete, o de getUsage) ───────
+
+interface DisciplineUsageDetail {
+  detail?: string;
+  counts: {
+    employees: number;
+    class_groups: number;
+    enrollments: number;
+    total: number;
+  };
+  employees: { id: string; name: string }[];
+  class_groups: { id: string; name: string }[];
+  enrollments: { id: string; client_id: string; client_name: string }[];
+}
+
+function usageSummary(counts: DisciplineUsageDetail["counts"]): string {
+  const parts: string[] = [];
+  if (counts.employees > 0) {
+    parts.push(`${counts.employees} instructor${counts.employees !== 1 ? "es" : ""}`);
+  }
+  if (counts.class_groups > 0) {
+    parts.push(`${counts.class_groups} grupo${counts.class_groups !== 1 ? "s" : ""}`);
+  }
+  if (counts.enrollments > 0) {
+    parts.push(`${counts.enrollments} alumno${counts.enrollments !== 1 ? "s" : ""}`);
+  }
+  return parts.join(", ");
+}
+
+// Estilo de link consistente con la app: color primario + subrayado sutil al hover.
+const USAGE_LINK_CLASS =
+  "text-blue-600 hover:text-blue-700 hover:underline underline-offset-2 transition-colors";
 
 // ── Misma paleta que DisciplineMultiSelect ────────────────────────────────
 
@@ -82,6 +126,14 @@ export function DisciplineManagerModal({ open, onOpenChange }: DisciplineManager
   // ── Eliminar ────────────────────────────────────────────────────────────
   const [deleteTarget, setDeleteTarget] = useState<Discipline | null>(null);
   const [deleting, setDeleting]         = useState(false);
+  const [deleteUsage, setDeleteUsage]   = useState<DisciplineUsageDetail | null>(null);
+
+  // ── Fusionar ────────────────────────────────────────────────────────────
+  const [mergeSource, setMergeSource]     = useState<Discipline | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<string>("");
+  const [merging, setMerging]             = useState(false);
+  const [mergeUsage, setMergeUsage]           = useState<DisciplineUsageDetail["counts"] | null>(null);
+  const [mergeUsageLoading, setMergeUsageLoading] = useState(false);
 
   // Cargar al abrir
   useEffect(() => {
@@ -133,19 +185,81 @@ export function DisciplineManagerModal({ open, onOpenChange }: DisciplineManager
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (e: MouseEvent) => {
+    // AlertDialogAction cierra el diálogo por defecto al hacer click; lo evitamos
+    // porque en caso de 409 necesitamos mantenerlo abierto para mostrar el uso.
+    e.preventDefault();
     if (!deleteTarget) return;
     try {
       setDeleting(true);
       await deleteDiscipline(deleteTarget.id);
       toast.success(`"${deleteTarget.name}" eliminada`);
-      setDeleteTarget(null);
-    } catch {
-      toast.error("No se pudo eliminar la disciplina");
+      closeDeleteDialog();
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number; data?: DisciplineUsageDetail } };
+      if (axiosErr.response?.status === 409 && axiosErr.response.data) {
+        setDeleteUsage(axiosErr.response.data);
+      } else {
+        toast.error("No se pudo eliminar la disciplina");
+      }
     } finally {
       setDeleting(false);
     }
   };
+
+  const closeDeleteDialog = () => {
+    setDeleteTarget(null);
+    setDeleteUsage(null);
+  };
+
+  // ── Fusionar ────────────────────────────────────────────────────────────
+
+  const openMerge = (d: Discipline) => {
+    closeDeleteDialog();
+    setMergeSource(d);
+    setMergeTargetId("");
+    setMergeUsage(null);
+    setMergeUsageLoading(true);
+    disciplinesApi
+      .getUsage(d.id)
+      .then((usage) => setMergeUsage(usage.counts))
+      .catch(() => toast.error("No se pudo calcular las asignaciones a mover"))
+      .finally(() => setMergeUsageLoading(false));
+  };
+
+  const closeMergeDialog = () => {
+    setMergeSource(null);
+    setMergeTargetId("");
+    setMergeUsage(null);
+    setMergeUsageLoading(false);
+  };
+
+  // Cierra ambos diálogos (modal principal y AlertDialog de borrado) antes de
+  // navegar, para que el cambio de ruta se vea.
+  const handleUsageLinkClick = () => {
+    closeDeleteDialog();
+    onOpenChange(false);
+  };
+
+  const handleMergeConfirm = async () => {
+    if (!mergeSource || !mergeTargetId) return;
+    const target = disciplines.find((d) => d.id === mergeTargetId);
+    try {
+      setMerging(true);
+      await disciplinesApi.merge(mergeSource.id, mergeTargetId);
+      toast.success(`"${mergeSource.name}" fusionada en "${target?.name ?? ""}"`);
+      closeMergeDialog();
+      await fetchDisciplines(true);
+    } catch {
+      toast.error("No se pudo fusionar la disciplina");
+    } finally {
+      setMerging(false);
+    }
+  };
+
+  const mergeTargetOptions = disciplines.filter(
+    (d) => d.is_active && d.id !== mergeSource?.id
+  );
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -256,7 +370,15 @@ export function DisciplineManagerModal({ open, onOpenChange }: DisciplineManager
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
-                              onClick={() => setDeleteTarget(d)}
+                              onClick={() => openMerge(d)}
+                              className="p-1.5 rounded text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                              aria-label={`Fusionar ${d.name} con otra disciplina`}
+                              title="Fusionar con otra disciplina"
+                            >
+                              <Merge className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => { setDeleteTarget(d); setDeleteUsage(null); }}
                               className="p-1.5 rounded text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
                               aria-label={`Eliminar ${d.name}`}
                             >
@@ -279,28 +401,188 @@ export function DisciplineManagerModal({ open, onOpenChange }: DisciplineManager
       </Dialog>
 
       {/* ── Confirm delete ── */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && closeDeleteDialog()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar disciplina?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Se eliminará <strong>&quot;{deleteTarget?.name}&quot;</strong> del catálogo.
-              Los grupos e instructores que la tenían asignada mantendrán el registro histórico.
-            </AlertDialogDescription>
+            {deleteUsage ? (
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p className="flex items-start gap-2 text-amber-700">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>&quot;{deleteTarget?.name}&quot;</strong> está en uso y no se puede
+                      eliminar. Quítala de esos registros primero, o fusiónala con otra disciplina.
+                    </span>
+                  </p>
+                  <div className="rounded-md border bg-muted/40 p-3 space-y-2 text-sm text-foreground">
+                    <p className="font-medium">En uso por: {usageSummary(deleteUsage.counts)}</p>
+                    {deleteUsage.employees.length > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Instructores</p>
+                        <p className="text-xs">
+                          {deleteUsage.employees.map((e, i) => (
+                            <span key={e.id}>
+                              {i > 0 && ", "}
+                              <Link
+                                href={`/employees/${e.id}`}
+                                onClick={handleUsageLinkClick}
+                                className={USAGE_LINK_CLASS}
+                              >
+                                {e.name}
+                              </Link>
+                            </span>
+                          ))}
+                        </p>
+                      </div>
+                    )}
+                    {deleteUsage.class_groups.length > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Grupos</p>
+                        <p className="text-xs">
+                          {deleteUsage.class_groups.map((g, i) => (
+                            <span key={g.id}>
+                              {i > 0 && ", "}
+                              <Link
+                                href={`/class-groups/${g.id}`}
+                                onClick={handleUsageLinkClick}
+                                className={USAGE_LINK_CLASS}
+                              >
+                                {g.name}
+                              </Link>
+                            </span>
+                          ))}
+                        </p>
+                      </div>
+                    )}
+                    {deleteUsage.enrollments.length > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Alumnos inscritos</p>
+                        <p className="text-xs">
+                          {deleteUsage.enrollments.map((en, i) => (
+                            <span key={en.id}>
+                              {i > 0 && ", "}
+                              <Link
+                                href={`/clients/${en.client_id}`}
+                                onClick={handleUsageLinkClick}
+                                className={USAGE_LINK_CLASS}
+                              >
+                                {en.client_name}
+                              </Link>
+                            </span>
+                          ))}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            ) : (
+              <AlertDialogDescription>
+                Se eliminará <strong>&quot;{deleteTarget?.name}&quot;</strong> del catálogo.
+                Los grupos e instructores que la tenían asignada mantendrán el registro histórico.
+              </AlertDialogDescription>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={deleting}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Eliminar
-            </AlertDialogAction>
+            <AlertDialogCancel disabled={deleting}>
+              {deleteUsage ? "Cerrar" : "Cancelar"}
+            </AlertDialogCancel>
+            {deleteUsage ? (
+              <Button
+                type="button"
+                onClick={() => deleteTarget && openMerge(deleteTarget)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Merge className="h-4 w-4 mr-2" />
+                Fusionar con otra
+              </Button>
+            ) : (
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={deleting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Eliminar
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Fusionar disciplinas ── */}
+      <Dialog open={!!mergeSource} onOpenChange={(o) => !o && closeMergeDialog()}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Merge className="h-5 w-5 text-muted-foreground" />
+              Fusionar disciplina
+            </DialogTitle>
+            <DialogDescription>
+              Elige la disciplina destino para fusionar{" "}
+              <strong>&quot;{mergeSource?.name}&quot;</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Select value={mergeTargetId} onValueChange={setMergeTargetId} disabled={merging}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar disciplina destino..." />
+              </SelectTrigger>
+              <SelectContent>
+                {mergeTargetOptions.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">
+                    No hay otra disciplina disponible.
+                  </div>
+                ) : (
+                  mergeTargetOptions.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+
+            {mergeUsageLoading ? (
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Calculando asignaciones...
+              </p>
+            ) : mergeUsage && mergeUsage.total === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Esta disciplina no tiene asignaciones; solo se archivará.
+              </p>
+            ) : mergeUsage && mergeTargetId ? (
+              <p className="text-xs text-muted-foreground">
+                Se moverán <strong>{mergeUsage.total}</strong> asignación
+                {mergeUsage.total !== 1 ? "es" : ""} ({mergeUsage.employees} instructor
+                {mergeUsage.employees !== 1 ? "es" : ""}, {mergeUsage.class_groups} grupo
+                {mergeUsage.class_groups !== 1 ? "s" : ""}, {mergeUsage.enrollments} alumno
+                {mergeUsage.enrollments !== 1 ? "s" : ""}) a{" "}
+                <strong>
+                  &quot;{disciplines.find((d) => d.id === mergeTargetId)?.name}&quot;
+                </strong>{" "}
+                y <strong>&quot;{mergeSource?.name}&quot;</strong> se archivará.
+              </p>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeMergeDialog} disabled={merging}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleMergeConfirm}
+              disabled={merging || !mergeTargetId}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {merging && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Fusionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
