@@ -41,7 +41,8 @@ import { clientsApi } from "@/lib/api/clients";
 import { enrollmentsApi } from "@/lib/api/enrollments";
 import { paymentsApi } from "@/lib/api/payments";
 import { classGroupsApi } from "@/lib/api/classGroups";
-import { todayLocalISO } from "@/lib/dates";
+import { todayLocalISO, formatDate } from "@/lib/dates";
+import { parseApiError } from "@/lib/apiError";
 import { useFeatures } from "@/lib/hooks/useFeatures";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useClientContacts } from "@/lib/hooks/useClientContacts";
@@ -119,11 +120,6 @@ const RELATIONSHIP_OPTIONS: { value: ContactRelationship; label: string }[] = [
   { value: "sibling",  label: "Hermano/a" },
   { value: "other",    label: "Otro" },
 ];
-
-function formatDate(date: string) {
-  const [y, m, d] = date.split("-");
-  return `${d}/${m}/${y}`;
-}
 
 const DAYS_SHORT: Record<number, string> = {
   0: "Lun", 1: "Mar", 2: "Mié", 3: "Jue", 4: "Vie", 5: "Sáb", 6: "Dom",
@@ -630,16 +626,7 @@ export default function ClientDetailPage() {
       setRegisterPaymentOpen(false);
       fetchPayments();
     } catch (err: unknown) {
-      const anyErr = err as { response?: { data?: Record<string, unknown> } };
-      const apiErrors = anyErr?.response?.data;
-      if (apiErrors && typeof apiErrors === "object") {
-        Object.entries(apiErrors).forEach(([field, messages]) => {
-          const msg = Array.isArray(messages) ? messages[0] : String(messages);
-          toast.error(`${field}: ${msg}`);
-        });
-      } else {
-        toast.error("Error al registrar el pago");
-      }
+      toast.error(parseApiError(err, "Error al registrar el pago"));
     } finally {
       setRegisteringPayment(false);
     }
@@ -672,8 +659,8 @@ export default function ClientDetailPage() {
       toast.success(newPaid >= settlePayment.amount ? "Pago liquidado" : "Anticipo actualizado");
       setSettlePayment(null);
       fetchPayments();
-    } catch {
-      toast.error("No se pudo actualizar el pago");
+    } catch (err) {
+      toast.error(parseApiError(err, "No se pudo actualizar el pago"));
     } finally {
       setSavingSettle(false);
     }
@@ -706,8 +693,8 @@ export default function ClientDetailPage() {
       );
       setSettleSignup(null);
       fetchEnrollments();
-    } catch {
-      toast.error("No se pudo actualizar el saldo de inscripción");
+    } catch (err) {
+      toast.error(parseApiError(err, "No se pudo actualizar el saldo de inscripción"));
     } finally {
       setSavingSignupSettle(false);
     }

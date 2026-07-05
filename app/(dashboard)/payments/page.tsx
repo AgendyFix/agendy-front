@@ -300,6 +300,7 @@ export default function PaymentsPage() {
       toast.success(newPaid >= settleTarget.amount ? "Pago liquidado" : "Anticipo actualizado");
       setSettleTarget(null);
       fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear });
+      fetchOverdue({ month: summaryMonth, year: summaryYear });
       fetchSummary({ year: summaryYear, month: summaryMonth });
     } catch (err) {
       toast.error(parseApiError(err, "No se pudo actualizar el pago"));
