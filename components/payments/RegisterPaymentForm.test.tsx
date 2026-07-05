@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { RegisterPaymentForm } from "./RegisterPaymentForm";
 import { enrollmentsApi } from "@/lib/api/enrollments";
+import { toast } from "sonner";
 import type { UnpaidEnrollment } from "@/lib/types/models";
 
 // Mockeamos el módulo de API completo: evita que el componente dispare
@@ -15,6 +16,12 @@ vi.mock("@/lib/api/enrollments", () => ({
     getAll: vi.fn(),
     getBillingStatus: vi.fn(),
   },
+}));
+
+// Mockeamos sonner para poder verificar los toast.error() del componente
+// (fallo de billing-status) sin depender de la UI real de las notificaciones.
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
 }));
 
 const mockedGetBillingStatus = enrollmentsApi.getBillingStatus as unknown as ReturnType<typeof vi.fn>;
@@ -138,5 +145,90 @@ describe("RegisterPaymentForm", () => {
     expect(payload.amount_paid).toBe(1000);
     expect(typeof payload.amount_paid).toBe("number");
     expect(payload.enrollment).toBe("enr-1");
+  });
+
+  it("con un monto que excede el saldo del periodo NO llama a onSubmit y muestra el error de tope", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <RegisterPaymentForm
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+        preselectedEnrollment={preselected}
+      />
+    );
+
+    // billing.balance = 1000 (ver mock de arriba)
+    await screen.findByText(/Liquidando/i);
+
+    const amountInput = screen.getByLabelText(/Monto recibido/i);
+    await user.clear(amountInput);
+    await user.type(amountInput, "1500");
+
+    const submitBtn = screen.getByRole("button", { name: /Registrar/i });
+    await user.click(submitBtn);
+
+    expect(await screen.findByText(/El saldo de julio 2026 es \$1,000/i)).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("si falla el fetch de saldo (billing null) y se intenta cobrar, avisa con toast y no envía", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    mockedGetBillingStatus.mockRejectedValueOnce(new Error("network error"));
+
+    render(
+      <RegisterPaymentForm
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+        preselectedEnrollment={preselected}
+      />
+    );
+
+    // Esperamos a que el fetch de billing-status resuelva (con rechazo) —
+    // billing queda en null y no hay banner de periodo.
+    await waitFor(() => expect(mockedGetBillingStatus).toHaveBeenCalledWith("enr-1"));
+
+    const amountInput = screen.getByLabelText(/Monto recibido/i);
+    await user.clear(amountInput);
+    await user.type(amountInput, "500");
+
+    const submitBtn = screen.getByRole("button", { name: /Registrar/i });
+    await user.click(submitBtn);
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "No se pudo verificar el saldo del periodo. Intenta de nuevo."
+      )
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("no pisa el monto si el usuario ya escribió antes de que resuelva el billing-status", async () => {
+    const user = userEvent.setup();
+    let resolveBilling: (value: typeof billingStatus) => void = () => {};
+    mockedGetBillingStatus.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveBilling = resolve; })
+    );
+
+    render(
+      <RegisterPaymentForm
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+        preselectedEnrollment={preselected}
+      />
+    );
+
+    const amountInput = screen.getByLabelText(/Monto recibido/i);
+    // El usuario escribe ANTES de que el fetch de billing-status resuelva.
+    await user.clear(amountInput);
+    await user.type(amountInput, "500");
+
+    // Ahora resuelve con balance=1000: no debe pisar el "500" ya tecleado.
+    await act(async () => {
+      resolveBilling(billingStatus);
+    });
+
+    await waitFor(() => expect(amountInput).toHaveValue(500));
   });
 });

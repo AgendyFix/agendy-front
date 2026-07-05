@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, ChevronsUpDown, Check } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,22 +134,28 @@ export function RegisterPaymentForm({
   // Al elegir inscripción: consultar a qué periodo se aplicará el cobro
   // y prellenar el monto con el saldo real de ese periodo.
   useEffect(() => {
-    if (!selectedId) {
-      setBilling(null);
-      return;
-    }
+    // Limpiar de inmediato (billing + monto) al cambiar de inscripción: si el
+    // fetch de abajo falla o devuelve balance<=0, nunca debe quedar visible
+    // el monto/saldo de la inscripción ANTERIOR (riesgo: cobrar de más o al
+    // alumno equivocado). resetField también limpia el estado "dirty".
+    setBilling(null);
+    if (!selectedId) return;
+    form.resetField("amount_paid", { defaultValue: "" });
+
     let cancelled = false;
     enrollmentsApi
       .getBillingStatus(selectedId)
       .then((status) => {
         if (cancelled) return;
         setBilling(status);
-        if (status.balance > 0) {
+        // No pisar lo que el usuario ya tecleó mientras el fetch estaba en
+        // curso (p.ej. si el fetch llega tarde tras que el usuario escribió).
+        if (status.balance > 0 && !form.getFieldState("amount_paid").isDirty) {
           form.setValue("amount_paid", String(status.balance));
         }
       })
       .catch(() => {
-        if (!cancelled) setBilling(null); // sin status seguimos con mensualidad
+        if (!cancelled) setBilling(null); // sin status: sin tope automático (ver handleSubmit)
       });
     return () => {
       cancelled = true;
@@ -171,9 +178,16 @@ export function RegisterPaymentForm({
 
   const handleSubmit = async (values: FormValues) => {
     const amount = parseFloat(values.amount_paid);
+    // Sin billing-status no hay tope confiable del lado del cliente: mejor
+    // avisar y no enviar a ciegas (el backend igual rechaza sobrepagos, pero
+    // esto da mejor feedback en vez de fallar en silencio).
+    if (!billing) {
+      toast.error("No se pudo verificar el saldo del periodo. Intenta de nuevo.");
+      return;
+    }
     // El cobro nunca excede el saldo del periodo; el excedente se registra
     // como un cobro aparte (caerá como adelanto del siguiente mes).
-    if (billing && amount > billing.balance) {
+    if (amount > billing.balance) {
       form.setError("amount_paid", {
         message: `El saldo de ${billing.period_label} es $${billing.balance.toLocaleString("es-MX")}. Registra el excedente como un cobro aparte.`,
       });
@@ -367,6 +381,11 @@ export function RegisterPaymentForm({
               {isParcial && balance !== null && (
                 <p className="text-xs text-orange-600 font-medium mt-1">
                   Abono parcial — quedará saldo: ${balance.toLocaleString("es-MX")}
+                </p>
+              )}
+              {excedeSaldo && periodCap !== null && (
+                <p className="text-xs text-red-600 font-medium mt-1">
+                  El monto excede el saldo del periodo (${periodCap.toLocaleString("es-MX")}). El excedente se registra aparte.
                 </p>
               )}
               <FormMessage />
