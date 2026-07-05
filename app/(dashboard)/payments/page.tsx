@@ -46,7 +46,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { paymentsApi } from "@/lib/api/payments";
 import { enrollmentsApi } from "@/lib/api/enrollments";
 import { parseApiError } from "@/lib/apiError";
-import { todayLocalISO } from "@/lib/dates";
+import { todayLocalISO, formatDate, overdueDays } from "@/lib/dates";
 import type { Payment, UnpaidEnrollment } from "@/lib/types/models";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -79,21 +79,7 @@ const MONTHS = [
   "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
 ];
 
-function formatDate(date: string) {
-  if (!date) return "—";
-  const [y, m, d] = date.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-function overdueDays(dueDate?: string | null): number {
-  if (!dueDate) return 0;
-  const [y, m, d] = dueDate.split("-").map(Number);
-  const due = new Date(y, m - 1, d);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  due.setHours(0, 0, 0, 0);
-  return Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86_400_000));
-}
+// formatDate y overdueDays viven en lib/dates.ts (testeados en lib/dates.test.ts)
 
 // Construye un UnpaidEnrollment desde un Payment overdue para el modal de cobrar
 function paymentToUnpaid(p: Payment): UnpaidEnrollment {
