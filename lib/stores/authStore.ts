@@ -5,6 +5,7 @@
 import { create } from "zustand";
 import { authApi } from "../api/auth";
 import { setTokens, clearTokens } from "../api/client";
+import { parseApiError } from "../apiError";
 import type { User, CompanyBasic } from "../types/models";
 import type { LoginRequest } from "../types/api";
 
@@ -50,7 +51,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
       });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Error al iniciar sesión";
+      // Mensaje legible: "Credenciales inválidas" en vez de
+      // "Request failed with status code 401"
+      const errorMessage = parseApiError(error, "No se pudo iniciar sesión. Verifica tus credenciales.");
       set({
         error: errorMessage,
         isLoading: false,

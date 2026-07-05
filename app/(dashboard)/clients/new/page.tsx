@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
 import { DatePicker } from "@/components/ui/date-picker";
+import { todayLocalISO } from "@/lib/dates";
 import { clientsApi } from "@/lib/api/clients";
 import { classGroupsApi } from "@/lib/api/classGroups";
 import { useFeatures } from "@/lib/hooks/useFeatures";
@@ -62,8 +63,11 @@ const schema = z.object({
   grp_start_date:         z.string().optional(),
 }).superRefine((val, ctx) => {
   if (val.enrollment_mode === "individual") {
-    if (!val.ind_monthly_fee || isNaN(Number(val.ind_monthly_fee))) {
+    const indFee = Number(val.ind_monthly_fee);
+    if (!val.ind_monthly_fee || isNaN(indFee)) {
       ctx.addIssue({ code: "custom", path: ["ind_monthly_fee"], message: "La mensualidad es requerida" });
+    } else if (indFee < 0) {
+      ctx.addIssue({ code: "custom", path: ["ind_monthly_fee"], message: "La mensualidad no puede ser negativa" });
     }
     if (!val.ind_start_date) {
       ctx.addIssue({ code: "custom", path: ["ind_start_date"], message: "La fecha de inicio es requerida" });
@@ -108,7 +112,7 @@ const RELATIONSHIP_OPTIONS = [
 ] as const;
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocalISO();
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────
@@ -262,7 +266,7 @@ export default function NewClientPage() {
         </h1>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-2xl">
+      <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-2xl">
 
         {/* ── Sección: Datos del alumno ── */}
         <Card>

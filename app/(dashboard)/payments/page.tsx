@@ -45,6 +45,8 @@ import { RegisterPaymentForm } from "@/components/payments/RegisterPaymentForm";
 import { DatePicker } from "@/components/ui/date-picker";
 import { paymentsApi } from "@/lib/api/payments";
 import { enrollmentsApi } from "@/lib/api/enrollments";
+import { parseApiError } from "@/lib/apiError";
+import { todayLocalISO } from "@/lib/dates";
 import type { Payment, UnpaidEnrollment } from "@/lib/types/models";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -85,7 +87,8 @@ function formatDate(date: string) {
 
 function overdueDays(dueDate?: string | null): number {
   if (!dueDate) return 0;
-  const due = new Date(dueDate);
+  const [y, m, d] = dueDate.split("-").map(Number);
+  const due = new Date(y, m - 1, d);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   due.setHours(0, 0, 0, 0);
@@ -143,7 +146,7 @@ export default function PaymentsPage() {
   const [settleTarget, setSettleTarget]   = useState<Payment | null>(null);
   const [settleAmount, setSettleAmount]   = useState("");
   const [settleMethod, setSettleMethod]   = useState<Payment["payment_method"]>("cash");
-  const [settleDate, setSettleDate]       = useState(new Date().toISOString().slice(0, 10));
+  const [settleDate, setSettleDate]       = useState(todayLocalISO());
   const [savingSettle, setSavingSettle]   = useState(false);
 
   // ── Fetches ────────────────────────────────────────────────────────────────
@@ -226,19 +229,12 @@ export default function PaymentsPage() {
       toast.success("Pago registrado");
       setRegisterOpen(false);
       setPreselectedEnrollment(undefined);
-      fetchPayments({ page: 1 });
-      fetchOverdue();
+      // Mantener el mes/año seleccionados al refrescar (antes se perdía el filtro)
+      fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear });
+      fetchOverdue({ month: summaryMonth, year: summaryYear });
       fetchSummary({ year: summaryYear, month: summaryMonth });
     } catch (err: unknown) {
-      const apiErrors = (err as { response?: { data?: Record<string, string[]> } })?.response?.data;
-      if (apiErrors && typeof apiErrors === "object") {
-        Object.entries(apiErrors).forEach(([field, messages]) => {
-          const msg = Array.isArray(messages) ? messages[0] : String(messages);
-          toast.error(`${field}: ${msg}`);
-        });
-      } else {
-        toast.error("Error al registrar el pago");
-      }
+      toast.error(parseApiError(err, "Error al registrar el pago"));
     } finally {
       setRegistering(false);
     }
@@ -252,8 +248,8 @@ export default function PaymentsPage() {
       toast.success("Método de pago corregido");
       setEditMethodTarget(null);
       fetchSummary({ year: summaryYear, month: summaryMonth });
-    } catch {
-      toast.error("Error al corregir el método");
+    } catch (err) {
+      toast.error(parseApiError(err, "Error al corregir el método"));
     } finally {
       setActionLoading(false);
     }
@@ -267,8 +263,8 @@ export default function PaymentsPage() {
       toast.success("Fecha de pago corregida");
       setEditDateTarget(null);
       fetchSummary({ year: summaryYear, month: summaryMonth });
-    } catch {
-      toast.error("Error al corregir la fecha");
+    } catch (err) {
+      toast.error(parseApiError(err, "Error al corregir la fecha"));
     } finally {
       setActionLoading(false);
     }
@@ -281,8 +277,8 @@ export default function PaymentsPage() {
       await deletePayment(deleteTarget.id);
       toast.success("Pago revertido — el alumno vuelve a Sin pagar");
       setDeleteTarget(null);
-      fetchPayments({ page: 1 });
-      fetchOverdue();
+      fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear });
+      fetchOverdue({ month: summaryMonth, year: summaryYear });
       fetchSummary({ year: summaryYear, month: summaryMonth });
     } catch {
       toast.error("Error al revertir el pago");
@@ -297,12 +293,17 @@ export default function PaymentsPage() {
     setSettleTarget(payment);
     setSettleAmount(String(payment.balance));
     setSettleMethod("cash");
-    setSettleDate(new Date().toISOString().slice(0, 10));
+    setSettleDate(todayLocalISO());
   };
 
   const handleSettlePayment = async () => {
     if (!settleTarget) return;
-    const newPaid = (settleTarget.amount_paid ?? 0) + (parseFloat(settleAmount) || 0);
+    const amount = parseFloat(settleAmount);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > settleTarget.balance) {
+      toast.error(`El monto debe ser mayor a 0 y no exceder el saldo de $${settleTarget.balance.toLocaleString("es-MX")}`);
+      return;
+    }
+    const newPaid = (settleTarget.amount_paid ?? 0) + amount;
     try {
       setSavingSettle(true);
       await updatePayment(settleTarget.id, {
@@ -314,8 +315,8 @@ export default function PaymentsPage() {
       setSettleTarget(null);
       fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear });
       fetchSummary({ year: summaryYear, month: summaryMonth });
-    } catch {
-      toast.error("No se pudo actualizar el pago");
+    } catch (err) {
+      toast.error(parseApiError(err, "No se pudo actualizar el pago"));
     } finally {
       setSavingSettle(false);
     }

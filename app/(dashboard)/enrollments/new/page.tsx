@@ -33,6 +33,7 @@ import { useEnrollments } from "@/lib/hooks/useEnrollments";
 import { clientsApi } from "@/lib/api/clients";
 import { classGroupsApi } from "@/lib/api/classGroups";
 import { enrollmentsApi } from "@/lib/api/enrollments";
+import { todayLocalISO } from "@/lib/dates";
 import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
 import type { Client, ClassGroup } from "@/lib/types/models";
 
@@ -55,8 +56,13 @@ const schema = z.object({
   if (val.mode === "group" && !val.class_group) {
     ctx.addIssue({ code: "custom", path: ["class_group"], message: "Selecciona un grupo" });
   }
-  if (val.mode === "individual" && (!val.ind_monthly_fee || isNaN(Number(val.ind_monthly_fee)))) {
-    ctx.addIssue({ code: "custom", path: ["ind_monthly_fee"], message: "La mensualidad es requerida" });
+  if (val.mode === "individual") {
+    const fee = Number(val.ind_monthly_fee);
+    if (!val.ind_monthly_fee || isNaN(fee)) {
+      ctx.addIssue({ code: "custom", path: ["ind_monthly_fee"], message: "La mensualidad es requerida" });
+    } else if (fee < 0) {
+      ctx.addIssue({ code: "custom", path: ["ind_monthly_fee"], message: "La mensualidad no puede ser negativa" });
+    }
   }
 });
 
@@ -93,7 +99,7 @@ export default function NewEnrollmentPage() {
       client:             preselectedClientId,
       class_group:        preselectedGroupId,
       ind_monthly_fee:    "",
-      start_date:         new Date().toISOString().slice(0, 10),
+      start_date:         todayLocalISO(),
       custom_billing_day: "",
       custom_monthly_fee: "",
       signup_fee:         "",
@@ -265,7 +271,7 @@ export default function NewEnrollmentPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
+            <form noValidate onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
 
               {/* ── Tipo de clase ── */}
               {!preselectedGroupId && (

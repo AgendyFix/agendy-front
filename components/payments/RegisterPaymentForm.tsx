@@ -36,7 +36,8 @@ import {
   CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { enrollmentsApi } from "@/lib/api/enrollments";
+import { todayLocalISO } from "@/lib/dates";
+import { enrollmentsApi, type BillingStatus } from "@/lib/api/enrollments";
 import type { Enrollment, Payment, UnpaidEnrollment } from "@/lib/types/models";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
@@ -45,7 +46,10 @@ const schema = z.object({
   enrollment:     z.string().min(1, "Selecciona un alumno"),
   payment_method: z.enum(["cash", "card", "transfer", "other"]),
   payment_date:   z.string().min(1, "Selecciona la fecha"),
-  amount_paid:    z.string().min(1, "Ingresa el monto"),
+  amount_paid:    z.string().min(1, "Ingresa el monto").refine((v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) && n > 0;
+  }, "El monto debe ser mayor a 0"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -79,21 +83,22 @@ export function RegisterPaymentForm({
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loadingEnrollments, setLoadingEnrollments] = useState(false);
   const [comboOpen, setComboOpen] = useState(false);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       enrollment:     preselectedEnrollment?.enrollment_id ?? "",
       payment_method: "cash",
-      payment_date:   new Date().toISOString().slice(0, 10),
-      // Prellenar con el monto conocido; si no se conoce todavía, vacío
-      amount_paid:    preselectedEnrollment?.monthly_fee
-                        ? String(preselectedEnrollment.monthly_fee)
-                        : "",
+      payment_date:   todayLocalISO(),
+      // El monto se prellena con el saldo del periodo (billing-status)
+      amount_paid:    "",
     },
   });
 
-  // Cargar inscripciones activas (solo si no hay preseleccionado)
+  // Cargar inscripciones activas (solo si no hay preseleccionado).
+  // Se ocultan las de mensualidad $0 (becados / incluidos en el pago de un
+  // familiar): no son cobrables.
   useEffect(() => {
     if (preselectedEnrollment) return;
     const load = async () => {
@@ -104,7 +109,7 @@ export function RegisterPaymentForm({
           limit: 100,
           ...(clientFilter ? { client: clientFilter } : {}),
         });
-        setEnrollments(response.results);
+        setEnrollments(response.results.filter((e) => (e.monthly_fee ?? 0) > 0));
       } catch {
         // no bloqueante
       } finally {
@@ -120,37 +125,71 @@ export function RegisterPaymentForm({
 
   // Monto total de la mensualidad
   const monthlyFee =
+    billing?.monthly_fee ??
     preselectedEnrollment?.monthly_fee ??
     selectedEnrollment?.monthly_fee ??
     null;
 
-  // Cuando el usuario elige una inscripción del combobox, prellenar el monto
+  // Al elegir inscripción: consultar a qué periodo se aplicará el cobro
+  // y prellenar el monto con el saldo real de ese periodo.
   useEffect(() => {
-    if (selectedEnrollment?.monthly_fee) {
-      form.setValue("amount_paid", String(selectedEnrollment.monthly_fee));
+    if (!selectedId) {
+      setBilling(null);
+      return;
     }
-  }, [selectedEnrollment?.monthly_fee]); // eslint-disable-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    enrollmentsApi
+      .getBillingStatus(selectedId)
+      .then((status) => {
+        if (cancelled) return;
+        setBilling(status);
+        if (status.balance > 0) {
+          form.setValue("amount_paid", String(status.balance));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setBilling(null); // sin status seguimos con mensualidad
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tope de cobro del periodo: el saldo (o la mensualidad si no hay status)
+  const periodCap = billing?.balance ?? monthlyFee ?? null;
 
   const amountPaidNum = amountPaidRaw ? parseFloat(amountPaidRaw) : null;
-  const isParcial = amountPaidNum !== null && monthlyFee !== null && amountPaidNum < monthlyFee;
-  const isComplete = amountPaidNum !== null && monthlyFee !== null && amountPaidNum >= monthlyFee;
-  const balance   = isParcial && monthlyFee !== null && amountPaidNum !== null
-    ? monthlyFee - amountPaidNum
+  // Solo mostrar feedback con un monto válido (> 0); con un valor inválido
+  // el único mensaje visible es el error del campo.
+  const validAmount = amountPaidNum !== null && Number.isFinite(amountPaidNum) && amountPaidNum > 0;
+  const isParcial = validAmount && periodCap !== null && amountPaidNum < periodCap;
+  const isComplete = validAmount && periodCap !== null && amountPaidNum >= periodCap;
+  const excedeSaldo = validAmount && periodCap !== null && amountPaidNum > periodCap;
+  const balance   = isParcial && periodCap !== null && amountPaidNum !== null
+    ? periodCap - amountPaidNum
     : null;
 
   const handleSubmit = async (values: FormValues) => {
-    // Siempre enviar amount_paid con el valor del campo
+    const amount = parseFloat(values.amount_paid);
+    // El cobro nunca excede el saldo del periodo; el excedente se registra
+    // como un cobro aparte (caerá como adelanto del siguiente mes).
+    if (billing && amount > billing.balance) {
+      form.setError("amount_paid", {
+        message: `El saldo de ${billing.period_label} es $${billing.balance.toLocaleString("es-MX")}. Registra el excedente como un cobro aparte.`,
+      });
+      return;
+    }
     await onSubmit({
       enrollment:     values.enrollment,
       payment_method: values.payment_method,
       payment_date:   values.payment_date,
-      amount_paid:    parseFloat(values.amount_paid),
+      amount_paid:    amount,
     });
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+      <form noValidate onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
 
         {/* ── Alumno ── */}
         {preselectedEnrollment ? (
@@ -272,6 +311,28 @@ export function RegisterPaymentForm({
           />
         )}
 
+        {/* ── Periodo al que se aplicará el cobro ── */}
+        {billing && billing.balance > 0 && (
+          <div
+            className={cn(
+              "rounded-md border px-3 py-2 text-xs font-medium",
+              billing.mode === "liquidar" && "border-orange-200 bg-orange-50 text-orange-700",
+              billing.mode === "nuevo" && "border-border bg-muted/40 text-muted-foreground",
+              billing.mode === "adelanto" && "border-blue-200 bg-blue-50 text-blue-700",
+            )}
+          >
+            {billing.mode === "liquidar" && (
+              <>Liquidando <span className="capitalize">{billing.period_label}</span> — saldo pendiente: ${billing.balance.toLocaleString("es-MX")}</>
+            )}
+            {billing.mode === "nuevo" && (
+              <>Mensualidad de <span className="capitalize">{billing.period_label}</span></>
+            )}
+            {billing.mode === "adelanto" && (
+              <>Adelanto — mensualidad de <span className="capitalize">{billing.period_label}</span> (el mes actual ya está cubierto)</>
+            )}
+          </div>
+        )}
+
         {/* ── Monto pagado (opcional — vacío = pago completo) ── */}
         <FormField
           control={form.control}
@@ -296,14 +357,16 @@ export function RegisterPaymentForm({
                 />
               </FormControl>
               {/* Feedback reactivo */}
-              {isComplete && (
+              {isComplete && !excedeSaldo && (
                 <p className="text-xs text-green-600 font-medium mt-1">
-                  ✓ Pago completo
+                  {billing?.mode === "liquidar"
+                    ? <>✓ Liquida <span className="capitalize">{billing.period_label}</span></>
+                    : "✓ Pago completo"}
                 </p>
               )}
               {isParcial && balance !== null && (
                 <p className="text-xs text-orange-600 font-medium mt-1">
-                  Pago parcial — saldo pendiente: ${balance.toLocaleString("es-MX")}
+                  Abono parcial — quedará saldo: ${balance.toLocaleString("es-MX")}
                 </p>
               )}
               <FormMessage />
@@ -370,7 +433,7 @@ export function RegisterPaymentForm({
           </Button>
           <Button type="submit" disabled={isLoading} className="flex-1">
             {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {isParcial ? "Registrar anticipo" : "Registrar pago"}
+            {isParcial ? "Registrar abono" : "Registrar pago"}
           </Button>
         </div>
 
