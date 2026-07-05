@@ -6,22 +6,29 @@ afterEach(() => {
 });
 
 describe("todayLocalISO", () => {
-  it("devuelve la fecha LOCAL aunque en UTC ya sea el día siguiente", () => {
-    // 14/05/2026 23:30 hora de México (UTC-6) => en UTC ya es 15/05 05:30.
-    // El bug original (toISOString) devolvía "2026-05-15"; debe ser "2026-05-14".
+  // El runner corre con TZ=America/Merida (UTC-6), fijada en el script de test.
+  // Esto vuelve el test RIGUROSO: una regresión a toISOString() (el bug del
+  // +1 día) haría fallar estas aserciones.
+
+  it("de noche (UTC ya es el día siguiente) devuelve el día LOCAL, no el UTC", () => {
+    // 2026-05-15T04:00:00Z = 2026-05-14 22:00 en Mérida.
+    // Correcto (local) => "2026-05-14".  toISOString() daría "2026-05-15".
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-05-15T05:30:00.000Z")); // = 2026-05-14 23:30 en UTC-6
-    // Forzamos que el test corra como si el runner estuviera en UTC-6:
-    // como no controlamos el TZ del runner, validamos el contrato con una fecha
-    // sin ambigüedad de día (mediodía) y una nocturna documentando la intención.
-    const hoy = todayLocalISO();
-    expect(hoy).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    vi.setSystemTime(new Date("2026-05-15T04:00:00.000Z"));
+    expect(todayLocalISO()).toBe("2026-05-14");
   });
 
-  it("formatea con el patrón yyyy-MM-dd a mediodía (sin ambigüedad de TZ)", () => {
+  it("de madrugada UTC-6 también respeta el día local", () => {
+    // 2026-01-01T05:59:00Z = 2025-12-31 23:59 en Mérida.
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-05-14T18:00:00.000Z"));
-    expect(todayLocalISO()).toMatch(/^2026-05-1[34]$/);
+    vi.setSystemTime(new Date("2026-01-01T05:59:00.000Z"));
+    expect(todayLocalISO()).toBe("2025-12-31");
+  });
+
+  it("de día devuelve el día correcto", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-04T18:00:00.000Z")); // 12:00 Mérida
+    expect(todayLocalISO()).toBe("2026-07-04");
   });
 });
 
