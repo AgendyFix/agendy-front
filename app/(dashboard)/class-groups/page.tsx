@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +42,10 @@ const LEVELS = [
   { value: "advanced",      label: "Avanzado" },
 ];
 
+// Segmentador Grupales / Individuales — casi todos los grupos son
+// "Clase individual", así que sin esto es imposible encontrar los grupales.
+type GroupSegment = "all" | "grupal" | "individual";
+
 export default function ClassGroupsPage() {
   const router = useRouter();
   const {
@@ -50,6 +55,7 @@ export default function ClassGroupsPage() {
 
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState("all_levels");
+  const [groupSegment, setGroupSegment] = useState<GroupSegment>("all");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [disciplinesOpen, setDisciplinesOpen] = useState(false);
@@ -113,6 +119,19 @@ export default function ClassGroupsPage() {
     }
   };
 
+  // Segmentador Grupales/Individuales: NOTA — es client-side, solo sobre los
+  // grupos ya cargados en esta página (el backend no filtra por
+  // is_individual y el scroll infinito sigue paginando sin este filtro). Si
+  // el grupo buscado está en una página aún no cargada, hay que scrollear.
+  const grupalCount     = classGroups.filter((g) => !g.is_individual).length;
+  const individualCount = classGroups.filter((g) => g.is_individual).length;
+  const visibleGroups = classGroups.filter((g) => {
+    if (groupSegment === "grupal")     return !g.is_individual;
+    if (groupSegment === "individual") return g.is_individual;
+    return true;
+  });
+  const hasActiveFilters = !!search || levelFilter !== "all_levels" || groupSegment !== "all";
+
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
@@ -138,6 +157,30 @@ export default function ClassGroupsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Segmentador Todos / Grupales / Individuales */}
+      <Tabs value={groupSegment} onValueChange={(v) => setGroupSegment(v as GroupSegment)}>
+        <TabsList>
+          <TabsTrigger value="all">
+            Todos
+            {classGroups.length > 0 && (
+              <span className="ml-1.5 text-xs text-muted-foreground">({classGroups.length})</span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="grupal">
+            Grupales
+            {grupalCount > 0 && (
+              <span className="ml-1.5 text-xs text-muted-foreground">({grupalCount})</span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="individual">
+            Individuales
+            {individualCount > 0 && (
+              <span className="ml-1.5 text-xs text-muted-foreground">({individualCount})</span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -169,15 +212,22 @@ export default function ClassGroupsPage() {
         <div className="flex justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : classGroups.length === 0 ? (
+      ) : visibleGroups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
           <GraduationCap className="h-12 w-12 text-muted-foreground/40" />
           <p className="text-muted-foreground font-medium">
-            {search || levelFilter !== "all_levels"
+            {hasActiveFilters
               ? "No se encontraron grupos con esos filtros"
               : "Aún no tienes grupos"}
           </p>
-          {!search && levelFilter === "all_levels" && (
+          {/* El segmentador filtra solo lo ya cargado: si hay más páginas,
+              puede que haya coincidencias más adelante en el scroll. */}
+          {hasActiveFilters && classGroups.length > 0 && hasNext && (
+            <p className="text-xs text-muted-foreground/70">
+              Sigue habiendo grupos por cargar — desplázate para ver más resultados.
+            </p>
+          )}
+          {!hasActiveFilters && (
             <Button variant="outline" onClick={() => router.push("/class-groups/new")}>
               <Plus className="h-4 w-4 mr-2" />
               Crear primer grupo
@@ -187,7 +237,7 @@ export default function ClassGroupsPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {classGroups.map((group) => (
+            {visibleGroups.map((group) => (
               <ClassGroupCard
                 key={group.id}
                 group={group}
