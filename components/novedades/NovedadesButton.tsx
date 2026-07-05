@@ -7,7 +7,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Megaphone } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Megaphone, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -76,8 +77,13 @@ export const NovedadesButton = () => {
         <Button variant="ghost" size="icon" className="relative">
           <Megaphone className="h-5 w-5" />
           {unseen > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-              {unseen > 99 ? "99+" : unseen}
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center">
+              {/* Pulso sutil de acento para llamar la atención a lo nuevo
+                  (diferente del rojo operativo de la campana). */}
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60 motion-reduce:hidden" />
+              <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                {unseen > 99 ? "99+" : unseen}
+              </span>
             </span>
           )}
           <span className="sr-only">Novedades</span>
@@ -104,7 +110,7 @@ export const NovedadesButton = () => {
               </div>
             ) : (
               <div className="divide-y">
-                {updates.map((update) => (
+                {updates.slice(0, 4).map((update) => (
                   <div key={update.id} className="px-4 py-3 space-y-1">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold">{update.title}</p>
@@ -125,6 +131,18 @@ export const NovedadesButton = () => {
               </div>
             )}
           </ScrollArea>
+
+          {/* Footer: ver el historial completo en su página */}
+          {updates.length > 0 && (
+            <Link
+              href="/novedades"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-center gap-1.5 border-t px-4 py-3 text-sm font-medium text-primary hover:bg-muted/50 transition-colors"
+            >
+              Ver todas las novedades
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
         </div>
       </PopoverContent>
     </Popover>
