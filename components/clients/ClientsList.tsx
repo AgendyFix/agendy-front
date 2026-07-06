@@ -16,11 +16,16 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useClients } from "@/lib/hooks/useClients";
 import { Pagination } from "@/components/ui/Pagination";
+import { disciplinesApi } from "@/lib/api/disciplines";
+import type { Discipline } from "@/lib/types/models";
 import type { ClientEnrollmentStatus } from "@/lib/types/models";
 
 // ── Types & constants ──────────────────────────────────────────────────────
@@ -55,6 +60,8 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
 
   const [searchTerm, setSearchTerm]   = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [disciplineFilter, setDisciplineFilter] = useState<string>("all");
+  const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<{ id: string; name: string } | null>(null);
   const hasFetched = useRef(false);
@@ -65,11 +72,14 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
 
   // ── Fetch helpers ──────────────────────────────────────────────────────
 
-  const doFetch = useCallback((page: number, search: string, status: StatusFilter) => {
+  const doFetch = useCallback((
+    page: number, search: string, status: StatusFilter, discipline: string,
+  ) => {
     fetchClients({
       page,
       search:            search || undefined,
       enrollment_status: status === "all" ? undefined : status,
+      discipline:        discipline === "all" ? undefined : discipline,
     });
   }, [fetchClients]);
 
@@ -80,10 +90,18 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
     }
   }, [fetchClients]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Cargar disciplinas para poblar el filtro (silencioso si falla).
+  useEffect(() => {
+    disciplinesApi
+      .getAll({ is_active: true, limit: 200 })
+      .then((res) => setDisciplines(res.results))
+      .catch(() => { /* no bloqueante */ });
+  }, []);
+
   // ── Handlers ──────────────────────────────────────────────────────────
 
   const handlePageChange = (page: number) => {
-    doFetch(page, searchTerm, statusFilter);
+    doFetch(page, searchTerm, statusFilter, disciplineFilter);
   };
 
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -92,13 +110,18 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
     setSearchTerm(value);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      doFetch(1, value, statusFilter);
+      doFetch(1, value, statusFilter, disciplineFilter);
     }, 350);
-  }, [doFetch, statusFilter]);
+  }, [doFetch, statusFilter, disciplineFilter]);
 
   const handleStatusFilter = (status: StatusFilter) => {
     setStatusFilter(status);
-    doFetch(1, searchTerm, status);
+    doFetch(1, searchTerm, status, disciplineFilter);
+  };
+
+  const handleDisciplineFilter = (discipline: string) => {
+    setDisciplineFilter(discipline);
+    doFetch(1, searchTerm, statusFilter, discipline);
   };
 
   const openDeleteDialog = (id: string, name: string) => {
@@ -173,26 +196,39 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
             ))}
           </div>
 
-          {/* Buscador */}
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={`Buscar ${entityName.toLowerCase()}...`}
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-8"
-            />
+          {/* Buscador + filtro de asignatura */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={`Buscar ${entityName.toLowerCase()}...`}
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <Select value={disciplineFilter} onValueChange={handleDisciplineFilter}>
+              <SelectTrigger className="w-full sm:w-56">
+                <SelectValue placeholder="Todas las asignaturas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las asignaturas</SelectItem>
+                {disciplines.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Tabla / estado vacío */}
           {filteredClients.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">
-                {searchTerm || statusFilter !== "all"
+                {searchTerm || statusFilter !== "all" || disciplineFilter !== "all"
                   ? `No se encontraron ${entityName.toLowerCase()}`
                   : `No hay ${entityName.toLowerCase()} registrados`}
               </p>
-              {!searchTerm && statusFilter === "all" && (
+              {!searchTerm && statusFilter === "all" && disciplineFilter === "all" && (
                 <Button
                   onClick={() => router.push("/clients/new")}
                   className="mt-4"

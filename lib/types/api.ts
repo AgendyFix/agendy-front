@@ -127,6 +127,8 @@ export interface ClientListParams {
   phone?: string;
   email?: string;
   is_active?: boolean;
+  enrollment_status?: 'active' | 'paused' | 'dropped';
+  discipline?: string;
   ordering?: string;
   limit?: number;
   offset?: number;
