@@ -57,6 +57,28 @@ export const clientsApi = {
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/clients/${id}/`);
   },
+
+  /**
+   * Pausa TODAS las inscripciones activas del alumno (1 clic). Solo admin.
+   * Mientras esté pausado no genera cobros ni notificaciones.
+   */
+  pause: async (id: string): Promise<{ affected: number; client: Client }> => {
+    const response = await apiClient.post<{ affected: number; client: Client }>(
+      `/clients/${id}/pause/`,
+    );
+    return response.data;
+  },
+
+  /**
+   * Reactiva TODAS las inscripciones pausadas del alumno. Solo admin.
+   * Retoma cobros desde el mes actual (nunca retroactivo).
+   */
+  reactivate: async (id: string): Promise<{ affected: number; client: Client }> => {
+    const response = await apiClient.post<{ affected: number; client: Client }>(
+      `/clients/${id}/reactivate/`,
+    );
+    return response.data;
+  },
 };
 
 export default clientsApi;
