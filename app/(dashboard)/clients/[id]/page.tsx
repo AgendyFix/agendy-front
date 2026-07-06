@@ -1120,9 +1120,9 @@ export default function ClientDetailPage() {
                 return (
                   <div
                     key={payment.id}
-                    className={`flex items-center gap-3 py-3 first:pt-0 last:pb-0 ${
-                      isOverdue ? "bg-red-50/50 -mx-6 px-6 rounded" :
-                      isPartial ? "bg-orange-50/40 -mx-6 px-6 rounded" : ""
+                    className={`flex items-center gap-3 py-3 first:pt-0 last:pb-0 min-w-0 rounded ${
+                      isOverdue ? "bg-red-50/50" :
+                      isPartial ? "bg-orange-50/40" : ""
                     }`}
                   >
                     {/* Icono de estado */}
