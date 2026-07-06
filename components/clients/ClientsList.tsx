@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Search, Phone, Mail } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Phone, Mail, Pause, Play, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
 import { useClients } from "@/lib/hooks/useClients";
 import { Pagination } from "@/components/ui/Pagination";
 import { disciplinesApi } from "@/lib/api/disciplines";
+import { clientsApi } from "@/lib/api/clients";
 import type { Discipline } from "@/lib/types/models";
 import type { ClientEnrollmentStatus } from "@/lib/types/models";
 
@@ -64,6 +65,10 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [pauseTarget, setPauseTarget] = useState<
+    { id: string; name: string; action: "pause" | "reactivate" } | null
+  >(null);
+  const [pauseLoading, setPauseLoading] = useState(false);
   const hasFetched = useRef(false);
   // true solo en la primera carga — no en búsquedas posteriores
   const [initialLoading, setInitialLoading] = useState(true);
@@ -138,6 +143,32 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
       setClientToDelete(null);
     } catch {
       toast.error(`Error al eliminar el ${entitySingular.toLowerCase()}`);
+    }
+  };
+
+  const handleConfirmPause = async () => {
+    if (!pauseTarget) return;
+    const { id, name, action } = pauseTarget;
+    try {
+      setPauseLoading(true);
+      if (action === "pause") {
+        await clientsApi.pause(id);
+        toast.success(`${name} pausado — no se le generarán cobros ni recordatorios.`);
+      } else {
+        await clientsApi.reactivate(id);
+        toast.success(`${name} reactivado.`);
+      }
+      setPauseTarget(null);
+      // Refetch conservando la página y filtros actuales.
+      doFetch(currentPage, searchTerm, statusFilter, disciplineFilter);
+    } catch {
+      toast.error(
+        action === "pause"
+          ? "No se pudo pausar al alumno."
+          : "No se pudo reactivar al alumno.",
+      );
+    } finally {
+      setPauseLoading(false);
     }
   };
 
@@ -313,9 +344,35 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                         {/* Acciones */}
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end gap-2">
+                            {/* Pausar / Reactivar en 1 clic (según estado del alumno) */}
+                            {client.enrollment_status === "active" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Pausar alumno"
+                                onClick={() =>
+                                  setPauseTarget({ id: client.id, name: client.full_name, action: "pause" })
+                                }
+                              >
+                                <Pause className="h-4 w-4 text-yellow-600" />
+                              </Button>
+                            )}
+                            {client.enrollment_status === "paused" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Reactivar alumno"
+                                onClick={() =>
+                                  setPauseTarget({ id: client.id, name: client.full_name, action: "reactivate" })
+                                }
+                              >
+                                <Play className="h-4 w-4 text-green-600" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
+                              title="Editar alumno"
                               onClick={() => router.push(`/clients/${client.id}`)}
                             >
                               <Pencil className="h-4 w-4" />
@@ -323,6 +380,7 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                             <Button
                               variant="ghost"
                               size="icon"
+                              title="Eliminar alumno"
                               onClick={() => openDeleteDialog(client.id, client.full_name)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -366,6 +424,34 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
               Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmar pausa / reactivación */}
+      <AlertDialog open={!!pauseTarget} onOpenChange={(o) => !o && setPauseTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pauseTarget?.action === "pause"
+                ? `¿Pausar a ${pauseTarget?.name}?`
+                : `¿Reactivar a ${pauseTarget?.name}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pauseTarget?.action === "pause"
+                ? "No se le generarán cobros ni recordatorios mientras esté pausado. Su deuda previa queda congelada y podrás reactivarlo cuando regrese."
+                : "Volverá a generar cobros desde el mes actual (no se le cobran los meses que estuvo pausado)."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pauseLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmPause(); }}
+              disabled={pauseLoading}
+            >
+              {pauseLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {pauseTarget?.action === "pause" ? "Pausar" : "Reactivar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
