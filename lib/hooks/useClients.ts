@@ -20,6 +20,7 @@ export const useClients = () => {
     search?: string;
     page?: number;
     enrollment_status?: 'active' | 'paused' | 'dropped';
+    discipline?: string;
   }) => {
     try {
       setIsLoading(true);
