@@ -58,26 +58,60 @@ function fmtHour(h: number): string {
 // ── Overlap resolution ────────────────────────────────────────────────────────
 
 interface RawBlock { group: ClassGroup; scheduleIdx: number; colorIdx: number }
-interface Block extends RawBlock { col: number; totalCols: number }
 
-function resolveOverlaps(blocks: RawBlock[]): Block[] {
-  if (!blocks.length) return [];
-  const sorted = [...blocks].map((b) => ({
-    ...b,
-    start: toMins(b.group.schedules[b.scheduleIdx].start_time),
-    end:   toMins(b.group.schedules[b.scheduleIdx].end_time),
-  })).sort((a, b) => a.start - b.start);
+/**
+ * Agrupa RawBlocks de un mismo día por franja EXACTA (start_time + end_time).
+ * Todos los ocupantes de un cluster comparten horario idéntico y se renderizan
+ * apilados en una sola celda cuando son más de uno.
+ */
+interface RawCluster { start: string; end: string; occupants: RawBlock[] }
+interface Cluster extends RawCluster { col: number; totalCols: number }
+
+function clusterBlocks(blocks: RawBlock[]): RawCluster[] {
+  const map = new Map<string, RawCluster>();
+  blocks.forEach((b) => {
+    const schedule = b.group.schedules[b.scheduleIdx];
+    const key = `${schedule.start_time}|${schedule.end_time}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.occupants.push(b);
+    } else {
+      map.set(key, { start: schedule.start_time, end: schedule.end_time, occupants: [b] });
+    }
+  });
+  return Array.from(map.values());
+}
+
+/**
+ * Resuelve solapamientos por columnas, pero operando sobre CLUSTERS en vez de
+ * bloques individuales: dos clusters con franjas parcialmente solapadas (ej.
+ * 16:00-17:00 y 16:30-17:30) siguen yendo en columnas separadas; los ocupantes
+ * de un mismo cluster (franja EXACTA idéntica) comparten una sola columna/celda.
+ */
+function resolveClusterOverlaps(clusters: RawCluster[]): Cluster[] {
+  if (!clusters.length) return [];
+  const sorted = [...clusters].map((c) => ({
+    ...c,
+    startMins: toMins(c.start),
+    endMins:   toMins(c.end),
+  })).sort((a, b) => a.startMins - b.startMins);
 
   const cols: number[] = [];
   const colEnds: number[] = [];
-  sorted.forEach((block, i) => {
+  sorted.forEach((c, i) => {
     let col = 0;
-    while (colEnds[col] !== undefined && colEnds[col] > block.start) col++;
+    while (colEnds[col] !== undefined && colEnds[col] > c.startMins) col++;
     cols[i] = col;
-    colEnds[col] = block.end;
+    colEnds[col] = c.endMins;
   });
   const maxCol = Math.max(...cols) + 1;
-  return sorted.map((b, i) => ({ ...b, col: cols[i], totalCols: maxCol }));
+  return sorted.map((c, i) => ({
+    start: c.start,
+    end: c.end,
+    occupants: c.occupants,
+    col: cols[i],
+    totalCols: maxCol,
+  }));
 }
 
 // ── Detail Panel (flotante, sin mover el calendario) ─────────────────────────
@@ -231,6 +265,77 @@ function DetailPanel({
   );
 }
 
+// ── Cluster Panel (flotante, lista completa de ocupantes de un cluster) ──────
+
+function ClusterPanel({
+  occupants,
+  label,
+  onClose,
+  onNavigate,
+  pos,
+}: {
+  occupants: RawBlock[];
+  label: string;
+  onClose: () => void;
+  onNavigate?: (group: ClassGroup) => void;
+  pos: { top: number; left?: number; right?: number };
+}) {
+  return (
+    <div
+      className="fixed z-50 w-72 rounded-xl border bg-background shadow-xl
+                 animate-in fade-in-0 zoom-in-95 duration-150"
+      style={{
+        top: pos.top,
+        left: pos.left,
+        right: pos.right,
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 p-4 border-b">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-sm leading-tight">{occupants.length} alumnos</h3>
+          <span className="text-xs text-muted-foreground">{label}</span>
+        </div>
+        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 -mt-0.5" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Lista completa de ocupantes */}
+      <div className="max-h-80 overflow-y-auto p-2 space-y-0.5">
+        {occupants.map((occ, i) => {
+          const occColor = GROUP_COLORS[occ.colorIdx];
+          const occName = occ.group.is_individual && occ.group.primary_client?.full_name
+            ? occ.group.primary_client.full_name
+            : occ.group.name;
+          const occDiscipline = occ.group.disciplines?.length
+            ? occ.group.disciplines.map((d) => d.name).join(" · ")
+            : null;
+
+          return (
+            <button
+              key={i}
+              type="button"
+              className="flex items-center gap-2 w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/60"
+              onClick={() => onNavigate?.(occ.group)}
+            >
+              <span className={`h-2 w-2 rounded-full shrink-0 ${occColor.dot}`} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium truncate">{occName}</span>
+                {occDiscipline && (
+                  <span className="block text-xs text-muted-foreground truncate">{occDiscipline}</span>
+                )}
+              </span>
+              {onNavigate && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 interface WeeklyCalendarProps {
@@ -263,6 +368,16 @@ export function WeeklyCalendar({
   const [selected, setSelected] = useState<{ group: ClassGroup; scheduleIdx: number } | null>(null);
   // Posición exacta del panel en px relativo al contenedor
   const [panelPos, setPanelPos] = useState<{ top: number; left?: number; right?: number }>({ top: 80, left: 60 });
+
+  // ── Panel de cluster (varios ocupantes en la misma franja exacta) ──────────
+  const [clusterSel, setClusterSel] = useState<{
+    occupants: RawBlock[];
+    label: string;
+    dayIdx: number;
+    start: string;
+    end: string;
+  } | null>(null);
+  const [clusterPanelPos, setClusterPanelPos] = useState<{ top: number; left?: number; right?: number }>({ top: 80, left: 60 });
 
   // ── Hora actual (se actualiza cada minuto) ────────────────────────────────
   // Usamos refs para timeout e interval para poder limpiarlos correctamente
@@ -358,11 +473,61 @@ export function WeeklyCalendar({
       rawByDay[group.schedules[sIdx].day_of_week].push({ group, scheduleIdx: sIdx, colorIdx: cIdx });
     });
   });
-  const blocksByDay = rawByDay.map(resolveOverlaps);
+  const clustersByDay: Cluster[][] = rawByDay.map((dayBlocks) =>
+    resolveClusterOverlaps(clusterBlocks(dayBlocks))
+  );
 
   const containerStyle = fillHeight
     ? { height: "100%" }
     : { height: height ?? 500 };
+
+  // ── Posicionamiento del panel flotante a partir del rect de un bloque clickeado ──
+  // Compartido entre el DetailPanel (bloque de un solo ocupante) y el ClusterPanel.
+  const computePanelPos = (rect: DOMRect): { top: number; left?: number; right?: number } => {
+    const PANEL_W = 288; // w-72
+    const PANEL_H = 420; // altura real del panel
+    const GAP     = 8;
+
+    const topRaw = rect.top;
+    const maxTop = window.innerHeight - PANEL_H - 8;
+    const top = Math.min(Math.max(topRaw, 8), maxTop);
+
+    const spaceRight = window.innerWidth - rect.right;
+    const spaceLeft  = rect.left;
+
+    if (spaceRight >= PANEL_W + GAP) {
+      return { top, left: rect.right + GAP };
+    } else if (spaceLeft >= PANEL_W + GAP) {
+      return { top, right: window.innerWidth - rect.left + GAP };
+    }
+    return { top, left: Math.max((window.innerWidth - PANEL_W) / 2, 8) };
+  };
+
+  const openPanelForOccupant = (rect: DOMRect, occupant: RawBlock) => {
+    const isSameSelected = selected?.group.id === occupant.group.id
+      && selected?.scheduleIdx === occupant.scheduleIdx;
+    setClusterSel(null);
+    if (isSameSelected) {
+      setSelected(null);
+      return;
+    }
+    setPanelPos(computePanelPos(rect));
+    setSelected({ group: occupant.group, scheduleIdx: occupant.scheduleIdx });
+  };
+
+  // Abre el panel flotante con la lista completa de ocupantes de un cluster.
+  const openClusterPanel = (rect: DOMRect, cluster: Cluster, dayIdx: number, label: string) => {
+    const isSameSelected = clusterSel?.dayIdx === dayIdx
+      && clusterSel?.start === cluster.start
+      && clusterSel?.end === cluster.end;
+    setSelected(null);
+    if (isSameSelected) {
+      setClusterSel(null);
+      return;
+    }
+    setClusterPanelPos(computePanelPos(rect));
+    setClusterSel({ occupants: cluster.occupants, label, dayIdx, start: cluster.start, end: cluster.end });
+  };
 
   return (
     <div ref={containerRef} className="relative flex border rounded-lg overflow-hidden" style={containerStyle}>
@@ -424,132 +589,233 @@ export function WeeklyCalendar({
             )}
 
             {/* Columnas días */}
-            {blocksByDay.map((blocks, dayIdx) => (
+            {clustersByDay.map((clusters, dayIdx) => (
               <div key={dayIdx} className="relative border-r last:border-r-0">
                 {hours.map((_, i) => (
                   <div key={i} className="absolute w-full border-t border-muted/50" style={{ top: i * SLOT_H }} />
                 ))}
 
-                {blocks.map((block, bi) => {
-                  const schedule  = block.group.schedules[block.scheduleIdx];
-                  const startMins = toMins(schedule.start_time);
-                  const endMins   = toMins(schedule.end_time);
-                  const top        = ((startMins / 60) - minHour) * SLOT_H;
-                  const rawH       = ((endMins - startMins) / 60) * SLOT_H - 2;
+                {clusters.map((cluster, ci) => {
+                  const startMins = toMins(cluster.start);
+                  const endMins   = toMins(cluster.end);
+                  const top       = ((startMins / 60) - minHour) * SLOT_H;
+                  const rawH      = ((endMins - startMins) / 60) * SLOT_H - 2;
                   // Altura real en px según duración; min 20px para que no desaparezca
-                  const h          = Math.max(rawH, 20);
+                  const h         = Math.max(rawH, 20);
                   // Si el bloque es más alto que su espacio natural, lo dejamos "salir" visualmente
                   // usando overflow-visible — el contenido se muestra completo encima de otras celdas
-                  const isShort    = rawH < 48;
-                  const color  = GROUP_COLORS[block.colorIdx];
-                  const colW   = block.totalCols > 1
-                    ? `calc(${100 / block.totalCols}% - ${PAD}px)`
+                  const isShort   = rawH < 48;
+                  const isNarrow  = cluster.totalCols > 1;
+                  const colW      = cluster.totalCols > 1
+                    ? `calc(${100 / cluster.totalCols}% - ${PAD}px)`
                     : "calc(100% - 4px)";
-                  const left   = block.totalCols > 1
-                    ? `calc(${(block.col / block.totalCols) * 100}% + ${PAD / 2}px)`
+                  const left      = cluster.totalCols > 1
+                    ? `calc(${(cluster.col / cluster.totalCols) * 100}% + ${PAD / 2}px)`
                     : "2px";
 
-                  const isSelected = selected?.group.id === block.group.id
-                    && selected?.scheduleIdx === block.scheduleIdx;
+                  // ── Cluster con un solo ocupante: render idéntico al bloque de siempre ──
+                  if (cluster.occupants.length === 1) {
+                    const occupant  = cluster.occupants[0];
+                    const schedule  = occupant.group.schedules[occupant.scheduleIdx];
+                    const color     = GROUP_COLORS[occupant.colorIdx];
 
-                  const isNarrow = block.totalCols > 1;
+                    const isSelected = selected?.group.id === occupant.group.id
+                      && selected?.scheduleIdx === occupant.scheduleIdx;
 
-                  // Nombre principal: para individuales mostrar el alumno, no el nombre técnico del grupo
-                  const displayName = block.group.is_individual && block.group.primary_client?.full_name
-                    ? block.group.primary_client.full_name
-                    : block.group.name;
+                    // Nombre principal: para individuales mostrar el alumno, no el nombre técnico del grupo
+                    const displayName = occupant.group.is_individual && occupant.group.primary_client?.full_name
+                      ? occupant.group.primary_client.full_name
+                      : occupant.group.name;
 
-                  // Disciplinas del grupo (primera si hay varias, para no ocupar espacio)
-                  const disciplineLabel = block.group.disciplines?.length
-                    ? block.group.disciplines.map((d) => d.name).join(" · ")
+                    // Disciplinas del grupo (todas, para no perder info)
+                    const disciplineLabel = occupant.group.disciplines?.length
+                      ? occupant.group.disciplines.map((d) => d.name).join(" · ")
+                      : null;
+
+                    const tooltipText = `${displayName}${disciplineLabel ? ` · ${disciplineLabel}` : ""} · ${to12h(schedule.start_time)}–${to12h(schedule.end_time)}${occupant.group.instructor_name ? ` · ${occupant.group.instructor_name}` : ""}`;
+
+                    return (
+                      <button
+                        key={ci}
+                        title={tooltipText}
+                        className={`absolute rounded border-l-[3px] px-1 py-0.5 text-left transition-all cursor-pointer shadow-sm z-[41]
+                          ${isShort ? "overflow-visible" : "overflow-hidden"}
+                          ${color.bg} ${color.border} ${color.text}
+                          ${isSelected ? "ring-2 ring-offset-1 ring-current opacity-100" : "hover:opacity-85 opacity-90"}`}
+                        style={{ top, height: h, width: colW, left }}
+                        onClick={(e) => openPanelForOccupant(
+                          (e.currentTarget as HTMLElement).getBoundingClientRect(),
+                          occupant
+                        )}
+                      >
+                        {isShort ? (
+                          /* Bloque corto (< 48px): nombre en una línea + hora compacta */
+                          <p className="text-[11px] font-semibold leading-tight truncate">
+                            {displayName}
+                            <span className="font-normal opacity-70 ml-1 tabular-nums">
+                              {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
+                            </span>
+                          </p>
+                        ) : isNarrow ? (
+                          /* Bloque angosto (solapado): nombre + hora en dos líneas */
+                          <>
+                            <p className="text-[11px] font-semibold leading-tight truncate">
+                              {displayName}
+                            </p>
+                            <p className="text-[10px] opacity-70 tabular-nums leading-tight">
+                              {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
+                            </p>
+                            {disciplineLabel && h > 52 && (
+                              <p className="text-[10px] opacity-65 truncate leading-tight">
+                                {disciplineLabel}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          /* Bloque normal: nombre + disciplina + hora */
+                          <>
+                            <p className="text-xs font-semibold leading-tight truncate">
+                              {displayName}
+                            </p>
+                            {disciplineLabel && (
+                              <p className="text-[11px] opacity-80 truncate leading-tight">
+                                {disciplineLabel}
+                              </p>
+                            )}
+                            <p className="text-[11px] opacity-65 tabular-nums leading-tight">
+                              {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
+                            </p>
+                            {showInstructor && occupant.group.instructor_name && h > 72 && (
+                              <p className="text-[11px] opacity-55 truncate leading-tight">
+                                {occupant.group.instructor_name}
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </button>
+                    );
+                  }
+
+                  // ── Cluster con varios ocupantes en la MISMA franja exacta: apilados ──
+                  // Nombres de disciplina por ocupante, como conjunto ordenado (para comparar
+                  // sin importar el orden en que vengan del backend). "" = sin disciplinas.
+                  const disciplineSetKey = (o: RawBlock): string =>
+                    (o.group.disciplines ?? []).map((d) => d.name).sort().join("|");
+                  const firstDisciplineKey = disciplineSetKey(cluster.occupants[0]);
+                  const allShareDiscipline = firstDisciplineKey !== ""
+                    && cluster.occupants.every((o) => disciplineSetKey(o) === firstDisciplineKey);
+                  const clusterDisciplineLabel = allShareDiscipline
+                    ? (cluster.occupants[0].group.disciplines ?? []).map((d) => d.name).join(" · ")
                     : null;
 
-                  const tooltipText = `${displayName}${disciplineLabel ? ` · ${disciplineLabel}` : ""} · ${to12h(schedule.start_time)}–${to12h(schedule.end_time)}${block.group.instructor_name ? ` · ${block.group.instructor_name}` : ""}`;
+                  const firstInstructor = cluster.occupants[0].group.instructor_name || null;
+                  const sameInstructor = showInstructor && !!firstInstructor
+                    && cluster.occupants.every((o) => o.group.instructor_name === firstInstructor);
+
+                  const headerTitle = clusterDisciplineLabel
+                    ? `${clusterDisciplineLabel} · ${cluster.occupants.length} alumnos`
+                    : `${cluster.occupants.length} alumnos`;
+                  const headerSubtitle = `${to12h(cluster.start)}–${to12h(cluster.end)}${sameInstructor ? ` · ${firstInstructor}` : ""}`;
+
+                  const dayLabel = `${DAYS_FULL[dayIdx]} ${to12h(cluster.start)}–${to12h(cluster.end)}`;
+                  const isClusterSelected = clusterSel?.dayIdx === dayIdx
+                    && clusterSel?.start === cluster.start
+                    && clusterSel?.end === cluster.end;
+
+                  // Filas de ocupante que caben en el alto disponible del bloque.
+                  // Sizing ADAPTATIVO por densidad: si sobra alto por alumno ("cómodo"),
+                  // usamos texto/filas más grandes y repartimos el alto disponible para
+                  // que no quede hueco muerto abajo; si está apretado ("compacto"), igual
+                  // que antes: filas chicas + "+N más".
+                  const HEADER_H_COMPACTO = 28;
+                  const ROW_H_COMPACTO    = 16;
+                  const HEADER_H_COMODO   = 30;
+                  const ROW_H_COMODO      = 24;
+
+                  // Estimación con el header compacto para decidir el modo según el espacio
+                  // que le tocaría a cada fila.
+                  const perRow  = Math.max(0, h - HEADER_H_COMPACTO) / cluster.occupants.length;
+                  const isComodo = perRow >= 26;
+
+                  const HEADER_H = isComodo ? HEADER_H_COMODO : HEADER_H_COMPACTO;
+                  const ROW_H    = isComodo ? ROW_H_COMODO : ROW_H_COMPACTO;
+                  const availableH = Math.max(0, h - HEADER_H);
+                  const maxFilas   = Math.max(1, Math.floor(availableH / ROW_H));
+                  const hasOverflow = cluster.occupants.length > maxFilas;
+
+                  // Al menos 1 chip visible cuando hay ocupantes (evita "solo +N más").
+                  const visibles = hasOverflow
+                    ? cluster.occupants.slice(0, Math.max(1, maxFilas - 1))
+                    : cluster.occupants;
+                  const ocultos = cluster.occupants.length - visibles.length;
 
                   return (
                     <button
-                      key={bi}
-                      title={tooltipText}
-                      className={`absolute rounded border-l-[3px] px-1 py-0.5 text-left transition-all cursor-pointer shadow-sm z-[41]
-                        ${isShort ? "overflow-visible" : "overflow-hidden"}
-                        ${color.bg} ${color.border} ${color.text}
-                        ${isSelected ? "ring-2 ring-offset-1 ring-current opacity-100" : "hover:opacity-85 opacity-90"}`}
+                      key={ci}
+                      type="button"
+                      title={`${headerTitle} · ${headerSubtitle}`}
+                      className={`absolute rounded border shadow-sm z-[41] flex flex-col overflow-hidden text-left transition-all cursor-pointer
+                        bg-card border-border
+                        ${isClusterSelected ? "ring-2 ring-offset-1 ring-primary" : "hover:border-foreground/30"}`}
                       style={{ top, height: h, width: colW, left }}
-                      onClick={(e) => {
-                        if (isSelected) {
-                          setSelected(null);
-                          return;
-                        }
-                        const blockRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        const PANEL_W = 288; // w-72
-                        const PANEL_H = 420; // altura real del panel
-                        const GAP     = 8;
-
-                        // Coordenadas en viewport (fixed)
-                        // Vertical: alinear con el tope del bloque, clamp para no salirse
-                        const topRaw = blockRect.top;
-                        const maxTop = window.innerHeight - PANEL_H - 8;
-                        const top = Math.min(Math.max(topRaw, 8), maxTop);
-
-                        // Horizontal: a la derecha del bloque si cabe, sino a la izquierda
-                        const spaceRight = window.innerWidth - blockRect.right;
-                        const spaceLeft  = blockRect.left;
-
-                        if (spaceRight >= PANEL_W + GAP) {
-                          setPanelPos({ top, left: blockRect.right + GAP });
-                        } else if (spaceLeft >= PANEL_W + GAP) {
-                          setPanelPos({ top, right: window.innerWidth - blockRect.left + GAP });
-                        } else {
-                          // Sin espacio lateral: centrar horizontalmente
-                          setPanelPos({ top, left: Math.max((window.innerWidth - PANEL_W) / 2, 8) });
-                        }
-                        setSelected({ group: block.group, scheduleIdx: block.scheduleIdx });
-                      }}
-                    >
-                      {isShort ? (
-                        /* Bloque corto (< 48px): nombre en una línea + hora compacta */
-                        <p className="text-[11px] font-semibold leading-tight truncate">
-                          {displayName}
-                          <span className="font-normal opacity-70 ml-1 tabular-nums">
-                            {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
-                          </span>
-                        </p>
-                      ) : isNarrow ? (
-                        /* Bloque angosto (solapado): nombre + hora en dos líneas */
-                        <>
-                          <p className="text-[11px] font-semibold leading-tight truncate">
-                            {displayName}
-                          </p>
-                          <p className="text-[10px] opacity-70 tabular-nums leading-tight">
-                            {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
-                          </p>
-                          {disciplineLabel && h > 52 && (
-                            <p className="text-[10px] opacity-65 truncate leading-tight">
-                              {disciplineLabel}
-                            </p>
-                          )}
-                        </>
-                      ) : (
-                        /* Bloque normal: nombre + disciplina + hora */
-                        <>
-                          <p className="text-xs font-semibold leading-tight truncate">
-                            {displayName}
-                          </p>
-                          {disciplineLabel && (
-                            <p className="text-[11px] opacity-80 truncate leading-tight">
-                              {disciplineLabel}
-                            </p>
-                          )}
-                          <p className="text-[11px] opacity-65 tabular-nums leading-tight">
-                            {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
-                          </p>
-                          {showInstructor && block.group.instructor_name && h > 72 && (
-                            <p className="text-[11px] opacity-55 truncate leading-tight">
-                              {block.group.instructor_name}
-                            </p>
-                          )}
-                        </>
+                      onClick={(e) => openClusterPanel(
+                        (e.currentTarget as HTMLElement).getBoundingClientRect(),
+                        cluster,
+                        dayIdx,
+                        dayLabel
                       )}
+                    >
+                      {/* Encabezado neutro: recuento + hora. El COLOR vive en los chips de
+                          cada alumno (mismo lenguaje que las tarjetas individuales). */}
+                      <div className={`px-1 shrink-0 ${isComodo ? "pt-1 pb-0.5" : "pt-0.5"}`}>
+                        <p className={`font-semibold leading-tight truncate text-foreground/80 ${isComodo ? "text-[12px]" : "text-[11px]"}`}>
+                          {headerTitle}
+                        </p>
+                        {isComodo && (
+                          <p className="text-[10px] text-muted-foreground tabular-nums leading-tight truncate">
+                            {headerSubtitle}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Chips de alumno — cada uno en SU color, como mini-tarjetas apiladas.
+                          Preview visual; el clic en el bloque abre el panel con la lista completa. */}
+                      <div
+                        className={`flex-1 min-h-0 overflow-hidden px-1 pb-1 flex flex-col ${
+                          isComodo ? "gap-1 justify-center" : "gap-0.5"
+                        }`}
+                      >
+                        {visibles.map((occ, oi) => {
+                          const occColor = GROUP_COLORS[occ.colorIdx];
+                          const occName = occ.group.is_individual && occ.group.primary_client?.full_name
+                            ? occ.group.primary_client.full_name
+                            : occ.group.name;
+                          const occDiscipline = !clusterDisciplineLabel && occ.group.disciplines?.length
+                            ? occ.group.disciplines.map((d) => d.name).join(" · ")
+                            : null;
+
+                          return (
+                            <div
+                              key={oi}
+                              className={`flex items-center gap-1 rounded-sm border-l-2 ${occColor.bg} ${occColor.border} ${occColor.text} ${isComodo ? "px-1.5 py-0.5" : "px-1 py-px"}`}
+                            >
+                              <span className={`font-medium truncate leading-tight ${isComodo ? "text-[12px]" : "text-[10px]"}`}>
+                                {occName}
+                              </span>
+                              {occDiscipline && isComodo && (
+                                <span className="truncate opacity-70 leading-tight ml-auto shrink-0 max-w-[45%] text-[10px]">
+                                  {occDiscipline}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {ocultos > 0 && (
+                          <p className={`font-semibold text-primary leading-tight px-0.5 ${isComodo ? "text-[12px]" : "text-[10px]"}`}>
+                            +{ocultos} más
+                          </p>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
@@ -560,10 +826,10 @@ export function WeeklyCalendar({
       </div>
 
       {/* ── Overlay invisible — click fuera cierra el panel ── */}
-      {selected && (
+      {(selected || clusterSel) && (
         <div
           className="fixed inset-0 z-40"
-          onClick={() => setSelected(null)}
+          onClick={() => { setSelected(null); setClusterSel(null); }}
         />
       )}
 
@@ -575,6 +841,17 @@ export function WeeklyCalendar({
           pos={panelPos}
           onClose={() => setSelected(null)}
           onNavigate={onNavigate ? (g) => { setSelected(null); onNavigate(g); } : undefined}
+        />
+      )}
+
+      {/* ── Panel flotante del cluster — lista completa de ocupantes ── */}
+      {clusterSel && (
+        <ClusterPanel
+          occupants={clusterSel.occupants}
+          label={clusterSel.label}
+          pos={clusterPanelPos}
+          onClose={() => setClusterSel(null)}
+          onNavigate={onNavigate ? (g) => { setClusterSel(null); onNavigate(g); } : undefined}
         />
       )}
     </div>
