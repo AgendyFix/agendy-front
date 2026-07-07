@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, Megaphone } from "lucide-react";
-import { novedadesApi, type ProductUpdate } from "@/lib/api/novedades";
+import { productUpdatesApi, type ProductUpdate } from "@/lib/api/productUpdates";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -24,12 +24,12 @@ const isRecent = (isoDate: string): boolean => {
   return Date.now() - published < 7 * 24 * 60 * 60 * 1000;
 };
 
-export default function NovedadesPage() {
+export default function ProductUpdatesPage() {
   const [updates, setUpdates] = useState<ProductUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    novedadesApi
+    productUpdatesApi
       .list()
       .then((data) => setUpdates(data.results))
       .catch((error) => console.debug("[Novedades] error:", error))

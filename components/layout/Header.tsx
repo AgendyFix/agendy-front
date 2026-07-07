@@ -10,7 +10,7 @@ import { CompanySelector } from "./CompanySelector";
 import { UserMenu } from "./UserMenu";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
-import { NovedadesButton } from "@/components/novedades/NovedadesButton";
+import { ProductUpdatesButton } from "@/components/product-updates/ProductUpdatesButton";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,7 @@ export function Header() {
         </div>
         
         <div className="flex items-center gap-2">
-          <NovedadesButton />
+          <ProductUpdatesButton />
           <NotificationBell />
           <ThemeToggle />
           <UserMenu />
