@@ -1,5 +1,5 @@
 // ============================================
-// NOVEDADES API - AgendyFix
+// PRODUCT UPDATES API - AgendyFix
 // Changelog de producto para admins ("Novedades")
 // ============================================
 
@@ -16,17 +16,17 @@ export interface ProductUpdate {
   published_at: string;
 }
 
-export interface NovedadesResponse {
+export interface ProductUpdatesResponse {
   unseen: number;
   results: ProductUpdate[];
 }
 
-export const novedadesApi = {
+export const productUpdatesApi = {
   /**
    * Lista las novedades publicadas y cuántas no ha visto el usuario actual.
    */
-  list: async (): Promise<NovedadesResponse> => {
-    const response = await apiClient.get<NovedadesResponse>("/novedades/");
+  list: async (): Promise<ProductUpdatesResponse> => {
+    const response = await apiClient.get<ProductUpdatesResponse>("/product-updates/");
     return response.data;
   },
 
@@ -34,8 +34,8 @@ export const novedadesApi = {
    * Marca todas las novedades como vistas (limpia el badge).
    */
   markSeen: async (): Promise<void> => {
-    await apiClient.post("/novedades/mark-seen/");
+    await apiClient.post("/product-updates/mark-seen/");
   },
 };
 
-export default novedadesApi;
+export default productUpdatesApi;

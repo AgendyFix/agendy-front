@@ -4,9 +4,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { NovedadesButton } from "./NovedadesButton";
-import { novedadesApi } from "@/lib/api/novedades";
-import type { NovedadesResponse } from "@/lib/api/novedades";
+import { ProductUpdatesButton } from "./ProductUpdatesButton";
+import { productUpdatesApi } from "@/lib/api/productUpdates";
+import type { ProductUpdatesResponse } from "@/lib/api/productUpdates";
 
 // happy-dom no implementa estas APIs que Radix Popover usa internamente
 // (pointer capture / scrollIntoView). Sin este polyfill, abrir el popover
@@ -21,17 +21,17 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
 
-vi.mock("@/lib/api/novedades", () => ({
-  novedadesApi: {
+vi.mock("@/lib/api/productUpdates", () => ({
+  productUpdatesApi: {
     list: vi.fn(),
     markSeen: vi.fn(),
   },
 }));
 
-const mockedList = novedadesApi.list as unknown as ReturnType<typeof vi.fn>;
-const mockedMarkSeen = novedadesApi.markSeen as unknown as ReturnType<typeof vi.fn>;
+const mockedList = productUpdatesApi.list as unknown as ReturnType<typeof vi.fn>;
+const mockedMarkSeen = productUpdatesApi.markSeen as unknown as ReturnType<typeof vi.fn>;
 
-const response: NovedadesResponse = {
+const response: ProductUpdatesResponse = {
   unseen: 2,
   results: [
     {
@@ -51,7 +51,7 @@ const response: NovedadesResponse = {
   ],
 };
 
-describe("NovedadesButton", () => {
+describe("ProductUpdatesButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedMarkSeen.mockResolvedValue(undefined);
@@ -60,7 +60,7 @@ describe("NovedadesButton", () => {
   it("muestra el badge con el conteo de novedades no vistas", async () => {
     mockedList.mockResolvedValue(response);
 
-    render(<NovedadesButton />);
+    render(<ProductUpdatesButton />);
 
     expect(await screen.findByText("2")).toBeInTheDocument();
     expect(mockedList).toHaveBeenCalledTimes(1);
@@ -70,7 +70,7 @@ describe("NovedadesButton", () => {
     const user = userEvent.setup();
     mockedList.mockResolvedValue(response);
 
-    render(<NovedadesButton />);
+    render(<ProductUpdatesButton />);
 
     expect(await screen.findByText("2")).toBeInTheDocument();
 
@@ -84,7 +84,7 @@ describe("NovedadesButton", () => {
     const user = userEvent.setup();
     mockedList.mockResolvedValue(response);
 
-    render(<NovedadesButton />);
+    render(<ProductUpdatesButton />);
 
     await screen.findByText("2");
     await user.click(screen.getByRole("button", { name: /Novedades/i }));
@@ -96,7 +96,7 @@ describe("NovedadesButton", () => {
   it("si falla el fetch inicial no muestra badge y no rompe el render", async () => {
     mockedList.mockRejectedValue(new Error("network error"));
 
-    render(<NovedadesButton />);
+    render(<ProductUpdatesButton />);
 
     await waitFor(() => expect(mockedList).toHaveBeenCalledTimes(1));
     expect(screen.queryByText(/^\d+$/)).not.toBeInTheDocument();

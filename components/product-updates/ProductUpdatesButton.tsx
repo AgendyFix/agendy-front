@@ -1,5 +1,5 @@
 // ============================================
-// NOVEDADES BUTTON - AgendyFix
+// PRODUCT UPDATES BUTTON - AgendyFix
 // Changelog de producto: ícono de megáfono con badge
 // de "no vistas" + panel con la lista de novedades.
 // ============================================
@@ -16,7 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { novedadesApi, type ProductUpdate } from "@/lib/api/novedades";
+import { productUpdatesApi, type ProductUpdate } from "@/lib/api/productUpdates";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -28,16 +28,16 @@ const formatPublishedAt = (isoDate: string): string => {
   }
 };
 
-export const NovedadesButton = () => {
+export const ProductUpdatesButton = () => {
   const [open, setOpen] = useState(false);
   const [updates, setUpdates] = useState<ProductUpdate[]>([]);
   const [unseen, setUnseen] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
 
-  const fetchNovedades = useCallback(async () => {
+  const fetchProductUpdates = useCallback(async () => {
     try {
-      const data = await novedadesApi.list();
+      const data = await productUpdatesApi.list();
       setUpdates(data.results);
       setUnseen(data.unseen);
       setHasLoaded(true);
@@ -51,8 +51,8 @@ export const NovedadesButton = () => {
   }, []);
 
   useEffect(() => {
-    fetchNovedades();
-  }, [fetchNovedades]);
+    fetchProductUpdates();
+  }, [fetchProductUpdates]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
@@ -60,14 +60,14 @@ export const NovedadesButton = () => {
 
     // Optimista: limpiamos el badge en cuanto se abre el panel.
     setUnseen(0);
-    novedadesApi.markSeen().catch((error) => {
+    productUpdatesApi.markSeen().catch((error) => {
       console.debug("[Novedades] No se pudo marcar como vistas:", error);
     });
 
     // Si el fetch inicial falló (o nunca cargó), reintentamos al abrir.
     if (!hasLoaded) {
       setIsLoading(true);
-      fetchNovedades();
+      fetchProductUpdates();
     }
   };
 
@@ -135,7 +135,7 @@ export const NovedadesButton = () => {
           {/* Footer: ver el historial completo en su página */}
           {updates.length > 0 && (
             <Link
-              href="/novedades"
+              href="/updates"
               onClick={() => setOpen(false)}
               className="flex items-center justify-center gap-1.5 border-t px-4 py-3 text-sm font-medium text-primary hover:bg-muted/50 transition-colors"
             >
