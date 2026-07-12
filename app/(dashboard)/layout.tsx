@@ -3,6 +3,7 @@
 // ============================================
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AccountBanner } from "@/components/layout/AccountBanner";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { NotificationsProvider } from "@/components/notifications/NotificationsProvider";
@@ -19,6 +20,7 @@ export default function DashboardLayout({
         <NotificationsProvider>
           <div className="flex h-screen flex-col">
             <Header />
+            <AccountBanner />
             <div className="flex flex-1 overflow-hidden">
               <Sidebar />
               <main className="flex-1 overflow-y-auto p-6">

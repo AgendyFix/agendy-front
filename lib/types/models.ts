@@ -17,6 +17,7 @@ export interface CompanyBasic {
   id: string;
   name: string;
   is_active: boolean;
+  overdue_banner_enabled?: boolean;
 }
 
 export interface Company extends CompanyBasic {
