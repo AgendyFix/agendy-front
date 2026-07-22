@@ -4,6 +4,7 @@
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AccountBanner } from "@/components/layout/AccountBanner";
+import { AccessSuspendedOverlay } from "@/components/layout/AccessSuspendedOverlay";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { NotificationsProvider } from "@/components/notifications/NotificationsProvider";
@@ -27,6 +28,7 @@ export default function DashboardLayout({
                 {children}
               </main>
             </div>
+            <AccessSuspendedOverlay />
           </div>
         </NotificationsProvider>
       </FeaturesProvider>
