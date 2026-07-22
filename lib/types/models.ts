@@ -18,6 +18,7 @@ export interface CompanyBasic {
   name: string;
   is_active: boolean;
   overdue_banner_enabled?: boolean;
+  access_suspended?: boolean;
 }
 
 export interface Company extends CompanyBasic {
