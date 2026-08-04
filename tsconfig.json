@@ -30,5 +30,8 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // Los archivos de test NO se type-checkean en el build de producción: no
+  // forman parte del bundle y sus deps son solo de desarrollo. Vitest los sigue
+  // ejecutando (tiene su propio `include` en vitest.config.mts).
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "e2e"]
 }
