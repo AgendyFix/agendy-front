@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/dom";
 import userEvent from "@testing-library/user-event";
 
 import { DisciplineManagerModal } from "./DisciplineManagerModal";
