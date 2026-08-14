@@ -388,7 +388,7 @@ export default function PaymentsPage() {
 
       {/* ── Resumen del período ── */}
       <Card>
-        <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
+        <CardHeader className="pb-3 flex flex-row flex-wrap items-center justify-between gap-3">
           <CardTitle className="text-base flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
             Resumen mensual
@@ -473,8 +473,9 @@ export default function PaymentsPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Filtros — siempre visibles, aplican a la tab activa */}
-          <div className="flex gap-2">
+          {/* Filtros — siempre visibles, aplican a la tab activa.
+              flex-wrap: en móvil el select de método baja de línea (no desborda). */}
+          <div className="flex flex-wrap gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -814,7 +815,9 @@ function PaymentsTable({
   return (
     <Card>
       <CardContent className="p-0">
-        <Table style={{ tableLayout: "fixed", width: "100%" }}>
+        {/* minWidth: en pantallas angostas la tabla scrollea horizontal (wrapper
+            overflow-x-auto de ui/table) en vez de comprimir/encimar columnas */}
+        <Table style={{ tableLayout: "fixed", width: "100%", minWidth: 860 }}>
           <colgroup>
             <col style={{ width: "15%" }} />
             <col style={{ width: "11%" }} />
