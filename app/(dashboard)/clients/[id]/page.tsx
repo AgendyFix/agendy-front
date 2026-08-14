@@ -616,6 +616,7 @@ export default function ClientDetailPage() {
     payment_method: Payment["payment_method"];
     payment_date: string;
     amount_paid: number;
+    target?: "oldest" | "current";
   }) => {
     try {
       setRegisteringPayment(true);

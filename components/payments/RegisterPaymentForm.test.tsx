@@ -44,6 +44,36 @@ const billingStatus = {
   balance: 1000,
   monthly_fee: 1200,
   open_payment_id: "x",
+  has_older_debt: false,
+};
+
+/** "YYYY-MM-DD" del día 2 del mes calendario anterior al actual (para que
+ *  isPriorMonth() del componente lo detecte como deuda vieja sin depender
+ *  de la fecha en que corran los tests). */
+function priorMonthISO(): string {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() - 1, 2);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-02`;
+}
+
+const olderDebtBillingStatus = {
+  mode: "liquidar" as const,
+  period: priorMonthISO(),
+  period_label: "mes anterior",
+  balance: 800,
+  monthly_fee: 1200,
+  open_payment_id: "y",
+  has_older_debt: true,
+};
+
+const currentMonthBillingStatus = {
+  mode: "nuevo" as const,
+  period: "2026-08-02",
+  period_label: "agosto 2026",
+  balance: 1200,
+  monthly_fee: 1200,
+  open_payment_id: null,
+  has_older_debt: true,
 };
 
 describe("RegisterPaymentForm", () => {
@@ -231,5 +261,66 @@ describe("RegisterPaymentForm", () => {
     });
 
     await waitFor(() => expect(amountInput).toHaveValue(500));
+  });
+
+  it("NO muestra el selector 'Aplicar a' en el caso normal (has_older_debt=false)", async () => {
+    render(
+      <RegisterPaymentForm
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+        preselectedEnrollment={preselected}
+      />
+    );
+
+    await screen.findByText(/Liquidando/i);
+    expect(screen.queryByText(/Aplicar a:/i)).not.toBeInTheDocument();
+  });
+
+  it("muestra el selector 'Aplicar a' cuando has_older_debt=true y el modo inicial es liquidar de un mes anterior", async () => {
+    mockedGetBillingStatus.mockResolvedValue(olderDebtBillingStatus);
+
+    render(
+      <RegisterPaymentForm
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+        preselectedEnrollment={preselected}
+      />
+    );
+
+    expect(await screen.findByText(/Aplicar a:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Deuda de/i)).toBeInTheDocument();
+    // "mes anterior" (period_label) aparece tanto en el selector como en el
+    // banner de modo "Liquidando ..." — basta con que exista al menos una vez.
+    expect(screen.getAllByText(/mes anterior/i).length).toBeGreaterThan(0);
+    expect(screen.getByText("Mes actual")).toBeInTheDocument();
+  });
+
+  it("al elegir 'Mes actual' en el selector, refetch con target='current' y re-prellena el monto", async () => {
+    const user = userEvent.setup();
+    mockedGetBillingStatus.mockResolvedValueOnce(olderDebtBillingStatus);
+    mockedGetBillingStatus.mockResolvedValueOnce(currentMonthBillingStatus);
+
+    render(
+      <RegisterPaymentForm
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+        preselectedEnrollment={preselected}
+      />
+    );
+
+    await screen.findByText(/Aplicar a:/i);
+    const amountInput = screen.getByLabelText(/Monto recibido/i);
+    await waitFor(() => expect(amountInput).toHaveValue(800)); // saldo de la deuda vieja
+
+    await user.click(screen.getByLabelText("Mes actual"));
+
+    await waitFor(() =>
+      expect(mockedGetBillingStatus).toHaveBeenCalledWith("enr-1", "current")
+    );
+    // Re-prellena con el saldo del target actualizado (sin isDirty previo).
+    await waitFor(() => expect(amountInput).toHaveValue(1200));
+    // La etiqueta de la deuda vieja se mantiene visible aunque el target
+    // activo ya sea 'current' (historial visible).
+    expect(screen.getByText(/mes anterior/i)).toBeInTheDocument();
   });
 });
