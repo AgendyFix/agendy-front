@@ -474,6 +474,9 @@ export interface CreatePaymentRequest {
   amount_paid?: number | null;  // null = pago completo; número = anticipo/parcial
   payment_method?: 'cash' | 'card' | 'transfer' | 'other';
   payment_date?: string;        // YYYY-MM-DD (default: hoy)
+  /** 'oldest' (default) aplica el cobro a la deuda más antigua; 'current'
+   *  lo aplica al mes actual (alumno que regresa tras ausentarse). */
+  target?: 'oldest' | 'current';
 }
 
 export interface UpdatePaymentRequest {

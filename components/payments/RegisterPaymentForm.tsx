@@ -4,7 +4,7 @@
 // REGISTER PAYMENT FORM
 // ============================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -36,10 +36,22 @@ import {
   Command, CommandEmpty, CommandGroup,
   CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { todayLocalISO } from "@/lib/dates";
 import { enrollmentsApi, type BillingStatus } from "@/lib/api/enrollments";
 import type { Enrollment, Payment, UnpaidEnrollment } from "@/lib/types/models";
+
+/** ¿El periodo (YYYY-MM-DD) cae en un mes calendario anterior al actual? */
+function isPriorMonth(periodISO: string): boolean {
+  const [y, m] = periodISO.split("-").map(Number);
+  if (!y || !m) return false;
+  const now = new Date();
+  const curY = now.getFullYear();
+  const curM = now.getMonth() + 1;
+  return y < curY || (y === curY && m < curM);
+}
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -63,6 +75,7 @@ interface RegisterPaymentFormProps {
     payment_method: Payment["payment_method"];
     payment_date: string;
     amount_paid: number;
+    target?: "oldest" | "current";
   }) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
@@ -85,6 +98,16 @@ export function RegisterPaymentForm({
   const [loadingEnrollments, setLoadingEnrollments] = useState(false);
   const [comboOpen, setComboOpen] = useState(false);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
+  // Snapshot del billing-status con target='oldest' (deuda más antigua):
+  // se mantiene aparte de `billing` para poder seguir mostrando la etiqueta
+  // ("Deuda de {period_label} ($balance)") del selector aunque el usuario
+  // ya haya cambiado `target` a 'current'.
+  const [oldestBilling, setOldestBilling] = useState<BillingStatus | null>(null);
+  // Periodo al que se aplicará el cobro: 'oldest' (default, comportamiento
+  // actual) o 'current' (alumno que regresa tras ausentarse — la deuda vieja
+  // queda como historial, visible pero sin cobrarse ahora).
+  const [target, setTarget] = useState<"oldest" | "current">("oldest");
+  const prevSelectedIdRef = useRef<string | undefined>(undefined);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -131,23 +154,49 @@ export function RegisterPaymentForm({
     selectedEnrollment?.monthly_fee ??
     null;
 
-  // Al elegir inscripción: consultar a qué periodo se aplicará el cobro
-  // y prellenar el monto con el saldo real de ese periodo.
+  // Al elegir inscripción (o al cambiar `target`): consultar a qué periodo
+  // se aplicará el cobro y prellenar el monto con el saldo real de ese
+  // periodo. Un solo efecto cubre ambos triggers para evitar fetches
+  // duplicados; ver `isNewSelection` abajo para el reset de `target`.
   useEffect(() => {
+    const isNewSelection = selectedId !== prevSelectedIdRef.current;
+    prevSelectedIdRef.current = selectedId;
+
     // Limpiar de inmediato (billing + monto) al cambiar de inscripción: si el
     // fetch de abajo falla o devuelve balance<=0, nunca debe quedar visible
     // el monto/saldo de la inscripción ANTERIOR (riesgo: cobrar de más o al
     // alumno equivocado). resetField también limpia el estado "dirty".
     setBilling(null);
-    if (!selectedId) return;
+    if (!selectedId) {
+      setOldestBilling(null);
+      return;
+    }
+
+    if (isNewSelection) {
+      setOldestBilling(null);
+      if (target !== "oldest") {
+        // Nueva inscripción: siempre se reinicia al target por default
+        // ('oldest'). El fetch real ocurre en la siguiente corrida de este
+        // mismo efecto, disparada por el cambio de `target`.
+        setTarget("oldest");
+        return;
+      }
+    }
+
     form.resetField("amount_paid", { defaultValue: "" });
 
     let cancelled = false;
-    enrollmentsApi
-      .getBillingStatus(selectedId)
+    // Solo se pasa el 2do argumento cuando target !== 'oldest': mantiene la
+    // llamada idéntica al comportamiento previo en el caso default.
+    const request = target === "oldest"
+      ? enrollmentsApi.getBillingStatus(selectedId)
+      : enrollmentsApi.getBillingStatus(selectedId, target);
+
+    request
       .then((status) => {
         if (cancelled) return;
         setBilling(status);
+        if (target === "oldest") setOldestBilling(status);
         // No pisar lo que el usuario ya tecleó mientras el fetch estaba en
         // curso (p.ej. si el fetch llega tarde tras que el usuario escribió).
         if (status.balance > 0 && !form.getFieldState("amount_paid").isDirty) {
@@ -160,7 +209,17 @@ export function RegisterPaymentForm({
     return () => {
       cancelled = true;
     };
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedId, target]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Selector "Aplicar a" visible solo si hay deuda de un mes anterior Y el
+  // periodo por default (oldest) es justamente esa deuda vieja en modo
+  // "liquidar" (si mode fuera "nuevo"/"adelanto" no hay deuda que liquidar
+  // en este periodo, aunque exista deuda vieja en otro).
+  const showTargetSelector =
+    !!oldestBilling &&
+    oldestBilling.has_older_debt === true &&
+    oldestBilling.mode === "liquidar" &&
+    isPriorMonth(oldestBilling.period);
 
   // Tope de cobro del periodo: el saldo (o la mensualidad si no hay status)
   const periodCap = billing?.balance ?? monthlyFee ?? null;
@@ -198,6 +257,7 @@ export function RegisterPaymentForm({
       payment_method: values.payment_method,
       payment_date:   values.payment_date,
       amount_paid:    amount,
+      target,
     });
   };
 
@@ -323,6 +383,32 @@ export function RegisterPaymentForm({
               </FormItem>
             )}
           />
+        )}
+
+        {/* ── Selector: aplicar el cobro a la deuda vieja o al mes actual ── */}
+        {showTargetSelector && oldestBilling && (
+          <div className="rounded-lg border p-3 space-y-2">
+            <p className="text-sm font-medium">Aplicar a:</p>
+            <RadioGroup
+              value={target}
+              onValueChange={(value) => setTarget(value as "oldest" | "current")}
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="oldest" id="target-oldest" />
+                <Label htmlFor="target-oldest" className="font-normal cursor-pointer">
+                  {"Deuda de "}
+                  <span className="capitalize">{oldestBilling.period_label}</span>
+                  {` ($${oldestBilling.balance.toLocaleString("es-MX")})`}
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="current" id="target-current" />
+                <Label htmlFor="target-current" className="font-normal cursor-pointer">
+                  Mes actual
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
         )}
 
         {/* ── Periodo al que se aplicará el cobro ── */}

@@ -23,6 +23,9 @@ export interface BillingStatus {
   balance: number;
   monthly_fee: number;
   open_payment_id: string | null;
+  /** true si existe un pago abierto con due_date de un mes anterior al actual
+   *  (independiente del target pedido en esta llamada). */
+  has_older_debt: boolean;
 }
 
 export const enrollmentsApi = {
@@ -73,9 +76,14 @@ export const enrollmentsApi = {
   /**
    * GET /api/v1/enrollments/{id}/billing-status/
    * A qué periodo se aplicaría un cobro y con qué saldo.
+   * @param target 'oldest' (default, deuda más antigua) | 'current' (mes
+   *   actual, ignorando deuda vieja — alumno que regresa tras ausentarse).
+   *   Se omite el query param cuando no se pasa o es 'oldest'.
    */
-  getBillingStatus: async (id: string): Promise<BillingStatus> => {
-    const response = await apiClient.get(`/enrollments/${id}/billing-status/`);
+  getBillingStatus: async (id: string, target?: "oldest" | "current"): Promise<BillingStatus> => {
+    const response = await apiClient.get(`/enrollments/${id}/billing-status/`, {
+      params: target && target !== "oldest" ? { target } : undefined,
+    });
     return response.data;
   },
 };
