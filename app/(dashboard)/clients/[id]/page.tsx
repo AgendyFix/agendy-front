@@ -52,6 +52,7 @@ import type {
   Client, Enrollment, Payment, UnpaidEnrollment, ClientContact, ContactRelationship,
   ClassGroup, ClassSchedule,
 } from "@/lib/types/models";
+import { ClientStatusBadge } from "@/components/clients/ClientStatusBadge";
 import type { UpdateClientRequest } from "@/lib/types/api";
 import type { CreateClientContactRequest, UpdateClientContactRequest } from "@/lib/api/clientContacts";
 
@@ -745,7 +746,10 @@ export default function ClientDetailPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight truncate">{client.full_name}</h1>
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight truncate">{client.full_name}</h1>
+            {client.enrollment_status === "new" && <ClientStatusBadge status="new" />}
+          </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground mt-0.5">
             {displayPhone && (
               <span className="flex items-center gap-1">

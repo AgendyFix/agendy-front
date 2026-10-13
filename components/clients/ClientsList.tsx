@@ -26,6 +26,7 @@ import { useClients } from "@/lib/hooks/useClients";
 import { Pagination } from "@/components/ui/Pagination";
 import { disciplinesApi } from "@/lib/api/disciplines";
 import { clientsApi } from "@/lib/api/clients";
+import { ClientStatusBadge } from "@/components/clients/ClientStatusBadge";
 import type { Discipline } from "@/lib/types/models";
 import type { ClientEnrollmentStatus } from "@/lib/types/models";
 
@@ -42,13 +43,8 @@ const STATUS_TABS: { value: StatusFilter; label: string }[] = [
   { value: "active",  label: "Activos" },
   { value: "paused",  label: "Pausados"},
   { value: "dropped", label: "Baja"    },
+  { value: "new",     label: "Nuevos"  },
 ];
-
-const STATUS_BADGE: Record<ClientEnrollmentStatus, { label: string; className: string }> = {
-  active:  { label: "Activo",  className: "bg-green-100 text-green-700"  },
-  paused:  { label: "Pausado", className: "bg-yellow-100 text-yellow-700" },
-  dropped: { label: "Baja",    className: "bg-red-100 text-red-700"      },
-};
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -284,10 +280,6 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                 </TableHeader>
                 <TableBody>
                   {filteredClients.map((client) => {
-                    const badge = client.enrollment_status
-                      ? STATUS_BADGE[client.enrollment_status]
-                      : null;
-
                     return (
                       <TableRow
                         key={client.id}
@@ -308,10 +300,8 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
 
                         {/* Status */}
                         <TableCell>
-                          {badge ? (
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
-                              {badge.label}
-                            </span>
+                          {client.enrollment_status ? (
+                            <ClientStatusBadge status={client.enrollment_status} />
                           ) : (
                             <span className="text-muted-foreground text-xs italic">—</span>
                           )}

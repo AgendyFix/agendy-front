@@ -17,6 +17,7 @@ import {
   X,
   GraduationCap,
   CreditCard,
+  Globe,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -82,6 +83,13 @@ const navigation = [
     href: "/payments",
     icon: CreditCard,
     featureFlag: "payment_tracking",
+  },
+  {
+    name: "Mi página pública",
+    href: "/public-page",
+    icon: Globe,
+    adminOnly: true,
+    fixedName: true,
   },
 ];
 

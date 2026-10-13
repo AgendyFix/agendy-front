@@ -77,7 +77,7 @@ export interface Service {
   updated_at?: string;
 }
 
-export type ClientEnrollmentStatus = 'active' | 'paused' | 'dropped';
+export type ClientEnrollmentStatus = 'active' | 'paused' | 'dropped' | 'new';
 
 export interface Client {
   id: string;
@@ -227,9 +227,11 @@ export type NotificationType =
   | "appointment_created"
   | "appointment_updated"
   | "appointment_cancelled"
-  | "appointment_confirmed";
+  | "appointment_confirmed"
+  | "client_registered";
 
 export interface NotificationMetadata {
+  client_id?: string;
   appointment_id?: string;
   appointment_title?: string;
   client_name?: string;
@@ -680,3 +682,25 @@ export interface PaymentSummary {
   };
   unpaid_enrollments: UnpaidEnrollment[];
 }
+// ============================================
+// PUBLIC PAGE (página pública de la academia)
+// ============================================
+
+export interface PublicPageSettings {
+  slug: string;
+  instagram_handle: string | null;
+  public_page_enabled: boolean;
+  listed_in_directory: boolean;
+  public_url: string;
+  public_tagline: string;
+  public_description: string;
+  public_address: string;
+  public_whatsapp: string;
+  public_prices_text: string;
+}
+
+/** Campos que la academia puede editar desde su panel. */
+export type PublicPageUpdate = Pick<
+  PublicPageSettings,
+  "public_tagline" | "public_description" | "public_address" | "public_whatsapp" | "public_prices_text"
+>;

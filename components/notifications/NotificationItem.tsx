@@ -11,7 +11,7 @@ import { markNotificationAsRead, deleteNotification } from "@/lib/api/notificati
 import type { Notification } from "@/lib/types/models";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, CheckCircle, XCircle, AlertCircle, X } from "lucide-react";
+import { Calendar, CheckCircle, XCircle, AlertCircle, UserPlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -41,6 +41,8 @@ const getNotificationIcon = (type: string) => {
       return <XCircle className="h-4 w-4 text-red-500" />;
     case "appointment_updated":
       return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+    case "client_registered":
+      return <UserPlus className="h-4 w-4 text-green-500" />;
     default:
       return <Calendar className="h-4 w-4 text-gray-500" />;
   }
@@ -63,8 +65,10 @@ export const NotificationItem = ({ notification }: NotificationItemProps) => {
       }
     }
 
-    // Navigate to appointment if available
-    if (notification.metadata?.appointment_id) {
+    // Navigate to client / appointment if available
+    if (notification.notification_type === "client_registered" && notification.metadata?.client_id) {
+      router.push(`/clients/${notification.metadata.client_id}`);
+    } else if (notification.metadata?.appointment_id) {
       router.push(`/appointments/${notification.metadata.appointment_id}`);
     }
   };
