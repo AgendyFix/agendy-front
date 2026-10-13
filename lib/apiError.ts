@@ -17,6 +17,25 @@ interface AxiosLikeError {
 
 const FALLBACK = "Ocurrió un error. Intenta de nuevo.";
 
+/** Aplana un valor de error de DRF (string, lista, objeto anidado) al primer mensaje legible. */
+function firstMessage(value: unknown): string | null {
+  if (typeof value === "string") return value.trim() ? value : null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const msg = firstMessage(item);
+      if (msg) return msg;
+    }
+    return null;
+  }
+  if (value && typeof value === "object") {
+    for (const item of Object.values(value)) {
+      const msg = firstMessage(item);
+      if (msg) return msg;
+    }
+  }
+  return null;
+}
+
 /** Extrae un mensaje legible de un error de la API. */
 export function parseApiError(err: unknown, fallback: string = FALLBACK): string {
   const data = (err as AxiosLikeError)?.response?.data;
@@ -31,10 +50,8 @@ export function parseApiError(err: unknown, fallback: string = FALLBACK): string
 
     // Primer error de validación de campo o non_field_errors
     for (const value of Object.values(obj)) {
-      if (Array.isArray(value) && value.length && typeof value[0] === "string") {
-        return value[0];
-      }
-      if (typeof value === "string" && value.trim()) return value;
+      const msg = firstMessage(value);
+      if (msg) return msg;
     }
   }
 
@@ -61,7 +78,8 @@ export function parseFieldErrors(err: unknown): {
 
   if (data && typeof data === "object") {
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-      const msg = Array.isArray(value) ? String(value[0]) : String(value);
+      const msg = firstMessage(value);
+      if (!msg) continue;
       if (key === "detail" || key === "non_field_errors") general = msg;
       else fieldErrors[key] = msg;
     }

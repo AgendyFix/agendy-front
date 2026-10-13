@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { PaymentMethodCode } from "@/lib/types/models";
-import { PAYMENT_METHODS } from "./constants";
+import { PAYMENT_METHOD_LABELS, PUBLIC_PAYMENT_METHODS } from "@/lib/paymentMethods";
 
 interface PaymentMethodsToggleProps {
   value: PaymentMethodCode[];
@@ -17,7 +17,7 @@ export function PaymentMethodsToggle({ value, onChange }: PaymentMethodsTogglePr
 
   return (
     <div className="flex flex-wrap gap-2">
-      {PAYMENT_METHODS.map(({ code, label }) => {
+      {PUBLIC_PAYMENT_METHODS.map((code) => {
         const active = value.includes(code);
         return (
           <button
@@ -33,7 +33,7 @@ export function PaymentMethodsToggle({ value, onChange }: PaymentMethodsTogglePr
             )}
           >
             {active && <Check className="h-4 w-4" />}
-            {label}
+            {PAYMENT_METHOD_LABELS[code]}
           </button>
         );
       })}

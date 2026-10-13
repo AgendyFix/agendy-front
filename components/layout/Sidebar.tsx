@@ -22,7 +22,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/lib/stores/uiStore";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useIsAdmin } from "@/lib/hooks/useIsAdmin";
 import { useFeatures } from "@/lib/hooks/useFeatures";
 import { Button } from "@/components/ui/button";
 
@@ -97,14 +97,9 @@ const navigation = [
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, closeSidebar } = useUIStore();
-  const { user, currentCompany } = useAuth();
   const { isFeatureEnabled, getFeatureName } = useFeatures();
 
-  const currentRole = user?.employee_profiles?.find(
-    (profile) => profile.company === currentCompany?.id
-  )?.role;
-
-  const isAdmin = currentRole === "admin";
+  const isAdmin = useIsAdmin();
 
   const visibleNavigation = navigation.filter((item) => {
     // Check admin permission

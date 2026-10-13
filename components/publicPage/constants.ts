@@ -1,11 +1,3 @@
-import type { PaymentMethodCode } from "@/lib/types/models";
-
-export const PAYMENT_METHODS: ReadonlyArray<{ code: PaymentMethodCode; label: string }> = [
-  { code: "cash", label: "Efectivo" },
-  { code: "transfer", label: "Transferencia" },
-  { code: "card", label: "Tarjeta" },
-];
-
 export const MAX_PRICES = 20;
 export const MAX_PROMOTIONS = 10;
 

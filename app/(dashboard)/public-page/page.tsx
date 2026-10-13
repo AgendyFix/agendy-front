@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useIsAdmin } from "@/lib/hooks/useIsAdmin";
+import { parseFieldErrors } from "@/lib/apiError";
 import { PricesEditor } from "@/components/publicPage/PricesEditor";
 import { PaymentMethodsToggle } from "@/components/publicPage/PaymentMethodsToggle";
 import { PromotionsEditor } from "@/components/publicPage/PromotionsEditor";
@@ -41,50 +42,14 @@ const FIELD_LABELS: Record<string, string> = {
   public_promotions: "Promociones",
 };
 
-/** Aplana un valor de error de DRF (string, array, objeto anidado) al primer mensaje legible. */
-function firstMessage(value: unknown): string | null {
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const msg = firstMessage(item);
-      if (msg) return msg;
-    }
-    return null;
-  }
-  if (value && typeof value === "object") {
-    for (const item of Object.values(value)) {
-      const msg = firstMessage(item);
-      if (msg) return msg;
-    }
-  }
-  return null;
-}
-
-/** Extrae errores por campo de la respuesta 400 del API. */
-function parseFieldErrors(error: unknown): Record<string, string> {
-  const data = (error as { response?: { data?: unknown } })?.response?.data;
-  const result: Record<string, string> = {};
-  if (data && typeof data === "object" && !Array.isArray(data)) {
-    for (const [field, value] of Object.entries(data)) {
-      const msg = firstMessage(value);
-      if (msg) result[field] = msg;
-    }
-  }
-  return result;
-}
-
 export default function PublicPagePage() {
-  const { user, currentCompany } = useAuth();
   const [settings, setSettings] = useState<PublicPageSettings | null>(null);
   const [form, setForm] = useState<PublicPageUpdate>(EMPTY_FORM);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const currentRole = user?.employee_profiles?.find(
-    (profile) => profile.company === currentCompany?.id
-  )?.role;
-  const isAdmin = currentRole === "admin";
+  const isAdmin = useIsAdmin();
 
   useEffect(() => {
     if (!isAdmin) {
@@ -121,7 +86,7 @@ export default function PublicPagePage() {
       setSettings(data);
       toast.success("Cambios guardados");
     } catch (error) {
-      const fieldErrors = parseFieldErrors(error);
+      const { fieldErrors } = parseFieldErrors(error);
       setErrors(fieldErrors);
       const [firstField, firstError] = Object.entries(fieldErrors)[0] ?? [];
       toast.error(

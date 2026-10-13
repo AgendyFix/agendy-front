@@ -16,7 +16,7 @@ export function ToggleSwitch({ checked, onCheckedChange, label }: ToggleSwitchPr
       role="switch"
       aria-checked={checked}
       onClick={() => onCheckedChange(!checked)}
-      className="inline-flex items-center gap-2 text-sm focus-visible:outline-none"
+      className="inline-flex items-center gap-2 text-sm rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       <span
         className={cn(

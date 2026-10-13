@@ -55,6 +55,7 @@ import type {
 import { ClientStatusBadge } from "@/components/clients/ClientStatusBadge";
 import type { UpdateClientRequest } from "@/lib/types/api";
 import type { CreateClientContactRequest, UpdateClientContactRequest } from "@/lib/api/clientContacts";
+import { PAYMENT_METHOD_LABELS } from "@/lib/paymentMethods";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
 
@@ -104,13 +105,6 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   paid:    "Pagado",
   overdue: "Vencido",
   waived:  "Condonado",
-};
-
-const METHOD_LABELS: Record<string, string> = {
-  cash:     "Efectivo",
-  card:     "Tarjeta",
-  transfer: "Transferencia",
-  other:    "Otro",
 };
 
 const RELATIONSHIP_OPTIONS: { value: ContactRelationship; label: string }[] = [
@@ -1149,7 +1143,7 @@ export default function ClientDetailPage() {
                       <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                         {payment.payment_date && <span>{formatDate(payment.payment_date)}</span>}
                         {payment.payment_method && (
-                          <span>{METHOD_LABELS[payment.payment_method] ?? payment.payment_method}</span>
+                          <span>{PAYMENT_METHOD_LABELS[payment.payment_method] ?? payment.payment_method}</span>
                         )}
                         {payment.due_date && isOverdue && (
                           <span className="text-red-600 font-medium">Venció: {formatDate(payment.due_date)}</span>
