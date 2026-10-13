@@ -23,9 +23,9 @@ import { publicPageApi } from "@/lib/api/publicPage";
 import type { PublicPageSettings, PublicPageUpdate } from "@/lib/types/models";
 
 const EMPTY_FORM: PublicPageUpdate = {
-  public_tagline: "",
   public_description: "",
   public_address: "",
+  public_maps_url: "",
   public_whatsapp: "",
   public_prices: [],
   public_payment_methods: [],
@@ -33,9 +33,9 @@ const EMPTY_FORM: PublicPageUpdate = {
 };
 
 const FIELD_LABELS: Record<string, string> = {
-  public_tagline: "Frase corta",
   public_description: "Descripción",
   public_address: "Dirección",
+  public_maps_url: "Link de Google Maps",
   public_whatsapp: "WhatsApp",
   public_prices: "Precios",
   public_payment_methods: "Métodos de pago",
@@ -61,9 +61,9 @@ export default function PublicPagePage() {
       .then((data) => {
         setSettings(data);
         setForm({
-          public_tagline: data.public_tagline ?? "",
           public_description: data.public_description ?? "",
           public_address: data.public_address ?? "",
+          public_maps_url: data.public_maps_url ?? "",
           public_whatsapp: data.public_whatsapp ?? "",
           public_prices: data.public_prices ?? [],
           public_payment_methods: data.public_payment_methods ?? [],
@@ -142,16 +142,6 @@ export default function PublicPagePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="public_tagline">Frase corta</Label>
-                <Input
-                  id="public_tagline"
-                  value={form.public_tagline}
-                  onChange={(e) => setField("public_tagline", e.target.value)}
-                  placeholder="Ej. Grupo de entrenamiento para bailarines principiantes"
-                />
-                {fieldError("public_tagline")}
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="public_description">Descripción</Label>
                 <Textarea
                   id="public_description"
@@ -169,6 +159,21 @@ export default function PublicPagePage() {
                   onChange={(e) => setField("public_address", e.target.value)}
                 />
                 {fieldError("public_address")}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="public_maps_url">Link de Google Maps</Label>
+                <Input
+                  id="public_maps_url"
+                  type="url"
+                  value={form.public_maps_url}
+                  onChange={(e) => setField("public_maps_url", e.target.value)}
+                  placeholder="https://maps.app.goo.gl/…"
+                />
+                <p className="text-xs text-muted-foreground">
+                  En Google Maps busca tu academia → Compartir → Copiar vínculo. Se usa en el botón
+                  &quot;Cómo llegar&quot;; el mapa de tu sitio se arma con la dirección.
+                </p>
+                {fieldError("public_maps_url")}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="public_whatsapp">WhatsApp</Label>

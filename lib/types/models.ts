@@ -709,9 +709,9 @@ export interface PublicPageSettings {
   public_page_enabled: boolean;
   listed_in_directory: boolean;
   public_url: string;
-  public_tagline: string;
   public_description: string;
   public_address: string;
+  public_maps_url: string;
   public_whatsapp: string;
   public_prices: PublicPrice[];
   public_payment_methods: PaymentMethodCode[];
@@ -721,9 +721,9 @@ export interface PublicPageSettings {
 /** Campos que la academia puede editar desde su panel. */
 export type PublicPageUpdate = Pick<
   PublicPageSettings,
-  | "public_tagline"
   | "public_description"
   | "public_address"
+  | "public_maps_url"
   | "public_whatsapp"
   | "public_prices"
   | "public_payment_methods"
