@@ -85,7 +85,7 @@ const navigation = [
     featureFlag: "payment_tracking",
   },
   {
-    name: "Mi página pública",
+    name: "Mi Sitio",
     href: "/public-page",
     icon: Globe,
     adminOnly: true,

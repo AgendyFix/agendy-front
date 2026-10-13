@@ -686,9 +686,26 @@ export interface PaymentSummary {
 // PUBLIC PAGE (página pública de la academia)
 // ============================================
 
+export type PaymentMethodCode = "cash" | "transfer" | "card";
+
+export interface PublicPrice {
+  name: string;
+  /** Entero >= 0, en MXN. */
+  price: number;
+}
+
+export interface PublicPromotion {
+  name: string;
+  /** Entero >= 0 en MXN, o null si la promoción no tiene precio. */
+  price: number | null;
+  description: string;
+  is_active: boolean;
+}
+
 export interface PublicPageSettings {
   slug: string;
   instagram_handle: string | null;
+  logo_url: string | null;
   public_page_enabled: boolean;
   listed_in_directory: boolean;
   public_url: string;
@@ -696,11 +713,19 @@ export interface PublicPageSettings {
   public_description: string;
   public_address: string;
   public_whatsapp: string;
-  public_prices_text: string;
+  public_prices: PublicPrice[];
+  public_payment_methods: PaymentMethodCode[];
+  public_promotions: PublicPromotion[];
 }
 
 /** Campos que la academia puede editar desde su panel. */
 export type PublicPageUpdate = Pick<
   PublicPageSettings,
-  "public_tagline" | "public_description" | "public_address" | "public_whatsapp" | "public_prices_text"
+  | "public_tagline"
+  | "public_description"
+  | "public_address"
+  | "public_whatsapp"
+  | "public_prices"
+  | "public_payment_methods"
+  | "public_promotions"
 >;
