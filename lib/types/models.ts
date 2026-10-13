@@ -709,6 +709,10 @@ export interface PublicPageSettings {
   public_page_enabled: boolean;
   listed_in_directory: boolean;
   public_url: string;
+  /** Color BASE de AgendyFix (solo lectura). */
+  public_accent_color: string;
+  /** Color elegido por la academia; "" = usa el base. */
+  public_accent_color_custom: string;
   public_description: string;
   public_address: string;
   public_maps_url: string;
@@ -728,4 +732,5 @@ export type PublicPageUpdate = Pick<
   | "public_prices"
   | "public_payment_methods"
   | "public_promotions"
+  | "public_accent_color_custom"
 >;

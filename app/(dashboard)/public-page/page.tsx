@@ -18,6 +18,7 @@ import { parseFieldErrors } from "@/lib/apiError";
 import { PricesEditor } from "@/components/publicPage/PricesEditor";
 import { PaymentMethodsToggle } from "@/components/publicPage/PaymentMethodsToggle";
 import { PromotionsEditor } from "@/components/publicPage/PromotionsEditor";
+import { AccentColorCard } from "@/components/publicPage/AccentColorCard";
 import { PublicLinkCard } from "@/components/publicPage/PublicLinkCard";
 import { publicPageApi } from "@/lib/api/publicPage";
 import type { PublicPageSettings, PublicPageUpdate } from "@/lib/types/models";
@@ -30,6 +31,7 @@ const EMPTY_FORM: PublicPageUpdate = {
   public_prices: [],
   public_payment_methods: [],
   public_promotions: [],
+  public_accent_color_custom: "",
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -40,6 +42,7 @@ const FIELD_LABELS: Record<string, string> = {
   public_prices: "Precios",
   public_payment_methods: "Métodos de pago",
   public_promotions: "Promociones",
+  public_accent_color_custom: "Color de tu sitio",
 };
 
 export default function PublicPagePage() {
@@ -68,6 +71,7 @@ export default function PublicPagePage() {
           public_prices: data.public_prices ?? [],
           public_payment_methods: data.public_payment_methods ?? [],
           public_promotions: data.public_promotions ?? [],
+          public_accent_color_custom: data.public_accent_color_custom ?? "",
         });
       })
       .catch(() => toast.error("No se pudo cargar la información de tu página"))
@@ -194,6 +198,12 @@ export default function PublicPagePage() {
         </div>
 
         <div className="space-y-6">
+          <AccentColorCard
+            baseColor={settings.public_accent_color}
+            value={form.public_accent_color_custom}
+            onChange={(v) => setField("public_accent_color_custom", v)}
+          />
+          {fieldError("public_accent_color_custom")}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Precios</CardTitle>
