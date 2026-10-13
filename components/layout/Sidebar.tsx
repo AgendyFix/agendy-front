@@ -88,6 +88,7 @@ const navigation = [
     name: "Mi Sitio",
     href: "/public-page",
     icon: Globe,
+    featureFlag: "public_site",
     adminOnly: true,
     fixedName: true,
   },
