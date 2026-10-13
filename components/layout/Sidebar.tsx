@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { PUBLIC_SITE_FEATURE } from "@/components/publicPage/constants";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useIsAdmin } from "@/lib/hooks/useIsAdmin";
 import { useFeatures } from "@/lib/hooks/useFeatures";
@@ -88,7 +89,7 @@ const navigation = [
     name: "Mi Sitio",
     href: "/public-page",
     icon: Globe,
-    featureFlag: "public_site",
+    featureFlag: PUBLIC_SITE_FEATURE,
     adminOnly: true,
     fixedName: true,
   },

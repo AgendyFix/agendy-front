@@ -1,3 +1,6 @@
+/** Slug del feature flag del módulo "Mi Sitio" (catálogo en el backend: apps/companies/features.py). */
+export const PUBLIC_SITE_FEATURE = "public_site";
+
 export const MAX_PRICES = 20;
 export const MAX_PROMOTIONS = 10;
 

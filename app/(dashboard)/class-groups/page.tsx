@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ClassGroupCard } from "@/components/classGroups/ClassGroupCard";
+import { PublicSiteNotice } from "@/components/publicPage/PublicSiteNotice";
 import { DisciplineManagerModal } from "@/components/disciplines/DisciplineManagerModal";
 import { useClassGroups } from "@/lib/hooks/useClassGroups";
 import type { ClassGroupLevel } from "@/lib/types/models";
@@ -157,6 +158,8 @@ export default function ClassGroupsPage() {
           </Button>
         </div>
       </div>
+
+      <PublicSiteNotice />
 
       {/* Segmentador Todos / Grupales / Individuales */}
       <Tabs value={groupSegment} onValueChange={(v) => setGroupSegment(v as GroupSegment)}>

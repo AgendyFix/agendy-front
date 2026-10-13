@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Trash2, Loader2, UserX, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Trash2, Loader2, UserX, Check, ChevronsUpDown, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -49,6 +49,8 @@ import type { CreateClassGroupRequest } from "@/lib/types/api";
 import { employeesApi } from "@/lib/api/employees";
 import { clientsApi } from "@/lib/api/clients";
 import { enrollmentsApi } from "@/lib/api/enrollments";
+import { useFeatures } from "@/lib/hooks/useFeatures";
+import { PUBLIC_SITE_FEATURE } from "@/components/publicPage/constants";
 import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
 import { DatePicker } from "@/components/ui/date-picker";
 import { todayLocalISO } from "@/lib/dates";
@@ -150,6 +152,9 @@ export function ClassGroupForm({
 
   // El tipo activo — controlado por el toggle (solo cuando se crea)
   const [isIndividual, setIsIndividual] = useState(defaultIsInd);
+
+  const { isFeatureEnabled } = useFeatures();
+  const showsOnPublicSite = isFeatureEnabled(PUBLIC_SITE_FEATURE);
 
   // ── Cargar empleados ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -329,6 +334,12 @@ export function ClassGroupForm({
             >
               <p className="text-sm font-medium leading-tight">{opt.label}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
+              {!opt.value && showsOnPublicSite && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-primary">
+                  <Globe className="h-3 w-3" aria-hidden />
+                  Se muestra en Mi Sitio
+                </p>
+              )}
             </button>
           ))}
         </div>
