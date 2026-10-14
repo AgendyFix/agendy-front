@@ -686,7 +686,8 @@ export interface PaymentSummary {
 // PUBLIC PAGE (página pública de la academia)
 // ============================================
 
-export type PaymentMethodCode = "cash" | "transfer" | "card";
+/** Métodos que una academia puede publicar en Mi Sitio. */
+export type PaymentMethodCode = Exclude<PaymentMethod, "other">;
 
 export interface PublicPrice {
   name: string;

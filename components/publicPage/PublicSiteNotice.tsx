@@ -8,12 +8,14 @@ import Link from "next/link";
 import { Globe } from "lucide-react";
 
 import { useFeatures } from "@/lib/hooks/useFeatures";
+import { useIsAdmin } from "@/lib/hooks/useIsAdmin";
 import { PUBLIC_SITE_FEATURE } from "./constants";
 
-/** Solo se muestra si la academia tiene el módulo "Mi Sitio" encendido. */
+/** Solo para admins (los únicos que pueden abrir Mi Sitio) y con el módulo encendido. */
 export function PublicSiteNotice() {
   const { isFeatureEnabled } = useFeatures();
-  if (!isFeatureEnabled(PUBLIC_SITE_FEATURE)) return null;
+  const isAdmin = useIsAdmin();
+  if (!isAdmin || !isFeatureEnabled(PUBLIC_SITE_FEATURE)) return null;
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">

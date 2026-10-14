@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useIsAdmin } from "@/lib/hooks/useIsAdmin";
-import { parseFieldErrors } from "@/lib/apiError";
+import { parseApiError, parseFieldErrors } from "@/lib/apiError";
 import { PricesEditor } from "@/components/publicPage/PricesEditor";
 import { PaymentMethodsToggle } from "@/components/publicPage/PaymentMethodsToggle";
 import { PromotionsEditor } from "@/components/publicPage/PromotionsEditor";
@@ -64,22 +64,30 @@ export default function PublicPagePage() {
       .then((data) => {
         setSettings(data);
         setForm({
-          public_description: data.public_description ?? "",
-          public_address: data.public_address ?? "",
-          public_maps_url: data.public_maps_url ?? "",
-          public_whatsapp: data.public_whatsapp ?? "",
-          public_prices: data.public_prices ?? [],
-          public_payment_methods: data.public_payment_methods ?? [],
-          public_promotions: data.public_promotions ?? [],
-          public_accent_color_custom: data.public_accent_color_custom ?? "",
+          public_description: data.public_description,
+          public_address: data.public_address,
+          public_maps_url: data.public_maps_url,
+          public_whatsapp: data.public_whatsapp,
+          public_prices: data.public_prices,
+          public_payment_methods: data.public_payment_methods,
+          public_promotions: data.public_promotions,
+          public_accent_color_custom: data.public_accent_color_custom,
         });
       })
       .catch(() => toast.error("No se pudo cargar la información de tu página"))
       .finally(() => setIsLoading(false));
   }, [isAdmin]);
 
-  const setField = <K extends keyof PublicPageUpdate>(field: K, value: PublicPageUpdate[K]) =>
+  const setField = <K extends keyof PublicPageUpdate>(field: K, value: PublicPageUpdate[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    // El error del campo ya no aplica en cuanto el usuario lo corrige
+    setErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,13 +98,13 @@ export default function PublicPagePage() {
       setSettings(data);
       toast.success("Cambios guardados");
     } catch (error) {
-      const { fieldErrors } = parseFieldErrors(error);
+      const { fieldErrors, general } = parseFieldErrors(error);
       setErrors(fieldErrors);
       const [firstField, firstError] = Object.entries(fieldErrors)[0] ?? [];
       toast.error(
         firstError
           ? `${FIELD_LABELS[firstField] ?? firstField}: ${firstError}`
-          : "No se pudieron guardar los cambios"
+          : general ?? parseApiError(error, "No se pudieron guardar los cambios")
       );
     } finally {
       setIsSaving(false);
@@ -202,8 +210,8 @@ export default function PublicPagePage() {
             baseColor={settings.public_accent_color}
             value={form.public_accent_color_custom}
             onChange={(v) => setField("public_accent_color_custom", v)}
+            error={errors.public_accent_color_custom}
           />
-          {fieldError("public_accent_color_custom")}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Precios</CardTitle>

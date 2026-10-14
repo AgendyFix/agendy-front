@@ -12,8 +12,9 @@ interface PaymentMethodsToggleProps {
 }
 
 export function PaymentMethodsToggle({ value, onChange }: PaymentMethodsToggleProps) {
+  // Se guarda siempre en el orden de PUBLIC_PAYMENT_METHODS, no en el de los clics
   const toggle = (code: PaymentMethodCode) =>
-    onChange(value.includes(code) ? value.filter((c) => c !== code) : [...value, code]);
+    onChange(PUBLIC_PAYMENT_METHODS.filter((c) => (c === code) !== value.includes(c)));
 
   return (
     <div className="flex flex-wrap gap-2">

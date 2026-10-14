@@ -15,9 +15,10 @@ interface AccentColorCardProps {
   /** Color elegido por la academia; "" = usa el base. */
   value: string;
   onChange: (hex: string) => void;
+  error?: string;
 }
 
-export function AccentColorCard({ baseColor, value, onChange }: AccentColorCardProps) {
+export function AccentColorCard({ baseColor, value, onChange, error }: AccentColorCardProps) {
   const effective = value || baseColor;
   const textColor = pickTextOn(effective);
 
@@ -91,6 +92,7 @@ export function AccentColorCard({ baseColor, value, onChange }: AccentColorCardP
           />
           Color base de AgendyFix: <span className="font-mono">{baseColor.toUpperCase()}</span>
         </div>
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </CardContent>
     </Card>
   );
