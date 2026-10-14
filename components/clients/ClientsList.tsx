@@ -205,14 +205,14 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
       <Card>
         <CardContent className="pt-4 space-y-4">
 
-          {/* Tabs de filtro por status */}
-          <div className="flex items-center gap-1 border-b pb-0">
+          {/* Tabs de filtro por status (en móvil se desplazan en vez de ensanchar la página) */}
+          <div className="flex items-center gap-1 overflow-x-auto border-b pb-0">
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab.value}
                 type="button"
                 onClick={() => handleStatusFilter(tab.value)}
-                className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                className={`shrink-0 whitespace-nowrap px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                   statusFilter === tab.value
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
@@ -273,9 +273,13 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                   <TableRow>
                     <TableHead>{entitySingular}</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead>Teléfono</TableHead>
-                    <TableHead>Correo</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
+                    {/* En móvil solo nombre, estado y acciones; el contacto está en la ficha */}
+                    <TableHead className="hidden md:table-cell">Teléfono</TableHead>
+                    <TableHead className="hidden md:table-cell">Correo</TableHead>
+                    <TableHead className="text-right">
+                      {/* En móvil el título no cabe; los íconos se explican solos */}
+                      <span className="max-md:sr-only">Acciones</span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -308,7 +312,7 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                         </TableCell>
 
                         {/* Teléfono */}
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           {(client.primary_contact_phone ?? client.phone) ? (
                             <div className="flex items-center gap-2 text-sm">
                               <Phone className="h-3 w-3 text-muted-foreground" />
@@ -320,7 +324,7 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                         </TableCell>
 
                         {/* Correo */}
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           {client.email ? (
                             <div className="flex items-center gap-2 text-sm">
                               <Mail className="h-3 w-3 text-muted-foreground" />

@@ -145,7 +145,8 @@ export default function PublicPagePage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+      {/* grid-cols-1 (minmax(0,1fr)): sin columna explícita, en móvil el contenido ensancha las tarjetas */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
         <div className="space-y-6">
           <PublicLinkCard settings={settings} />
           <Card>
