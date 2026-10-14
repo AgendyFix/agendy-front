@@ -77,7 +77,7 @@ export interface Service {
   updated_at?: string;
 }
 
-export type ClientEnrollmentStatus = 'active' | 'paused' | 'dropped';
+export type ClientEnrollmentStatus = 'active' | 'paused' | 'dropped' | 'new';
 
 export interface Client {
   id: string;
@@ -227,9 +227,11 @@ export type NotificationType =
   | "appointment_created"
   | "appointment_updated"
   | "appointment_cancelled"
-  | "appointment_confirmed";
+  | "appointment_confirmed"
+  | "client_registered";
 
 export interface NotificationMetadata {
+  client_id?: string;
   appointment_id?: string;
   appointment_title?: string;
   client_name?: string;
@@ -680,3 +682,56 @@ export interface PaymentSummary {
   };
   unpaid_enrollments: UnpaidEnrollment[];
 }
+// ============================================
+// PUBLIC PAGE (página pública de la academia)
+// ============================================
+
+/** Métodos que una academia puede publicar en Mi Sitio. */
+export type PaymentMethodCode = Exclude<PaymentMethod, "other">;
+
+export interface PublicPrice {
+  name: string;
+  /** Entero >= 0, en MXN. */
+  price: number;
+}
+
+export interface PublicPromotion {
+  name: string;
+  /** Entero >= 0 en MXN, o null si la promoción no tiene precio. */
+  price: number | null;
+  description: string;
+  is_active: boolean;
+}
+
+export interface PublicPageSettings {
+  slug: string;
+  instagram_handle: string | null;
+  logo_url: string | null;
+  public_page_enabled: boolean;
+  listed_in_directory: boolean;
+  public_url: string;
+  /** Color BASE de AgendyFix (solo lectura). */
+  public_accent_color: string;
+  /** Color elegido por la academia; "" = usa el base. */
+  public_accent_color_custom: string;
+  public_description: string;
+  public_address: string;
+  public_maps_url: string;
+  public_whatsapp: string;
+  public_prices: PublicPrice[];
+  public_payment_methods: PaymentMethodCode[];
+  public_promotions: PublicPromotion[];
+}
+
+/** Campos que la academia puede editar desde su panel. */
+export type PublicPageUpdate = Pick<
+  PublicPageSettings,
+  | "public_description"
+  | "public_address"
+  | "public_maps_url"
+  | "public_whatsapp"
+  | "public_prices"
+  | "public_payment_methods"
+  | "public_promotions"
+  | "public_accent_color_custom"
+>;

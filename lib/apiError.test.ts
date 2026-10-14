@@ -48,4 +48,20 @@ describe("parseFieldErrors", () => {
     expect(fieldErrors.amount_paid).toBe("Monto inválido");
     expect(general).toBe("Algo salió mal");
   });
+
+  it("aplana errores anidados de lista de objetos (DRF)", () => {
+    const err = axiosErr(400, {
+      public_prices: [{}, { name: ["Este campo no puede estar en blanco."] }],
+    });
+    const { fieldErrors } = parseFieldErrors(err);
+    expect(fieldErrors.public_prices).toBe("Este campo no puede estar en blanco.");
+    expect(parseApiError(err)).toBe("Este campo no puede estar en blanco.");
+  });
+
+  it("ignora campos cuya lista solo tiene huecos {}", () => {
+    const err = axiosErr(400, { public_prices: [{}, {}], name: ["Requerido"] });
+    const { fieldErrors } = parseFieldErrors(err);
+    expect(fieldErrors.public_prices).toBeUndefined();
+    expect(fieldErrors.name).toBe("Requerido");
+  });
 });

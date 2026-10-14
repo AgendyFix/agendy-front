@@ -48,6 +48,7 @@ import { enrollmentsApi } from "@/lib/api/enrollments";
 import { parseApiError } from "@/lib/apiError";
 import { todayLocalISO, formatDate, overdueDays } from "@/lib/dates";
 import type { Payment, UnpaidEnrollment } from "@/lib/types/models";
+import { PAYMENT_METHOD_LABELS } from "@/lib/paymentMethods";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -65,13 +66,6 @@ const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
   overdue: "Vencido",
   waived:  "Condonado",
-};
-
-const METHOD_LABELS: Record<string, string> = {
-  cash:     "Efectivo",
-  card:     "Tarjeta",
-  transfer: "Transferencia",
-  other:    "Otro",
 };
 
 const MONTHS = [
@@ -875,7 +869,7 @@ function PaymentsTable({
                     ) : "—"}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {p.payment_method ? (METHOD_LABELS[p.payment_method] ?? p.payment_method) : "—"}
+                    {p.payment_method ? (PAYMENT_METHOD_LABELS[p.payment_method] ?? p.payment_method) : "—"}
                   </TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">
                     {isPartial && p.amount_paid != null ? (

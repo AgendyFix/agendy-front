@@ -15,11 +15,22 @@ import {
 import { NotificationPanel } from "./NotificationPanel";
 import { useNotificationStore } from "@/lib/stores/notificationStore";
 import { useEffect, useState, useRef } from "react";
+import { usePathname } from "next/navigation";
 
 export const NotificationBell = () => {
   const { unreadCount } = useNotificationStore();
   const [shake, setShake] = useState(false);
+  const [open, setOpen] = useState(false);
   const prevCountRef = useRef(unreadCount);
+  const pathname = usePathname();
+  const [lastPathname, setLastPathname] = useState(pathname);
+
+  // Cerrar el panel al navegar (ej. clic en una notificación que abre la ficha).
+  // Se ajusta durante el render, no en un effect (patrón recomendado por React).
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
+    setOpen(false);
+  }
 
   // Animate bell when new notification arrives
   useEffect(() => {
@@ -31,7 +42,7 @@ export const NotificationBell = () => {
   }, [unreadCount]);
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell

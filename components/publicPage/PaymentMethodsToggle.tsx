@@ -1,0 +1,43 @@
+"use client";
+
+import { Check } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import type { PaymentMethodCode } from "@/lib/types/models";
+import { PAYMENT_METHOD_LABELS, PUBLIC_PAYMENT_METHODS } from "@/lib/paymentMethods";
+
+interface PaymentMethodsToggleProps {
+  value: PaymentMethodCode[];
+  onChange: (value: PaymentMethodCode[]) => void;
+}
+
+export function PaymentMethodsToggle({ value, onChange }: PaymentMethodsToggleProps) {
+  // Se guarda siempre en el orden de PUBLIC_PAYMENT_METHODS, no en el de los clics
+  const toggle = (code: PaymentMethodCode) =>
+    onChange(PUBLIC_PAYMENT_METHODS.filter((c) => (c === code) !== value.includes(c)));
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {PUBLIC_PAYMENT_METHODS.map((code) => {
+        const active = value.includes(code);
+        return (
+          <button
+            key={code}
+            type="button"
+            aria-pressed={active}
+            onClick={() => toggle(code)}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              active
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-input bg-background text-muted-foreground hover:bg-accent"
+            )}
+          >
+            {active && <Check className="h-4 w-4" />}
+            {PAYMENT_METHOD_LABELS[code]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

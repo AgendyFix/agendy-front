@@ -19,7 +19,7 @@ export const useClients = () => {
   const fetchClients = async (params?: {
     search?: string;
     page?: number;
-    enrollment_status?: 'active' | 'paused' | 'dropped';
+    enrollment_status?: 'active' | 'paused' | 'dropped' | 'new';
     discipline?: string;
   }) => {
     try {
