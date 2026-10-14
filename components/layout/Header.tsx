@@ -48,7 +48,8 @@ export function Header() {
               height={40}
               className="h-8 w-8 md:h-10 md:w-10 object-contain"
             />
-            <h1 className="text-lg md:text-xl font-bold">AgendyFix</h1>
+            {/* En pantallas muy angostas (<400px) solo el logo: el texto chocaba con los botones */}
+            <h1 className="text-lg md:text-xl font-bold max-[399px]:hidden">AgendyFix</h1>
           </div>
           
           <div className="hidden md:block">
