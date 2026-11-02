@@ -3,7 +3,7 @@
 // ============================================
 // BROWSER WARNING BANNER
 // ============================================
-// Detecta Safari < 16 / iOS < 16 y muestra un aviso
+// Detecta Safari < 15 / iOS < 15 y muestra un aviso
 // informando al usuario que actualice su navegador.
 // Solo se muestra si el browser es incompatible.
 // No afecta a browsers modernos.
@@ -20,7 +20,7 @@ function detectIncompatibleBrowser(): boolean {
   const iosMatch = ua.match(/OS (\d+)_/);
   if (iosMatch) {
     const iosMajor = parseInt(iosMatch[1], 10);
-    if (iosMajor < 16) return true;
+    if (iosMajor < 15) return true;
   }
 
   // Detectar Safari desktop version (no Chrome/Firefox que también tienen "Safari" en UA)
@@ -29,19 +29,8 @@ function detectIncompatibleBrowser(): boolean {
     const safariMatch = ua.match(/Version\/(\d+)/);
     if (safariMatch) {
       const safariMajor = parseInt(safariMatch[1], 10);
-      if (safariMajor < 16) return true;
+      if (safariMajor < 15) return true;
     }
-  }
-
-  // Verificar soporte de features clave usadas por el sistema
-  // Si no existen, el browser es incompatible independientemente del UA
-  try {
-    // CSS color-mix es indicador de Safari 16+
-    const testEl = document.createElement("div");
-    testEl.style.color = "color-mix(in srgb, red 50%, blue)";
-    if (!testEl.style.color) return true;
-  } catch {
-    return true;
   }
 
   return false;
@@ -79,10 +68,10 @@ export function BrowserWarning() {
             </p>
             <p className="text-xs text-amber-700 mt-0.5">
               Tu navegador ({navigator.userAgent.includes("iPad") ? "iPad" : "dispositivo"}) puede tener problemas para mostrar el sistema correctamente.
-              Para la mejor experiencia usa <strong>Safari 16+</strong>, <strong>Chrome</strong> o <strong>Firefox</strong> actualizados.
+              Para la mejor experiencia usa <strong>Safari 15+</strong>, <strong>Chrome</strong> o <strong>Firefox</strong> actualizados.
             </p>
             <p className="text-xs text-amber-600 mt-1">
-              <strong>iPad Air 2 y modelos anteriores</strong> no son compatibles con iOS 16 y pueden presentar fallos.
+              <strong>iPad mini 3, iPad Air (1ª gen.) y modelos anteriores</strong> no son compatibles con iOS 15 y pueden presentar fallos.
             </p>
           </div>
           <button

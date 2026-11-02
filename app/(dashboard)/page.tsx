@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFeatures } from "@/lib/hooks/useFeatures";
+import { useIframeAutoHeight } from "@/lib/hooks/useIframeAutoHeight";
 import { metabaseApi } from "@/lib/api/metabase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -116,6 +117,7 @@ export default function DashboardPage() {
 
   // calcula URL final con dark/light aplicado
   const themedIframeUrl = iframeUrl ? applyMetabaseTheme(iframeUrl, theme) : "";
+  const { iframeRef, height: iframeHeight, onLoad: onIframeLoad } = useIframeAutoHeight(themedIframeUrl, 700);
 
   // Verificar rol y feature antes de renderizar
   const currentRole = user?.employee_profiles?.find(
@@ -153,13 +155,15 @@ export default function DashboardPage() {
               </div>
             </div>
           ) : themedIframeUrl ? (
-            <div className="w-full h-full min-h-[700px]">
+            <div className="w-full">
               <iframe
                 //key para forzar recarga al cambiar theme
                 key={`${theme}-${iframeUrl}`}
+                ref={iframeRef}
+                onLoad={onIframeLoad}
                 src={themedIframeUrl}
                 width="100%"
-                height="100%"
+                height={iframeHeight}
                 frameBorder="0"
                 className="rounded-lg"
                 title="Metabase Dashboard"
