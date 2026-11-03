@@ -86,8 +86,13 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    // If error is not 401 or request already retried, reject
-    if (error.response?.status !== 401 || originalRequest._retry) {
+    // Un 401 en los endpoints de autenticación significa credenciales inválidas,
+    // no sesión expirada: no intentamos refrescar ni redirigir, dejamos que la
+    // pantalla de login muestre el error. (Sin esto, el login fallido solo recargaba.)
+    const isAuthEndpoint = originalRequest.url?.includes("/auth/token/");
+
+    // If error is not 401, request already retried, or it's an auth endpoint, reject
+    if (error.response?.status !== 401 || originalRequest._retry || isAuthEndpoint) {
       return Promise.reject(error);
     }
 
