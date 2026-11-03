@@ -18,7 +18,9 @@
 // el alias de v3 bg-gradient-to-* no lo trae y en Safari < 16.2 pierde el fondo.
 
 const OKLCH_VAR = /^oklch\(\s*([^/)]+?)\s*\)$/;
-const COLOR_MIX = /^color-mix\(in oklab,\s*var\((--[\w-]+)\)\s*([\d.]+%),\s*transparent\)$/;
+// Las sombras (shadow-primary/25) anidan otro color-mix con --tw-shadow-alpha (100% por defecto).
+const COLOR_MIX =
+  /^color-mix\(in oklab,\s*(?:color-mix\(in oklab,\s*)?var\((--[\w-]+)\)\s*([\d.]+%),\s*transparent\)(?:\s*var\(--tw-shadow-alpha\),\s*transparent\))?$/;
 
 const inThemeLayer = (node) => {
   for (let p = node.parent; p; p = p.parent) {

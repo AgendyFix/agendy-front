@@ -29,6 +29,12 @@ describe("postcss color-mix-fallback", () => {
     expect(out).toMatch(/\.bg\s*\{\s*background-color:\s*oklch\(var\(--primary-ch\) \/ 10%\)\s*\}\s*@supports/);
   });
 
+  it("cubre el color-mix anidado de las sombras (shadow-primary/25)", async () => {
+    const shadow = "color-mix(in oklab, color-mix(in oklab, var(--primary) 25%, transparent) var(--tw-shadow-alpha), transparent)";
+    const out = await run(`${THEME}.s{--tw-shadow-color:var(--primary)}@supports (color:color-mix(in lab, red, red)){.s{--tw-shadow-color:${shadow}}}`);
+    expect(out).toMatch(/\.s\s*\{\s*--tw-shadow-color:\s*oklch\(var\(--primary-ch\) \/ 25%\)\s*\}\s*@supports/);
+  });
+
   it("ignora variables que no son oklch y @supports que no son de color-mix", async () => {
     const css = ":root{--x:#fff}.bg{color:var(--x)}@supports (display:grid){.bg{color:color-mix(in oklab,var(--x) 10%,transparent)}}";
     expect(await run(css)).toBe(css);
@@ -42,7 +48,7 @@ describe.each([
 ] as const)("postcss color-mix-fallback con Tailwind real, %s", (_, optimize) => {
   const INPUT = `
     @import "tailwindcss" source(none);
-    @source inline("bg-primary/10 bg-blue-50/50");
+    @source inline("bg-primary/10 bg-blue-50/50 shadow-lg shadow-primary/25");
     @theme inline { --color-primary: var(--primary); }
     :root { --primary: oklch(0.72 0.15 50); }
   `;
@@ -55,6 +61,10 @@ describe.each([
 
   it("bg-primary/10 recibe el fallback oklch antes del @supports", async () => {
     expect(await build()).toMatch(/background-color: ?oklch\(var\(--primary-ch\) \/ 10%\);?\s*\}?\s*@supports/);
+  });
+
+  it("shadow-primary/25 recibe el fallback oklch", async () => {
+    expect(await build()).toMatch(/--tw-shadow-color: ?oklch\(var\(--primary-ch\) \/ 25%\)/);
   });
 
   it("bg-blue-50/50 conserva el fallback que calcula Tailwind", async () => {
