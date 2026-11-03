@@ -13,12 +13,12 @@
 //   1. Expone los canales de las variables oklch del tema: --primary-ch: 0.72 0.15 50
 //   2. Inserta antes de cada @supports un fallback oklch(var(--primary-ch) / 10%),
 //      que Safari 15.4+ sí soporta. Los navegadores modernos siguen usando el @supports.
-//   3. Quita la interpolación "in oklab" de los degradados donde no se soporta.
+//
+// Degradados: usar bg-linear-* (Tailwind ya les pone fallback sin "in oklab");
+// el alias de v3 bg-gradient-to-* no lo trae y en Safari < 16.2 pierde el fondo.
 
 const OKLCH_VAR = /^oklch\(\s*([^/)]+?)\s*\)$/;
 const COLOR_MIX = /^color-mix\(in oklab,\s*var\((--[\w-]+)\)\s*([\d.]+%),\s*transparent\)$/;
-const GRADIENT_INTERPOLATION = /^(.*?)\s+in\s+[a-z-]+(?:\s+[a-z]+\s+hue)?$/;
-const GRADIENT_SUPPORTS = "(background-image: linear-gradient(in lab, red, red))";
 
 const inThemeLayer = (node) => {
   for (let p = node.parent; p; p = p.parent) {
@@ -30,7 +30,7 @@ const inThemeLayer = (node) => {
 /** @type {import('postcss').PluginCreator} */
 const colorMixFallback = () => ({
   postcssPlugin: "color-mix-fallback",
-  OnceExit(root, { AtRule, Rule }) {
+  OnceExit(root, { Rule }) {
     const channelVars = new Set();
 
     root.walkDecls(/^--/, (decl) => {
@@ -61,21 +61,6 @@ const colorMixFallback = () => ({
           if (fallbacks.length) atRule.before(new Rule({ selector: node.selector, nodes: fallbacks }));
         }
       });
-    });
-
-    // Degradados: Tailwind usa "--tw-gradient-position: to right in oklab". Safari < 16.2 no soporta
-    // la interpolación "in <espacio>" y, al ir en una variable, invalida todo el background-image.
-    // Fallback sin interpolación y la versión original dentro de un @supports.
-    root.walkDecls("--tw-gradient-position", (decl) => {
-      const match = decl.value.match(GRADIENT_INTERPOLATION);
-      if (!match || decl.parent.type !== "rule") return;
-      // La regla que insertamos abajo también se recorre: no volver a procesarla.
-      if (decl.parent.parent?.type === "atrule" && decl.parent.parent.params === GRADIENT_SUPPORTS) return;
-
-      const supported = new AtRule({ name: "supports", params: GRADIENT_SUPPORTS });
-      supported.append(new Rule({ selector: decl.parent.selector, nodes: [decl.clone()] }));
-      decl.parent.after(supported);
-      decl.value = match[1];
     });
   },
 });

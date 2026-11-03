@@ -33,17 +33,6 @@ describe("postcss color-mix-fallback", () => {
     const css = ":root{--x:#fff}.bg{color:var(--x)}@supports (display:grid){.bg{color:color-mix(in oklab,var(--x) 10%,transparent)}}";
     expect(await run(css)).toBe(css);
   });
-
-  it("deja el degradado sin interpolación y mueve 'in oklab' a un @supports", async () => {
-    const out = await run(".bg-gradient-to-br{--tw-gradient-position:to bottom right in oklab;background-image:linear-gradient(var(--tw-gradient-stops))}");
-    expect(out).toContain(".bg-gradient-to-br{--tw-gradient-position:to bottom right;background-image:linear-gradient(var(--tw-gradient-stops))}");
-    expect(out).toMatch(/@supports \(background-image: linear-gradient\(in lab, red, red\)\)\s*\{\s*\.bg-gradient-to-br\s*\{\s*--tw-gradient-position:to bottom right in oklab/);
-  });
-
-  it("no toca posiciones de degradado sin interpolación", async () => {
-    const css = ".x{--tw-gradient-position:to right}";
-    expect(await run(css)).toBe(css);
-  });
 });
 
 // Integración: si Tailwind cambia su salida, estos tests lo detectan en vez de fallar en silencio.
@@ -53,7 +42,7 @@ describe.each([
 ] as const)("postcss color-mix-fallback con Tailwind real, %s", (_, optimize) => {
   const INPUT = `
     @import "tailwindcss" source(none);
-    @source inline("bg-primary/10 bg-blue-50/50 bg-gradient-to-br");
+    @source inline("bg-primary/10 bg-blue-50/50");
     @theme inline { --color-primary: var(--primary); }
     :root { --primary: oklch(0.72 0.15 50); }
   `;
@@ -74,9 +63,5 @@ describe.each([
     if (optimize) expect(css).toMatch(/\.bg-blue-50\\\/50\{background-color:#[0-9a-f]{8}\}/i);
     expect(css).not.toContain("--color-blue-50-ch");
     expect(css).not.toMatch(/oklch\(var\(--color-blue-50/);
-  });
-
-  it("los degradados quedan con fallback sin interpolación", async () => {
-    expect(await build()).toMatch(/--tw-gradient-position: ?to bottom right;/);
   });
 });
