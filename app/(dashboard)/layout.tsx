@@ -19,7 +19,7 @@ export default function DashboardLayout({
     <ProtectedRoute>
       <FeaturesProvider>
         <NotificationsProvider>
-          <div className="flex h-screen flex-col">
+          <div className="flex h-screen supports-[height:100dvh]:h-dvh flex-col">
             <Header />
             <AccountBanner />
             <div className="flex flex-1 overflow-hidden">
