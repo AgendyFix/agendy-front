@@ -13,11 +13,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const MSG_PREFIX = "[iFrameSizer]";
 const FRAME_ID = "agendy-autoheight";
 const CHILD_READY = "[iFrameResizerChild]Ready";
+// En estos tipos el segundo campo no es una altura (scrollTo trae la coordenada Y).
+const NON_RESIZE_TYPES = new Set(["scrollTo", "scrollToOffset", "close"]);
 
 // Formato v4: id:bodyMarginV1:sizeWidth:log:interval:enablePublicMethods:autoResize:bodyMargin:
 //             heightCalculationMethod:bodyBackground:bodyPadding:tolerance:inPageLinks:resizeFrom:
 //             widthCalculationMethod:mouseEvents
-const INIT_MESSAGE = `${MSG_PREFIX}${FRAME_ID}:8:false:false:32:true:true::bodyOffset:::0:false:parent:scroll:true`;
+const INIT_MESSAGE = `${MSG_PREFIX}${FRAME_ID}:8:false:false:32:true:true::bodyOffset:::0:false:parent:scroll:false`;
 
 export function useIframeAutoHeight(src: string, fallbackHeight: number) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -33,13 +35,17 @@ export function useIframeAutoHeight(src: string, fallbackHeight: number) {
     if (!origin) return;
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== origin || typeof event.data !== "string") return;
+      if (event.origin !== origin || event.source !== iframeRef.current?.contentWindow) return;
+      if (typeof event.data !== "string") return;
 
       // El script hijo puede cargar después del onLoad del iframe: avisa cuando está listo.
       if (event.data === CHILD_READY) return sendInit();
       if (!event.data.startsWith(`${MSG_PREFIX}${FRAME_ID}:`)) return;
 
-      const reported = Number(event.data.slice(MSG_PREFIX.length).split(":")[1]);
+      const [, reportedHeight, , type] = event.data.slice(MSG_PREFIX.length).split(":");
+      if (NON_RESIZE_TYPES.has(type)) return;
+
+      const reported = Number(reportedHeight);
       if (reported > 0) setHeight(Math.max(reported, fallbackHeight));
     };
 

@@ -3,56 +3,49 @@
 // ============================================
 // BROWSER WARNING BANNER
 // ============================================
-// Detecta Safari < 15 / iOS < 15 y muestra un aviso
+// Detecta Safari < 15.4 / iOS < 15.4 y muestra un aviso
 // informando al usuario que actualice su navegador.
 // Solo se muestra si el browser es incompatible.
 // No afecta a browsers modernos.
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { AlertTriangle, X } from "lucide-react";
 
-function detectIncompatibleBrowser(): boolean {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+// Piso real: Safari/iOS 15.4 (oklch y los fallbacks de postcss-color-mix-fallback.cjs).
+const MIN_VERSION = { major: 15, minor: 4 };
+const DISMISSED_KEY = "browser-warning-dismissed";
 
+function isBelowMinimum(major: number, minor: number): boolean {
+  return major < MIN_VERSION.major || (major === MIN_VERSION.major && minor < MIN_VERSION.minor);
+}
+
+function detectIncompatibleBrowser(): boolean {
   const ua = navigator.userAgent;
 
   // Detectar iOS version
-  const iosMatch = ua.match(/OS (\d+)_/);
-  if (iosMatch) {
-    const iosMajor = parseInt(iosMatch[1], 10);
-    if (iosMajor < 15) return true;
-  }
+  const iosMatch = ua.match(/OS (\d+)_(\d+)/);
+  if (iosMatch && isBelowMinimum(Number(iosMatch[1]), Number(iosMatch[2]))) return true;
 
   // Detectar Safari desktop version (no Chrome/Firefox que también tienen "Safari" en UA)
   const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS|EdgA/.test(ua);
-  if (isSafari) {
-    const safariMatch = ua.match(/Version\/(\d+)/);
-    if (safariMatch) {
-      const safariMajor = parseInt(safariMatch[1], 10);
-      if (safariMajor < 15) return true;
-    }
-  }
+  const safariMatch = isSafari && ua.match(/Version\/(\d+)\.(\d+)/);
+  if (safariMatch && isBelowMinimum(Number(safariMatch[1]), Number(safariMatch[2]))) return true;
 
   return false;
 }
 
+// Ni el UA ni el aviso descartado cambian durante la sesión: no hay nada a qué suscribirse.
+const subscribe = () => () => {};
+const getSnapshot = () => !sessionStorage.getItem(DISMISSED_KEY) && detectIncompatibleBrowser();
+const getServerSnapshot = () => false;
+
 export function BrowserWarning() {
-  const [show, setShow] = useState(false);
+  const show = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    // Solo mostrar una vez por sesión
-    const alreadyDismissed = sessionStorage.getItem("browser-warning-dismissed");
-    if (alreadyDismissed) return;
-
-    if (detectIncompatibleBrowser()) {
-      setShow(true);
-    }
-  }, []);
 
   const handleDismiss = () => {
     setDismissed(true);
-    sessionStorage.setItem("browser-warning-dismissed", "1");
+    sessionStorage.setItem(DISMISSED_KEY, "1");
   };
 
   if (!show || dismissed) return null;
@@ -68,7 +61,7 @@ export function BrowserWarning() {
             </p>
             <p className="text-xs text-amber-700 mt-0.5">
               Tu navegador ({navigator.userAgent.includes("iPad") ? "iPad" : "dispositivo"}) puede tener problemas para mostrar el sistema correctamente.
-              Para la mejor experiencia usa <strong>Safari 15+</strong>, <strong>Chrome</strong> o <strong>Firefox</strong> actualizados.
+              Para la mejor experiencia usa <strong>Safari 15.4+</strong>, <strong>Chrome</strong> o <strong>Firefox</strong> actualizados.
             </p>
             <p className="text-xs text-amber-600 mt-1">
               <strong>iPad mini 3, iPad Air (1ª gen.) y modelos anteriores</strong> no son compatibles con iOS 15 y pueden presentar fallos.

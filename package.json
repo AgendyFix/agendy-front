@@ -58,10 +58,10 @@
     "vitest": "^2.1.9"
   },
   "browserslist": [
-    "chrome >= 64",
-    "edge >= 79",
-    "firefox >= 67",
-    "safari >= 15",
-    "ios_saf >= 15"
+    "chrome >= 111",
+    "edge >= 111",
+    "firefox >= 113",
+    "safari >= 15.4",
+    "ios_saf >= 15.4"
   ]
 }
