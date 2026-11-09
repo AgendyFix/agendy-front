@@ -415,6 +415,7 @@ export interface CreateClassGroupRequest {
   level?: 'all' | 'beginner' | 'intermediate' | 'advanced';
   is_individual?: boolean;
   monthly_fee?: number | null;         // null permitido si is_individual=true
+  signup_fee?: number | null;          // Cuota de inscripción sugerida (null = sin cuota)
   instructor?: string;                 // UUID (optional)
   disciplines?: string[];              // Array de UUIDs de disciplinas
   schedules?: CreateScheduleInput[];
@@ -433,6 +434,8 @@ export interface CreateEnrollmentRequest {
   custom_monthly_fee?: number | null;
   signup_fee?: number | null;
   signup_fee_paid?: number | null;    // Anticipo de inscripción (opcional)
+  /** Pago de la primera mensualidad al inscribir — omitir si no pagó */
+  initial_payment?: InitialPaymentInline;
   disciplines?: string[];             // Array de UUIDs
   notes?: string;
 }

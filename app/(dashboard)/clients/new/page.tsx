@@ -23,6 +23,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
+import { EnrollmentCharges } from "@/components/enrollments/EnrollmentCharges";
+import {
+  EMPTY_CHARGES, chargesPayload, validateCharges, type EnrollmentChargesValue,
+} from "@/lib/enrollmentCharges";
 import { DatePicker } from "@/components/ui/date-picker";
 import { todayLocalISO } from "@/lib/dates";
 import { clientsApi } from "@/lib/api/clients";
@@ -46,20 +50,12 @@ const schema = z.object({
   // Clase individual
   ind_monthly_fee:        z.string().optional(),
   ind_billing_day:        z.string().optional(),
-  ind_signup_fee:         z.string().optional(),   // cuota de inscripción one-time
-  ind_signup_fee_paid:    z.string().optional(),   // anticipo de esa cuota
-  ind_initial_payment:    z.string().optional(),   // pago de la mensualidad hoy
-  ind_initial_method:     z.enum(["cash","card","transfer","other"]).optional(),
   ind_start_date:         z.string().optional(),
 
   // Grupo colectivo
   grp_class_group:        z.string().optional(),
   grp_billing_day:        z.string().optional(),
   grp_monthly_fee:        z.string().optional(),   // precio personalizado (opcional)
-  grp_signup_fee:         z.string().optional(),   // cuota de inscripción one-time
-  grp_signup_fee_paid:    z.string().optional(),   // anticipo de esa cuota
-  grp_initial_payment:    z.string().optional(),   // pago de la mensualidad hoy
-  grp_initial_method:     z.enum(["cash","card","transfer","other"]).optional(),
   grp_start_date:         z.string().optional(),
 }).superRefine((val, ctx) => {
   if (val.enrollment_mode === "individual") {
@@ -136,6 +132,7 @@ export default function NewClientPage() {
   const [groups, setGroups]           = useState<ClassGroup[]>([]);
   const [contacts, setContacts]       = useState<ContactRow[]>([EMPTY_CONTACT()]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [charges, setCharges]             = useState<EnrollmentChargesValue>(EMPTY_CHARGES);
 
   const {
     register,
@@ -155,6 +152,9 @@ export default function NewClientPage() {
   const enrollmentMode    = watch("enrollment_mode");
   const selectedGroupId   = watch("grp_class_group");
   const selectedGroup     = groups.find((g) => g.id === selectedGroupId);
+
+  // Al cambiar de modo (individual / grupo / sin inscripción) se reinician los cobros
+  useEffect(() => { setCharges(EMPTY_CHARGES); }, [enrollmentMode]);
 
   // Carga grupos colectivos cuando el usuario elige ese modo
   useEffect(() => {
@@ -192,43 +192,31 @@ export default function NewClientPage() {
       };
 
       if (data.enrollment_mode === "individual") {
-        const indInitialAmt = data.ind_initial_payment ? Number(data.ind_initial_payment) : 0;
+        const chargesError = validateCharges(charges, Number(data.ind_monthly_fee) || null);
+        if (chargesError) { toast.error(chargesError); return; }
         payload.enrollment = {
           is_individual:      true,
           start_date:         data.ind_start_date!,
           custom_monthly_fee: Number(data.ind_monthly_fee),
           custom_billing_day: data.ind_billing_day     ? Number(data.ind_billing_day)    : undefined,
-          signup_fee:         data.ind_signup_fee      ? Number(data.ind_signup_fee)     : null,
-          signup_fee_paid:    data.ind_signup_fee_paid ? Number(data.ind_signup_fee_paid): undefined,
           disciplines:        disciplines.length > 0 ? disciplines : undefined,
-          // Pago inicial de la mensualidad (distinto a signup_fee)
-          ...(indInitialAmt > 0 && {
-            initial_payment: {
-              amount_paid:    indInitialAmt,
-              payment_method: data.ind_initial_method ?? "cash",
-              payment_date:   data.ind_start_date,
-            },
-          }),
+          // Cuota de inscripción + pago de la primera mensualidad
+          ...chargesPayload(charges, todayISO()),
         };
       } else if (data.enrollment_mode === "group") {
-        const grpInitialAmt = data.grp_initial_payment ? Number(data.grp_initial_payment) : 0;
+        const groupFee = data.grp_monthly_fee ? Number(data.grp_monthly_fee)
+          : groups.find((g) => g.id === data.grp_class_group)?.monthly_fee ?? null;
+        const chargesError = validateCharges(charges, groupFee);
+        if (chargesError) { toast.error(chargesError); return; }
         payload.enrollment = {
           is_individual:      false,
           class_group:        data.grp_class_group,
           start_date:         data.grp_start_date!,
           custom_billing_day: data.grp_billing_day     ? Number(data.grp_billing_day)    : undefined,
           custom_monthly_fee: data.grp_monthly_fee     ? Number(data.grp_monthly_fee)    : undefined,
-          signup_fee:         data.grp_signup_fee      ? Number(data.grp_signup_fee)     : null,
-          signup_fee_paid:    data.grp_signup_fee_paid ? Number(data.grp_signup_fee_paid): undefined,
           disciplines:        disciplines.length > 0 ? disciplines : undefined,
-          // Pago inicial de la mensualidad (distinto a signup_fee)
-          ...(grpInitialAmt > 0 && {
-            initial_payment: {
-              amount_paid:    grpInitialAmt,
-              payment_method: data.grp_initial_method ?? "cash",
-              payment_date:   data.grp_start_date,
-            },
-          }),
+          // Cuota de inscripción + pago de la primera mensualidad
+          ...chargesPayload(charges, todayISO()),
         };
       }
 
@@ -468,91 +456,16 @@ export default function NewClientPage() {
                   </div>
                 </div>
 
-                {/* ── Cuota de inscripción one-time ── */}
-                <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Cuota de inscripción <span className="font-normal normal-case">— cargo único al darse de alta, opcional</span>
-                  </p>
-                  <div className="grid gap-3 grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ind_signup_fee">Costo</Label>
-                      <Input
-                        id="ind_signup_fee"
-                        type="number"
-                        min={0}
-                        placeholder="Ej: 500"
-                        disabled={saving}
-                        {...register("ind_signup_fee")}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ind_signup_fee_paid">Pagó hoy</Label>
-                      <Input
-                        id="ind_signup_fee_paid"
-                        type="number"
-                        min={0}
-                        max={watch("ind_signup_fee") ? Number(watch("ind_signup_fee")) : undefined}
-                        placeholder="Vacío = no pagó nada"
-                        disabled={saving}
-                        {...register("ind_signup_fee_paid")}
-                      />
-                    </div>
-                  </div>
-                  {(() => {
-                    const total = Number(watch("ind_signup_fee") || 0);
-                    const paid  = Number(watch("ind_signup_fee_paid") || 0);
-                    if (total <= 0) return null;
-                    if (paid <= 0)   return <p className="text-xs text-muted-foreground">Sin pago hoy — quedará pendiente <strong>${total.toLocaleString("es-MX")}</strong></p>;
-                    if (paid >= total) return <p className="text-xs text-green-600 font-medium">✓ Cuota de inscripción liquidada</p>;
-                    return <p className="text-xs text-orange-600 font-medium">Anticipo ${paid.toLocaleString("es-MX")} — saldo: ${(total - paid).toLocaleString("es-MX")}</p>;
-                  })()}
-                </div>
-
-                {/* ── Pago inicial de la mensualidad ── */}
-                <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Pago inicial de mensualidad <span className="font-normal normal-case">— opcional, si ya pagó algo hoy</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground -mt-1">
-                    Si no pagas nada aquí, el sistema genera el cobro automáticamente cuando venza el día de pago.
-                  </p>
-                  <div className="grid gap-3 grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ind_initial_payment">Monto pagado</Label>
-                      <Input
-                        id="ind_initial_payment"
-                        type="number"
-                        min={1}
-                        placeholder={watch("ind_monthly_fee") ? `Máx. $${Number(watch("ind_monthly_fee")).toLocaleString("es-MX")}` : "Ej: 800"}
-                        disabled={saving}
-                        {...register("ind_initial_payment")}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Método de pago</Label>
-                      <Select
-                        value={watch("ind_initial_method") ?? "cash"}
-                        onValueChange={(v) => setValue("ind_initial_method", v as "cash"|"card"|"transfer"|"other")}
-                        disabled={saving || !watch("ind_initial_payment")}
-                      >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cash">Efectivo</SelectItem>
-                          <SelectItem value="card">Tarjeta</SelectItem>
-                          <SelectItem value="transfer">Transferencia</SelectItem>
-                          <SelectItem value="other">Otro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  {(() => {
-                    const monthly = Number(watch("ind_monthly_fee") || 0);
-                    const paid    = Number(watch("ind_initial_payment") || 0);
-                    if (paid <= 0 || monthly <= 0) return null;
-                    if (paid >= monthly) return <p className="text-xs text-green-600 font-medium">✓ Mensualidad pagada completa</p>;
-                    return <p className="text-xs text-orange-600 font-medium">Anticipo ${paid.toLocaleString("es-MX")} — saldo pendiente: ${(monthly - paid).toLocaleString("es-MX")}</p>;
-                  })()}
-                </div>
+                {/* ── Cobros al inscribir ── */}
+                <EnrollmentCharges
+                  idPrefix="ind-charges"
+                  value={charges}
+                  onChange={setCharges}
+                  monthlyFee={watch("ind_monthly_fee") ? Number(watch("ind_monthly_fee")) : null}
+                  startDate={watch("ind_start_date") ?? ""}
+                  billingDay={watch("ind_billing_day")}
+                  disabled={saving}
+                />
 
                 {/* Aviso horarios — clase individual */}
                 <div className="flex items-start gap-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2.5 text-xs text-blue-700">
@@ -669,95 +582,21 @@ export default function NewClientPage() {
                   />
                 </div>
 
-                {/* ── Cuota de inscripción one-time ── */}
-                <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Cuota de inscripción <span className="font-normal normal-case">— cargo único al darse de alta, opcional</span>
-                  </p>
-                  <div className="grid gap-3 grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="grp_signup_fee">Costo</Label>
-                      <Input
-                        id="grp_signup_fee"
-                        type="number"
-                        min={0}
-                        placeholder="Ej: 500"
-                        disabled={saving}
-                        {...register("grp_signup_fee")}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="grp_signup_fee_paid">Pagó hoy</Label>
-                      <Input
-                        id="grp_signup_fee_paid"
-                        type="number"
-                        min={0}
-                        max={watch("grp_signup_fee") ? Number(watch("grp_signup_fee")) : undefined}
-                        placeholder="Vacío = no pagó nada"
-                        disabled={saving}
-                        {...register("grp_signup_fee_paid")}
-                      />
-                    </div>
-                  </div>
-                  {(() => {
-                    const total = Number(watch("grp_signup_fee") || 0);
-                    const paid  = Number(watch("grp_signup_fee_paid") || 0);
-                    if (total <= 0) return null;
-                    if (paid <= 0)   return <p className="text-xs text-muted-foreground">Sin pago hoy — quedará pendiente <strong>${total.toLocaleString("es-MX")}</strong></p>;
-                    if (paid >= total) return <p className="text-xs text-green-600 font-medium">✓ Cuota de inscripción liquidada</p>;
-                    return <p className="text-xs text-orange-600 font-medium">Anticipo ${paid.toLocaleString("es-MX")} — saldo: ${(total - paid).toLocaleString("es-MX")}</p>;
-                  })()}
-                </div>
-
-                {/* ── Pago inicial de la mensualidad ── */}
-                <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Pago inicial de mensualidad <span className="font-normal normal-case">— opcional, si ya pagó algo hoy</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground -mt-1">
-                    Si no pagas nada aquí, el sistema genera el cobro automáticamente cuando venza el día de pago.
-                  </p>
-                  <div className="grid gap-3 grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="grp_initial_payment">Monto pagado</Label>
-                      <Input
-                        id="grp_initial_payment"
-                        type="number"
-                        min={1}
-                        placeholder={
-                          watch("grp_monthly_fee") ? `Máx. $${Number(watch("grp_monthly_fee")).toLocaleString("es-MX")}` :
-                          selectedGroup?.monthly_fee ? `Máx. $${selectedGroup.monthly_fee.toLocaleString("es-MX")}` :
-                          "Ej: 800"
-                        }
-                        disabled={saving}
-                        {...register("grp_initial_payment")}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Método de pago</Label>
-                      <Select
-                        value={watch("grp_initial_method") ?? "cash"}
-                        onValueChange={(v) => setValue("grp_initial_method", v as "cash"|"card"|"transfer"|"other")}
-                        disabled={saving || !watch("grp_initial_payment")}
-                      >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cash">Efectivo</SelectItem>
-                          <SelectItem value="card">Tarjeta</SelectItem>
-                          <SelectItem value="transfer">Transferencia</SelectItem>
-                          <SelectItem value="other">Otro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  {(() => {
-                    const monthly = Number(watch("grp_monthly_fee") || selectedGroup?.monthly_fee || 0);
-                    const paid    = Number(watch("grp_initial_payment") || 0);
-                    if (paid <= 0 || monthly <= 0) return null;
-                    if (paid >= monthly) return <p className="text-xs text-green-600 font-medium">✓ Mensualidad pagada completa</p>;
-                    return <p className="text-xs text-orange-600 font-medium">Anticipo ${paid.toLocaleString("es-MX")} — saldo pendiente: ${(monthly - paid).toLocaleString("es-MX")}</p>;
-                  })()}
-                </div>
+                {/* ── Cobros al inscribir (la cuota se propone desde el grupo) ── */}
+                <EnrollmentCharges
+                  idPrefix="grp-charges"
+                  value={charges}
+                  onChange={setCharges}
+                  monthlyFee={
+                    watch("grp_monthly_fee") ? Number(watch("grp_monthly_fee"))
+                    : selectedGroup?.monthly_fee ?? null
+                  }
+                  startDate={watch("grp_start_date") ?? ""}
+                  billingDay={watch("grp_billing_day")}
+                  groupId={selectedGroup?.id}
+                  groupSignupFee={selectedGroup?.signup_fee ?? null}
+                  disabled={saving}
+                />
 
                 {/* Aviso horarios — grupo colectivo */}
                 <div className="flex items-start gap-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2.5 text-xs text-blue-700">
