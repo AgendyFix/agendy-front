@@ -35,6 +35,10 @@ import { classGroupsApi } from "@/lib/api/classGroups";
 import { enrollmentsApi } from "@/lib/api/enrollments";
 import { todayLocalISO } from "@/lib/dates";
 import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
+import { EnrollmentCharges } from "@/components/enrollments/EnrollmentCharges";
+import {
+  EMPTY_CHARGES, chargesPayload, validateCharges, type EnrollmentChargesValue,
+} from "@/lib/enrollmentCharges";
 import type { Client, ClassGroup } from "@/lib/types/models";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
@@ -50,7 +54,6 @@ const schema = z.object({
   start_date:         z.string().min(1, "Selecciona la fecha de inicio"),
   custom_billing_day: z.string().optional(),
   custom_monthly_fee: z.string().optional(), // precio especial en modo grupo
-  signup_fee:         z.string().optional(),
   notes:              z.string().optional(),
 }).superRefine((val, ctx) => {
   if (val.mode === "group" && !val.class_group) {
@@ -86,6 +89,7 @@ export default function NewEnrollmentPage() {
   const [preselectedGroup, setPreselectedGroup]   = useState<ClassGroup | null>(null);
   const [preselectedClient, setPreselectedClient] = useState<Client | null>(null);
   const [disciplines, setDisciplines]             = useState<string[]>([]);
+  const [charges, setCharges]                     = useState<EnrollmentChargesValue>(EMPTY_CHARGES);
 
   // IDs de alumnos ya inscritos en el grupo seleccionado
   const [enrolledClientIds, setEnrolledClientIds] = useState<Set<string>>(new Set());
@@ -102,7 +106,6 @@ export default function NewEnrollmentPage() {
       start_date:         todayLocalISO(),
       custom_billing_day: "",
       custom_monthly_fee: "",
-      signup_fee:         "",
       notes:              "",
     },
   });
@@ -112,6 +115,16 @@ export default function NewEnrollmentPage() {
   const selectedGroupId  = form.watch("class_group") ?? "";
   const selectedClient   = clients.find((c) => c.id === selectedClientId) ?? preselectedClient;
   const selectedGroup    = groups.find((g) => g.id === selectedGroupId) ?? preselectedGroup;
+
+  // Al cambiar entre grupo / individual, los cobros capturados no viajan
+  useEffect(() => { setCharges(EMPTY_CHARGES); }, [mode]);
+
+  // Mensualidad efectiva para el bloque de cobros (precio especial > grupo)
+  const customFee    = form.watch("custom_monthly_fee");
+  const indFee       = form.watch("ind_monthly_fee");
+  const effectiveFee = mode === "individual"
+    ? (indFee ? Number(indFee) : null)
+    : (customFee ? Number(customFee) : selectedGroup?.monthly_fee ?? null);
 
   // Cargar grupos
   useEffect(() => {
@@ -182,6 +195,12 @@ export default function NewEnrollmentPage() {
   }, [selectedClientId, preselectedClientId]);
 
   const handleSubmit = async (values: FormValues) => {
+    const chargesError = validateCharges(charges, effectiveFee);
+    if (chargesError) {
+      toast.error(chargesError);
+      return;
+    }
+    const chargeFields = chargesPayload(charges, todayLocalISO());
     try {
       if (values.mode === "individual") {
         // ── Flujo individual: un solo POST /enrollments/ con is_individual: true ──
@@ -192,7 +211,7 @@ export default function NewEnrollmentPage() {
           start_date:         values.start_date,
           custom_billing_day: values.custom_billing_day ? Number(values.custom_billing_day) : undefined,
           custom_monthly_fee: values.ind_monthly_fee ? Number(values.ind_monthly_fee) : undefined,
-          signup_fee:         values.signup_fee ? Number(values.signup_fee) : null,
+          ...chargeFields,
           disciplines:        disciplines,
           notes:              values.notes || undefined,
         });
@@ -213,7 +232,7 @@ export default function NewEnrollmentPage() {
           start_date:         values.start_date,
           custom_billing_day: values.custom_billing_day ? Number(values.custom_billing_day) : undefined,
           custom_monthly_fee: values.custom_monthly_fee ? Number(values.custom_monthly_fee) : undefined,
-          signup_fee:         values.signup_fee ? Number(values.signup_fee) : null,
+          ...chargeFields,
           disciplines:        disciplines.length > 0 ? disciplines : undefined,
           notes:              values.notes || undefined,
         });
@@ -519,8 +538,8 @@ export default function NewEnrollmentPage() {
                 )}
               />
 
-              {/* ── Opciones: día de pago + precio especial (grupo) + inscripción ── */}
-              <div className="grid gap-3 grid-cols-3">
+              {/* ── Opciones: día de pago + precio especial (grupo) ── */}
+              <div className="grid gap-3 grid-cols-2">
                 <FormField
                   control={form.control}
                   name="custom_billing_day"
@@ -553,20 +572,19 @@ export default function NewEnrollmentPage() {
                     )}
                   />
                 )}
-                <FormField
-                  control={form.control}
-                  name="signup_fee"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Inscripción <span className="text-muted-foreground font-normal text-xs">(opc.)</span></FormLabel>
-                      <FormControl>
-                        <Input type="number" min={0} placeholder="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
+
+              {/* ── Cobros al inscribir: cuota de inscripción + primera mensualidad ── */}
+              <EnrollmentCharges
+                value={charges}
+                onChange={setCharges}
+                monthlyFee={effectiveFee}
+                startDate={form.watch("start_date")}
+                billingDay={form.watch("custom_billing_day")}
+                groupId={mode === "group" ? selectedGroup?.id : undefined}
+                groupSignupFee={mode === "group" ? selectedGroup?.signup_fee ?? null : null}
+                disabled={isLoading}
+              />
 
               {/* ── Notas ── */}
               <FormField

@@ -69,6 +69,7 @@ const collectiveSchema = z.object({
   name:          z.string().min(2, "Mínimo 2 caracteres").max(120, "Máximo 120 caracteres"),
   level:         z.enum(["all", "beginner", "intermediate", "advanced"]),
   monthly_fee:   z.number().min(0, "Debe ser mayor o igual a 0"),
+  signup_fee:    z.number().min(0, "Debe ser mayor o igual a 0").optional(),
   instructor:    z.string().optional(),
   disciplines:   z.array(z.string()),
   schedules:     z.array(scheduleSchema),
@@ -184,6 +185,7 @@ export function ClassGroupForm({
       name:          initialData?.name ?? "",
       level:         (initialData?.level as CollectiveValues["level"]) ?? "all",
       monthly_fee:   initialData?.monthly_fee ?? undefined,
+      signup_fee:    initialData?.signup_fee ?? undefined,
       instructor:    initialData?.instructor_id ?? "",
       disciplines:   initialData?.disciplines?.map((d) => d.id) ?? [],
       schedules:     initialData?.schedules?.map((s) => ({
@@ -221,6 +223,7 @@ export function ClassGroupForm({
         is_individual: false,
         level:         values.level,
         monthly_fee:   values.monthly_fee ?? null,
+        signup_fee:    values.signup_fee || null,
         instructor:    values.instructor || undefined,
         disciplines:   values.disciplines.length > 0 ? values.disciplines : undefined,
         schedules:     values.schedules.map((s) => ({
@@ -416,8 +419,8 @@ export function ClassGroupForm({
               )}
             />
 
-            {/* Nivel + Mensualidad */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Nivel + Mensualidad + Inscripción */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <FormField
                 control={collectiveForm.control}
                 name="level"
@@ -453,6 +456,28 @@ export function ClassGroupForm({
                         onFocus={(e) => e.target.select()}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={collectiveForm.control}
+                name="signup_fee"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Inscripción <span className="text-muted-foreground font-normal text-xs">(opcional)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number" min={0} step={1} placeholder="Sin cuota"
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value === "" ? undefined : parseInt(e.target.value, 10))}
+                        onFocus={(e) => e.target.select()}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">Se propone al inscribir a alguien</p>
                     <FormMessage />
                   </FormItem>
                 )}

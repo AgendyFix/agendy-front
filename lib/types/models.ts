@@ -587,6 +587,8 @@ export interface ClassGroup {
   is_individual: boolean;
   /** null para clases individuales — el precio vive en el Enrollment */
   monthly_fee: number | null;
+  /** Cuota de inscripción sugerida del grupo (null = sin cuota) */
+  signup_fee?: number | null;
   /** Solo en grupos individuales: mensualidad del enrollment activo */
   primary_enrollment_fee?: number | null;
   /** Solo en grupos individuales: alumno principal */
