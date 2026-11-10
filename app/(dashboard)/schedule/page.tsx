@@ -73,7 +73,7 @@ export default function SchedulePage() {
     }
     try {
       setLoadingFilter(true);
-      const params = instructorId === "all" ? { limit: 100 } : { limit: 100, instructor: instructorId };
+      const params = { limit: 100, instructor: instructorId };
       const res = await classGroupsApi.getAll(params);
       setFilteredGroups(res.results);
     } catch {
@@ -153,8 +153,8 @@ export default function SchedulePage() {
           {/* Tablet/escritorio: acción principal a la derecha, como en las demás
               pantallas (en celular va abajo de la agenda del día) */}
           <Button
-            size="icon"
-            className="hidden h-8 w-8 md:inline-flex"
+            size="icon-sm"
+            className="hidden md:inline-flex"
             title="Nuevo grupo"
             aria-label="Nuevo grupo"
             onClick={() => router.push("/class-groups/new")}
