@@ -6,7 +6,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Users, ChevronDown, ChevronUp, CalendarPlus, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -17,6 +18,7 @@ import { WeeklyCalendar, GROUP_COLORS } from "@/components/schedule/WeeklyCalend
 import { DayAgenda } from "@/components/schedule/DayAgenda";
 import type { ClassGroup, Employee } from "@/lib/types/models";
 import { useFeatures } from "@/lib/hooks/useFeatures";
+import { PUBLIC_SITE_FEATURE } from "@/components/publicPage/constants";
 
 export default function SchedulePage() {
   const router = useRouter();
@@ -149,6 +151,49 @@ export default function SchedulePage() {
         <div className="flex-1 flex justify-center items-center py-16 md:py-0">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      ) : groupsWithSchedule.length === 0 ? (
+        // Estado vacío: explica por qué no hay nada y lleva a crear/configurar grupos
+        <Card className="md:flex-1">
+          <CardContent className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
+            <CalendarPlus className="h-10 w-10 text-muted-foreground/40" />
+            {filterInstructor !== "all" ? (
+              <>
+                <p className="font-medium">Este instructor no tiene clases con horario</p>
+                <Button variant="outline" onClick={() => handleFilterChange("all")}>
+                  Ver todos los instructores
+                </Button>
+              </>
+            ) : allGroups.length === 0 ? (
+              <>
+                <p className="font-medium">Aún no tienes grupos</p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  Crea tu primer grupo con sus días y horarios.{" "}
+                  {isFeatureEnabled(PUBLIC_SITE_FEATURE)
+                    ? "Aparecerá aquí y en Mi Sitio para que nuevos alumnos se inscriban."
+                    : "Aparecerá aquí, en el calendario de la semana."}
+                </p>
+                <Button onClick={() => router.push("/class-groups/new")}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Crear grupo
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="font-medium">Tus grupos todavía no tienen horario</p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  Agrega los días y horas de cada grupo para verlo en el calendario.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button onClick={() => router.push("/class-groups")}>Ver grupos</Button>
+                  <Button variant="outline" onClick={() => router.push("/class-groups/new")}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Crear grupo
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <>
           <div className={`md:hidden pb-4 transition-opacity ${loadingFilter ? "opacity-50 pointer-events-none" : ""}`}>
