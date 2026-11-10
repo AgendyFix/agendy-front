@@ -177,7 +177,7 @@ export default function EmployeesPage() {
           )}
         </div>
       ) : (
-        <Card>
+        <Card className="py-0 overflow-hidden">
           <CardContent className="p-0">
             <Table>
               <TableHeader>
