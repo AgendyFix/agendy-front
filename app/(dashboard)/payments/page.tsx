@@ -424,7 +424,7 @@ export default function PaymentsPage() {
               </div>
               <div className="text-center p-3 rounded-lg bg-red-50">
                 <p className="text-2xl font-bold text-red-600">{overdueCount}</p>
-                <p className="text-xs text-red-500 font-medium">Sin pagar</p>
+                <p className="text-xs text-red-500 font-medium">Vencidos</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-gray-50">
                 <p className="text-2xl font-bold text-gray-600">{summary.counts.waived}</p>
@@ -440,7 +440,7 @@ export default function PaymentsPage() {
                 <p className="text-2xl font-bold text-red-600">
                   ${overduePayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString("es-MX")}
                 </p>
-                <p className="text-xs text-red-500 font-medium">Monto pendiente</p>
+                <p className="text-xs text-red-500 font-medium">Monto vencido</p>
               </div>
             </div>
           )}
@@ -735,7 +735,7 @@ export default function PaymentsPage() {
                 <Label htmlFor="settle-amount">Monto a pagar ahora</Label>
                 <Input
                   id="settle-amount"
-                  type="number"
+                  type="number" inputMode="numeric"
                   min={1}
                   max={settleTarget.balance}
                   placeholder={`Máx. $${settleTarget.balance.toLocaleString("es-MX")}`}
@@ -807,86 +807,12 @@ function PaymentsTable({
   onReactivate?: (p: Payment) => void;
   enrollmentActionLoading?: boolean;
 }) {
-  return (
-    <Card>
-      <CardContent className="p-0">
-        {/* minWidth: en pantallas angostas la tabla scrollea horizontal (wrapper
-            overflow-x-auto de ui/table) en vez de comprimir/encimar columnas */}
-        <Table style={{ tableLayout: "fixed", width: "100%", minWidth: 860 }}>
-          <colgroup>
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "12%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "11%" }} />
-          </colgroup>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Alumno</TableHead>
-              <TableHead>Teléfono</TableHead>
-              <TableHead>Grupo</TableHead>
-              <TableHead>Fecha pago</TableHead>
-              <TableHead>Fecha vence</TableHead>
-              <TableHead>Método</TableHead>
-              <TableHead className="text-right">Monto</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {payments.map((p) => {
-              const isOverdue = p.status === "overdue";
-              const isPartial = p.status === "partial";
-              const days = isOverdue ? overdueDays(p.due_date) : 0;
-              return (
-                <TableRow key={p.id} className={isOverdue ? "bg-red-50/40" : undefined}>
-                  <TableCell className="font-medium truncate max-w-0">
-                    <Link href={`/clients/${p.client_id}`} className="hover:underline">
-                      {p.client_name}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground tabular-nums">
-                    {p.client_phone || "—"}
-                  </TableCell>
-                  <TableCell className="text-sm truncate max-w-0">{p.class_group_name}</TableCell>
-                  <TableCell className="text-sm tabular-nums">
-                    {p.payment_date ? formatDate(p.payment_date) : "—"}
-                  </TableCell>
-                  <TableCell className="text-sm tabular-nums">
-                    {p.due_date ? (
-                      isOverdue ? (
-                        <span className="flex flex-col leading-tight">
-                          <span className="font-medium text-red-600">{formatDate(p.due_date)}</span>
-                          {days > 0 && (
-                            <span className="text-xs text-red-400">hace {days} día{days !== 1 ? "s" : ""}</span>
-                          )}
-                        </span>
-                      ) : formatDate(p.due_date)
-                    ) : "—"}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {p.payment_method ? (PAYMENT_METHOD_LABELS[p.payment_method] ?? p.payment_method) : "—"}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">
-                    {isPartial && p.amount_paid != null ? (
-                      <span className="flex flex-col items-end leading-tight">
-                        <span>${p.amount_paid.toLocaleString("es-MX")}</span>
-                        <span className="text-xs font-normal text-muted-foreground">de ${p.amount.toLocaleString("es-MX")}</span>
-                      </span>
-                    ) : (
-                      `$${p.amount.toLocaleString("es-MX")}`
-                    )}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[p.status]}`}>
-                      {STATUS_LABELS[p.status]}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
+  // Acciones por fila (compartidas entre la tabla y las tarjetas móviles)
+  const renderActions = (p: Payment) => {
+    const isOverdue = p.status === "overdue";
+    const isPartial = p.status === "partial";
+    return (
+                  <>
                     {isOverdue ? (
                       <div className="flex items-center justify-end gap-1">
                         {/* Botón cobrar solo si la inscripción sigue activa */}
@@ -1018,12 +944,153 @@ function PaymentsTable({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
+                  </>
+    );
+  };
+
+  const amountCell = (p: Payment) =>
+    p.status === "partial" && p.amount_paid != null ? (
+      <span className="flex flex-col items-end leading-tight">
+        <span>${p.amount_paid.toLocaleString("es-MX")}</span>
+        <span className="text-xs font-normal text-muted-foreground">de ${p.amount.toLocaleString("es-MX")}</span>
+      </span>
+    ) : (
+      `$${p.amount.toLocaleString("es-MX")}`
+    );
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        {/* Móvil: tarjetas compactas */}
+        <div className="md:hidden divide-y">
+          {payments.map((p) => {
+            const isOverdue = p.status === "overdue";
+            const days = isOverdue ? overdueDays(p.due_date) : 0;
+            const method = p.payment_method ? (PAYMENT_METHOD_LABELS[p.payment_method] ?? p.payment_method) : null;
+            return (
+              <div key={p.id} className={`p-3 space-y-2 ${isOverdue ? "bg-red-50/40" : ""}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link href={`/clients/${p.client_id}`} className="font-medium hover:underline block truncate">
+                      {p.client_name}
+                    </Link>
+                    <p className="text-sm text-muted-foreground truncate">{p.class_group_name}</p>
+                  </div>
+                  <div className="text-right font-semibold tabular-nums shrink-0">{amountCell(p)}</div>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_STYLES[p.status]}`}>
+                      {STATUS_LABELS[p.status]}
+                    </span>
+                    <span className={`text-xs ${isOverdue ? "text-red-600" : "text-muted-foreground"}`}>
+                      {p.payment_date
+                        ? `Pagó ${formatDate(p.payment_date)}${method ? ` · ${method}` : ""}`
+                        : p.grace_until && !isOverdue
+                        ? `Gracia hasta ${formatDate(p.grace_until)}`
+                        : p.due_date
+                        ? `Vence ${formatDate(p.due_date)}${days > 0 ? ` · hace ${days} día${days !== 1 ? "s" : ""}` : ""}`
+                        : ""}
+                    </span>
+                  </div>
+                  <div className="shrink-0">{renderActions(p)}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* minWidth: en pantallas angostas la tabla scrollea horizontal (wrapper
+            overflow-x-auto de ui/table) en vez de comprimir/encimar columnas */}
+        <div className="hidden md:block">
+        <Table style={{ tableLayout: "fixed", width: "100%", minWidth: 860 }}>
+          <colgroup>
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "11%" }} />
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Alumno</TableHead>
+              <TableHead>Teléfono</TableHead>
+              <TableHead>Grupo</TableHead>
+              <TableHead>Fecha pago</TableHead>
+              <TableHead>Fecha vence</TableHead>
+              <TableHead>Método</TableHead>
+              <TableHead className="text-right">Monto</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {payments.map((p) => {
+              const isOverdue = p.status === "overdue";
+              const isPartial = p.status === "partial";
+              const days = isOverdue ? overdueDays(p.due_date) : 0;
+              return (
+                <TableRow key={p.id} className={isOverdue ? "bg-red-50/40" : undefined}>
+                  <TableCell className="font-medium truncate max-w-0">
+                    <Link href={`/clients/${p.client_id}`} className="hover:underline">
+                      {p.client_name}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground tabular-nums">
+                    {p.client_phone || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm truncate max-w-0">{p.class_group_name}</TableCell>
+                  <TableCell className="text-sm tabular-nums">
+                    {p.payment_date ? formatDate(p.payment_date) : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm tabular-nums">
+                    {p.due_date ? (
+                      isOverdue ? (
+                        <span className="flex flex-col leading-tight">
+                          <span className="font-medium text-red-600">{formatDate(p.due_date)}</span>
+                          {days > 0 && (
+                            <span className="text-xs text-red-400">hace {days} día{days !== 1 ? "s" : ""}</span>
+                          )}
+                        </span>
+                      ) : p.grace_until ? (
+                        <span className="flex flex-col leading-tight">
+                          <span>{formatDate(p.due_date)}</span>
+                          <span className="text-xs text-muted-foreground">gracia hasta {formatDate(p.grace_until)}</span>
+                        </span>
+                      ) : formatDate(p.due_date)
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {p.payment_method ? (PAYMENT_METHOD_LABELS[p.payment_method] ?? p.payment_method) : "—"}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {isPartial && p.amount_paid != null ? (
+                      <span className="flex flex-col items-end leading-tight">
+                        <span>${p.amount_paid.toLocaleString("es-MX")}</span>
+                        <span className="text-xs font-normal text-muted-foreground">de ${p.amount.toLocaleString("es-MX")}</span>
+                      </span>
+                    ) : (
+                      `$${p.amount.toLocaleString("es-MX")}`
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[p.status]}`}>
+                      {STATUS_LABELS[p.status]}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {renderActions(p)}
                   </TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
   );

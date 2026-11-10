@@ -150,7 +150,7 @@ export default function EditServicePage() {
                 <Label htmlFor="price">Precio</Label>
                 <Input
                   id="price"
-                  type="number"
+                  type="number" inputMode="numeric"
                   step="0.01"
                   placeholder="0.00"
                   disabled={isLoading}
@@ -165,7 +165,7 @@ export default function EditServicePage() {
                 <Label htmlFor="duration_minutes">Duración (minutos)</Label>
                 <Input
                   id="duration_minutes"
-                  type="number"
+                  type="number" inputMode="numeric"
                   placeholder="60"
                   disabled={isLoading}
                   {...register("duration_minutes", { valueAsNumber: true })}
@@ -180,7 +180,7 @@ export default function EditServicePage() {
               <Label htmlFor="buffer_minutes">Tiempo de buffer (minutos)</Label>
               <Input
                 id="buffer_minutes"
-                type="number"
+                type="number" inputMode="numeric"
                 placeholder="0"
                 disabled={isLoading}
                 {...register("buffer_minutes", { valueAsNumber: true })}

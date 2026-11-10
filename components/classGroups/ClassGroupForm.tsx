@@ -450,7 +450,7 @@ export function ClassGroupForm({
                     <FormLabel>Mensualidad (MXN) *</FormLabel>
                     <FormControl>
                       <Input
-                        type="number" min={0} placeholder="350"
+                        type="number" inputMode="numeric" min={0} placeholder="350"
                         value={field.value ?? ""}
                         onChange={(e) => field.onChange(e.target.value === "" ? undefined : parseFloat(e.target.value))}
                         onFocus={(e) => e.target.select()}
@@ -471,7 +471,7 @@ export function ClassGroupForm({
                     </FormLabel>
                     <FormControl>
                       <Input
-                        type="number" min={0} step={1} placeholder="Sin cuota"
+                        type="number" inputMode="numeric" min={0} step={1} placeholder="Sin cuota"
                         value={field.value ?? ""}
                         onChange={(e) => field.onChange(e.target.value === "" ? undefined : parseInt(e.target.value, 10))}
                         onFocus={(e) => e.target.select()}
@@ -539,12 +539,12 @@ export function ClassGroupForm({
                 <p className="text-sm text-muted-foreground italic">Sin horarios. Puedes agregarlos después.</p>
               )}
               {fields.map((field, index) => (
-                <div key={field.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end p-3 border rounded-lg bg-muted/30">
+                <div key={field.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 items-end p-3 border rounded-lg bg-muted/30">
                   <FormField
                     control={collectiveForm.control}
                     name={`schedules.${index}.day_of_week`}
                     render={({ field: f }) => (
-                      <FormItem>
+                      <FormItem className="col-span-2 sm:col-span-1 min-w-0">
                         <FormLabel className="text-xs">Día</FormLabel>
                         <Select onValueChange={(v) => f.onChange(parseInt(v, 10))} value={String(f.value)}>
                           <FormControl><SelectTrigger className="h-9"><SelectValue /></SelectTrigger></FormControl>
@@ -560,9 +560,9 @@ export function ClassGroupForm({
                     control={collectiveForm.control}
                     name={`schedules.${index}.start_time`}
                     render={({ field: f }) => (
-                      <FormItem>
+                      <FormItem className="min-w-0">
                         <FormLabel className="text-xs">Inicio</FormLabel>
-                        <FormControl><Input type="time" className="h-9" {...f} /></FormControl>
+                        <FormControl><Input type="time" className="h-9 w-full min-w-0 appearance-none" {...f} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -571,14 +571,14 @@ export function ClassGroupForm({
                     control={collectiveForm.control}
                     name={`schedules.${index}.end_time`}
                     render={({ field: f }) => (
-                      <FormItem>
+                      <FormItem className="min-w-0">
                         <FormLabel className="text-xs">Fin</FormLabel>
-                        <FormControl><Input type="time" className="h-9" {...f} /></FormControl>
+                        <FormControl><Input type="time" className="h-9 w-full min-w-0 appearance-none" {...f} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <Button type="button" variant="ghost" size="icon" className="h-9 w-9 hover:bg-red-50" onClick={() => remove(index)}>
+                  <Button type="button" variant="ghost" size="icon" className="h-9 w-9 hover:bg-red-50 col-start-3 row-start-1 sm:col-start-auto sm:row-start-auto" aria-label="Quitar horario" onClick={() => remove(index)}>
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
                 </div>
@@ -695,7 +695,7 @@ export function ClassGroupForm({
                     <FormLabel>Mensualidad (MXN) *</FormLabel>
                     <FormControl>
                       <Input
-                        type="number" min={1} placeholder="1200"
+                        type="number" inputMode="numeric" min={1} placeholder="1200"
                         value={field.value ?? ""}
                         onChange={(e) => field.onChange(e.target.value === "" ? undefined : parseFloat(e.target.value))}
                         onFocus={(e) => e.target.select()}
@@ -710,10 +710,11 @@ export function ClassGroupForm({
                 name="billing_day"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Día de pago <span className="text-muted-foreground text-xs">(1-28, opcional)</span></FormLabel>
+                    <FormLabel>Día de pago</FormLabel>
                     <FormControl>
-                      <Input type="number" min={1} max={28} placeholder="Ej: 15" {...field} />
+                      <Input type="number" inputMode="numeric" min={1} max={28} placeholder="Ej: 15" {...field} />
                     </FormControl>
+                    <p className="text-xs text-muted-foreground">Del 1 al 28. Vacío = día de inicio</p>
                     <FormMessage />
                   </FormItem>
                 )}

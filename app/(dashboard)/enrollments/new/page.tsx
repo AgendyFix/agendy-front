@@ -366,9 +366,9 @@ export default function NewEnrollmentPage() {
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
-                      <PopoverContent className="w-full p-0" align="start">
+                      <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
                         <Command>
-                          <CommandInput placeholder="Buscar por nombre o teléfono..." />
+                          <CommandInput placeholder="Nombre o teléfono" />
                           <CommandList>
                             <CommandEmpty>Sin resultados</CommandEmpty>
                             <CommandGroup>
@@ -499,7 +499,7 @@ export default function NewEnrollmentPage() {
                     <FormItem>
                       <FormLabel>Mensualidad *</FormLabel>
                       <FormControl>
-                        <Input type="number" min={0} step={50} placeholder="1200" {...field} />
+                        <Input type="number" inputMode="numeric" min={0} step={50} placeholder="1200" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -545,10 +545,11 @@ export default function NewEnrollmentPage() {
                   name="custom_billing_day"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Día de pago <span className="text-muted-foreground font-normal text-xs">(1-28)</span></FormLabel>
+                      <FormLabel>Día de pago</FormLabel>
                       <FormControl>
-                        <Input type="number" min={1} max={28} placeholder="Ej: 15" {...field} />
+                        <Input type="number" inputMode="numeric" min={1} max={28} placeholder="Ej: 15" {...field} />
                       </FormControl>
+                      <p className="text-xs text-muted-foreground">Del 1 al 28. Vacío = día de inicio</p>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -559,14 +560,15 @@ export default function NewEnrollmentPage() {
                     name="custom_monthly_fee"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Precio especial <span className="text-muted-foreground font-normal text-xs">(opc.)</span></FormLabel>
+                        <FormLabel>Precio especial</FormLabel>
                         <FormControl>
                           <Input
-                            type="number" min={0}
+                            type="number" inputMode="numeric" min={0}
                             placeholder={selectedGroup?.monthly_fee != null ? String(selectedGroup.monthly_fee) : "Del grupo"}
                             {...field}
                           />
                         </FormControl>
+                        <p className="text-xs text-muted-foreground">Opcional. Vacío usa el del grupo</p>
                         <FormMessage />
                       </FormItem>
                     )}

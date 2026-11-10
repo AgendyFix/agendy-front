@@ -43,7 +43,7 @@ export default function LoginPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push("/");
+      router.push("/schedule");
     }
   }, [isAuthenticated, router]);
 
@@ -59,7 +59,7 @@ export default function LoginPage() {
     try {
       await login(data);
       toast.success("¡Bienvenido!");
-      router.push("/");
+      router.push("/schedule");
     } catch (err) {
       // Error is handled by the store and displayed via toast
       console.error("Login error:", err);

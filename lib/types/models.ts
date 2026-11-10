@@ -656,6 +656,7 @@ export interface Payment {
   payment_date: string | null; // YYYY-MM-DD
   payment_method: PaymentMethod;
   payment_method_display: string;
+  grace_until?: string | null; // YYYY-MM-DD: fin de la gracia del primer cobro
   created_at: string;
 }
 

@@ -287,19 +287,8 @@ export default function NewClientPage() {
 
         {/* ── Sección: Contactos ── */}
         <Card>
-          <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
+          <CardHeader className="pb-3">
             <CardTitle className="text-base">Contactos <span className="text-muted-foreground font-normal text-sm">(opcionales)</span></CardTitle>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs"
-              disabled={saving}
-              onClick={() => setContacts((prev) => [...prev, EMPTY_CONTACT()])}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Agregar contacto
-            </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             {contacts.map((contact, idx) => (
@@ -330,9 +319,9 @@ export default function NewClientPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Nombre <span className="text-muted-foreground text-xs">(si es diferente)</span></Label>
+                    <Label>Nombre</Label>
                     <Input
-                      placeholder="Ej: Lorna"
+                      placeholder="Opcional"
                       disabled={saving}
                       value={contact.name}
                       onChange={(e) => setContacts((prev) => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
@@ -369,6 +358,16 @@ export default function NewClientPage() {
                 </div>
               </div>
             ))}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-dashed"
+              disabled={saving}
+              onClick={() => setContacts((prev) => [...prev, EMPTY_CONTACT()])}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              {contacts.length > 0 ? "Agregar otro contacto" : "Agregar contacto"}
+            </Button>
           </CardContent>
         </Card>
 
@@ -420,6 +419,7 @@ export default function NewClientPage() {
                     <Input
                       id="ind_monthly_fee"
                       type="number"
+                      inputMode="numeric"
                       min={0}
                       step={50}
                       placeholder="1200"
@@ -429,18 +429,18 @@ export default function NewClientPage() {
                     {errors.ind_monthly_fee && <p className="text-xs text-red-500">{errors.ind_monthly_fee.message}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="ind_billing_day">
-                      Día de pago <span className="text-muted-foreground text-xs">(1-28, opcional)</span>
-                    </Label>
+                    <Label htmlFor="ind_billing_day">Día de pago</Label>
                     <Input
                       id="ind_billing_day"
                       type="number"
+                      inputMode="numeric"
                       min={1}
                       max={28}
                       placeholder="Ej: 15"
                       disabled={saving}
                       {...register("ind_billing_day")}
                     />
+                    <p className="text-xs text-muted-foreground">Del 1 al 28. Vacío = día de inicio</p>
                   </div>
                 </div>
                 <div className="grid gap-3 grid-cols-2">
@@ -553,33 +553,33 @@ export default function NewClientPage() {
                     {errors.grp_start_date && <p className="text-xs text-red-500">{errors.grp_start_date.message}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="grp_billing_day">
-                      Día de pago <span className="text-muted-foreground text-xs">(1-28, opcional)</span>
-                    </Label>
+                    <Label htmlFor="grp_billing_day">Día de pago</Label>
                     <Input
                       id="grp_billing_day"
                       type="number"
+                      inputMode="numeric"
                       min={1}
                       max={28}
                       placeholder="Ej: 15"
                       disabled={saving}
                       {...register("grp_billing_day")}
                     />
+                    <p className="text-xs text-muted-foreground">Del 1 al 28. Vacío = día de inicio</p>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="grp_monthly_fee">
-                    Precio especial <span className="text-muted-foreground text-xs">(opcional — vacío usa el precio del grupo)</span>
-                  </Label>
+                  <Label htmlFor="grp_monthly_fee">Precio especial</Label>
                   <Input
                     id="grp_monthly_fee"
                     type="number"
+                    inputMode="numeric"
                     min={0}
                     placeholder={selectedGroup?.monthly_fee != null ? String(selectedGroup.monthly_fee) : "Precio del grupo"}
                     disabled={saving}
                     {...register("grp_monthly_fee")}
                   />
+                  <p className="text-xs text-muted-foreground">Opcional. Vacío usa el precio del grupo</p>
                 </div>
 
                 {/* ── Cobros al inscribir (la cuota se propone desde el grupo) ── */}
@@ -599,10 +599,10 @@ export default function NewClientPage() {
                 />
 
                 {/* Aviso horarios — grupo colectivo */}
-                <div className="flex items-start gap-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2.5 text-xs text-blue-700">
+                {selectedGroup && <div className="flex items-start gap-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2.5 text-xs text-blue-700">
                   <Clock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   <span>El horario del grupo ya está definido. Si necesitas ajustarlo, puedes editarlo desde la ficha del grupo.</span>
-                </div>
+                </div>}
               </div>
             )}
           </CardContent>

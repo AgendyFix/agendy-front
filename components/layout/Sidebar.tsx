@@ -29,18 +29,18 @@ import { Button } from "@/components/ui/button";
 
 const navigation = [
   {
-    name: "Dashboard",
-    href: "/",
-    icon: LayoutDashboard,
-    adminOnly: true,
-    featureFlag: "metabase_analytics",
-  },
-  {
     name: "Horarios",
     href: "/schedule",
     icon: CalendarDays,
     featureFlag: "class_management",
     fixedName: true,
+  },
+  {
+    name: "Dashboard",
+    href: "/",
+    icon: LayoutDashboard,
+    adminOnly: true,
+    featureFlag: "metabase_analytics",
   },
   {
     name: "Citas",
