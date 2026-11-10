@@ -445,36 +445,18 @@ export default function PaymentsPage() {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-              <div className="text-center p-3 rounded-lg bg-green-50">
-                <p className="text-2xl font-bold text-green-700">{summary.counts.paid}</p>
-                <p className="text-xs text-green-600 font-medium">Cobrados</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-red-50">
-                <p className="text-2xl font-bold text-red-600">{overdueCount}</p>
-                <p className="text-xs text-red-500 font-medium">Vencidos</p>
-              </div>
-              {/* "Condonados" se quitó del resumen (decisión de Paul 2026-11-10): nadie lo
-                  entendía. Lo condonado sigue en la lista; se vuelve a poner si lo piden. */}
-              <div className="text-center p-3 rounded-lg bg-amber-50">
-                <p className="text-2xl font-bold text-amber-700">{toCollect?.count ?? "—"}</p>
-                <p className="text-xs text-amber-700 font-medium">Por cobrar</p>
-                {toCollect && toCollect.amount > 0 && (
-                  <p className="text-xs text-amber-600 tabular-nums">${toCollect.amount.toLocaleString("es-MX")}</p>
-                )}
-              </div>
-              <div className="text-center p-3 rounded-lg bg-green-50">
-                <p className="text-2xl font-bold text-green-700">
-                  ${summary.amounts.collected.toLocaleString("es-MX")}
-                </p>
-                <p className="text-xs text-green-600 font-medium">Monto cobrado</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-red-50">
-                <p className="text-2xl font-bold text-red-600">
-                  ${overduePayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString("es-MX")}
-                </p>
-                <p className="text-xs text-red-500 font-medium">Monto vencido</p>
-              </div>
+            // Monto grande + cuántos cobros (no "alumnos": un alumno en 2 grupos son 2 cobros).
+            // "Condonados" se quitó (decisión de Paul 2026-11-10): nadie lo entendía; lo
+            // condonado sigue en la lista y se vuelve a poner si lo piden.
+            <div className="grid grid-cols-3 gap-3 max-w-2xl">
+              <StatBox label="Cobrado" tone="green" amount={summary.amounts.collected} count={summary.counts.paid} />
+              <StatBox label="Por cobrar" tone="amber" amount={toCollect?.amount} count={toCollect?.count} />
+              <StatBox
+                label="Vencido"
+                tone="red"
+                amount={overduePayments.reduce((sum, p) => sum + p.balance, 0)}
+                count={overdueCount}
+              />
             </div>
           )}
         </CardContent>
@@ -816,6 +798,30 @@ export default function PaymentsPage() {
 }
 
 // ── Tabla unificada ───────────────────────────────────────────────────────────
+
+const STAT_TONES = {
+  green: { box: "bg-green-50", label: "text-green-700", amount: "text-green-700", count: "text-green-700" },
+  amber: { box: "bg-amber-50", label: "text-amber-800", amount: "text-amber-700", count: "text-amber-800" },
+  red:   { box: "bg-red-50",   label: "text-red-700",   amount: "text-red-600",   count: "text-red-700" },
+} as const;
+
+/** Recuadro del resumen: monto grande y número de cobros debajo. */
+function StatBox({ label, tone, amount, count }: {
+  label: string; tone: keyof typeof STAT_TONES; amount?: number; count?: number;
+}) {
+  const t = STAT_TONES[tone];
+  return (
+    <div className={`text-center p-3 rounded-lg ${t.box}`}>
+      <p className={`text-xs font-medium ${t.label}`}>{label}</p>
+      <p className={`text-xl sm:text-2xl font-bold tabular-nums ${t.amount}`}>
+        {amount === undefined ? "—" : `$${amount.toLocaleString("es-MX")}`}
+      </p>
+      <p className={`text-xs tabular-nums ${t.count}`}>
+        {count === undefined ? "\u00a0" : `${count} ${count === 1 ? "cobro" : "cobros"}`}
+      </p>
+    </div>
+  );
+}
 
 function PaymentsTable({
   payments,
