@@ -30,7 +30,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { disciplinesApi } from "@/lib/api/disciplines";
 import { clientsApi } from "@/lib/api/clients";
 import { ClientStatusBadge } from "@/components/clients/ClientStatusBadge";
-import { whatsappUrl } from "@/lib/phone";
+import { PhoneLink } from "@/components/common/PhoneLink";
 import type { Discipline } from "@/lib/types/models";
 import type { ClientEnrollmentStatus } from "@/lib/types/models";
 
@@ -287,6 +287,7 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                 </TableHeader>
                 <TableBody>
                   {filteredClients.map((client) => {
+                    const phone = client.primary_contact_phone ?? client.phone;
                     return (
                       <TableRow
                         key={client.id}
@@ -302,17 +303,8 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                                 {client.active_enrollment_count} grupo{client.active_enrollment_count !== 1 ? "s" : ""} activo{client.active_enrollment_count !== 1 ? "s" : ""}
                               </span>
                             )}
-                            {(client.primary_contact_phone ?? client.phone) && (
-                              <a
-                                href={whatsappUrl(client.primary_contact_phone ?? client.phone) ?? `tel:${client.primary_contact_phone ?? client.phone}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={`WhatsApp a ${client.full_name}: ${client.primary_contact_phone ?? client.phone}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="md:hidden text-xs font-normal text-green-700 tabular-nums self-start"
-                              >
-                                {client.primary_contact_phone ?? client.phone}
-                              </a>
+                            {phone && (
+                              <PhoneLink phone={phone} name={client.full_name} className="md:hidden text-xs font-normal self-start" />
                             )}
                           </div>
                         </TableCell>
@@ -328,10 +320,10 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
 
                         {/* Teléfono */}
                         <TableCell className="hidden md:table-cell">
-                          {(client.primary_contact_phone ?? client.phone) ? (
+                          {phone ? (
                             <div className="flex items-center gap-2 text-sm">
                               <Phone className="h-3 w-3 text-muted-foreground" />
-                              <span>{client.primary_contact_phone ?? client.phone}</span>
+                              <span>{phone}</span>
                             </div>
                           ) : (
                             <span className="text-muted-foreground italic text-sm">—</span>

@@ -49,7 +49,7 @@ import { parseApiError } from "@/lib/apiError";
 import { todayLocalISO, formatDate, overdueDays } from "@/lib/dates";
 import type { Payment, UnpaidEnrollment } from "@/lib/types/models";
 import { PAYMENT_METHOD_LABELS } from "@/lib/paymentMethods";
-import { whatsappUrl } from "@/lib/phone";
+import { PhoneLink } from "@/components/common/PhoneLink";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -826,7 +826,7 @@ function PaymentsTable({
                         {(onPause || onDrop || onReactivate) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Más acciones" disabled={enrollmentActionLoading}>
+                              <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Acciones de ${p.client_name}`} disabled={enrollmentActionLoading}>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -878,7 +878,7 @@ function PaymentsTable({
                         )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Más acciones">
+                            <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Acciones de ${p.client_name}`}>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -913,7 +913,7 @@ function PaymentsTable({
                     ) : (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Más acciones">
+                          <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Acciones de ${p.client_name}`}>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -980,15 +980,7 @@ function PaymentsTable({
                       {p.client_phone && (
                         <>
                           {" · "}
-                          <a
-                            href={whatsappUrl(p.client_phone) ?? `tel:${p.client_phone}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={`WhatsApp a ${p.client_name}: ${p.client_phone}`}
-                            className="tabular-nums text-green-700 underline-offset-2 hover:underline"
-                          >
-                            {p.client_phone}
-                          </a>
+                          <PhoneLink phone={p.client_phone} name={p.client_name} className="underline-offset-2 hover:underline" />
                         </>
                       )}
                     </p>
@@ -1040,18 +1032,23 @@ function PaymentsTable({
               const days = isOverdue ? overdueDays(p.due_date) : 0;
               return (
                 <TableRow key={p.id} className={isOverdue ? "bg-red-50/40" : undefined}>
-                  <TableCell className="font-medium max-w-56 xl:max-w-48">
-                    <Link href={`/clients/${p.client_id}`} className="hover:underline block truncate">
-                      {p.client_name}
-                    </Link>
-                    <span className="xl:hidden block truncate text-xs font-normal text-muted-foreground">
-                      {p.class_group_name}
-                    </span>
+                  <TableCell className="font-medium">
+                    {/* max-width en un div (no en el td): Safari 15 no lo respeta en celdas */}
+                    <div className="max-w-56 xl:max-w-48">
+                      <Link href={`/clients/${p.client_id}`} className="hover:underline block truncate">
+                        {p.client_name}
+                      </Link>
+                      <span className="xl:hidden block truncate text-xs font-normal text-muted-foreground">
+                        {p.class_group_name}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell className="hidden xl:table-cell text-sm text-muted-foreground tabular-nums">
                     {p.client_phone || "—"}
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell text-sm max-w-48 truncate">{p.class_group_name}</TableCell>
+                  <TableCell className="hidden xl:table-cell text-sm">
+                    <div className="max-w-48 truncate">{p.class_group_name}</div>
+                  </TableCell>
                   <TableCell className="hidden xl:table-cell text-sm tabular-nums">
                     {p.payment_date ? formatDate(p.payment_date) : "—"}
                   </TableCell>

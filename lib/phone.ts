@@ -6,18 +6,18 @@
 const DEFAULT_COUNTRY_CODE = "52";
 
 /**
- * URL de chat de WhatsApp (wa.me) para un teléfono guardado.
- * - 10 dígitos → se asume México (+52).
- * - Con lada ("+1 …", "52…") → se usa tal cual; así sirve cuando el backend
- *   guarde números internacionales.
- * - "521" + 10 dígitos (formato viejo de celular MX) → 52 + 10 dígitos.
- * Devuelve null si no hay dígitos suficientes.
+ * URL de chat de WhatsApp (wa.me) para un teléfono guardado, solo con formas conocidas:
+ * - 10 dígitos → México (+52).
+ * - "+" y 11–15 dígitos → se usa tal cual (lada internacional, E.164).
+ * - 52 + 10 dígitos → tal cual; 521 + 10 (celular MX viejo) → 52 + 10.
+ * Cualquier otra cosa (044/01, extensiones, números cortos) → null, para caer a tel:.
  */
 export function whatsappUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  let digits = raw.replace(/\D/g, "");
-  if (digits.length < 8) return null;
-  if (digits.length === 10 && !raw.trim().startsWith("+")) digits = DEFAULT_COUNTRY_CODE + digits;
-  else if (digits.length === 13 && digits.startsWith("521")) digits = "52" + digits.slice(3);
-  return `https://wa.me/${digits}`;
+  const digits = raw.replace(/\D/g, "");
+  if (raw.trim().startsWith("+") && digits.length >= 11 && digits.length <= 15) return `https://wa.me/${digits}`;
+  if (digits.length === 10) return `https://wa.me/${DEFAULT_COUNTRY_CODE}${digits}`;
+  if (digits.length === 12 && digits.startsWith("52")) return `https://wa.me/${digits}`;
+  if (digits.length === 13 && digits.startsWith("521")) return `https://wa.me/52${digits.slice(3)}`;
+  return null;
 }
