@@ -825,7 +825,7 @@ function PaymentsTable({
                         {(onPause || onDrop || onReactivate) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Más acciones" disabled={enrollmentActionLoading}>
+                              <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Más acciones" disabled={enrollmentActionLoading}>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -877,7 +877,7 @@ function PaymentsTable({
                         )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Más acciones">
+                            <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Más acciones">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -912,7 +912,7 @@ function PaymentsTable({
                     ) : (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Más acciones">
+                          <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Más acciones">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -974,7 +974,17 @@ function PaymentsTable({
                     <Link href={`/clients/${p.client_id}`} className="font-medium hover:underline block truncate">
                       {p.client_name}
                     </Link>
-                    <p className="text-sm text-muted-foreground truncate">{p.class_group_name}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {p.class_group_name}
+                      {p.client_phone && (
+                        <>
+                          {" · "}
+                          <a href={`tel:${p.client_phone}`} className="tabular-nums underline-offset-2 hover:underline">
+                            {p.client_phone}
+                          </a>
+                        </>
+                      )}
+                    </p>
                   </div>
                   <div className="text-right font-semibold tabular-nums shrink-0">{amountCell(p)}</div>
                 </div>
@@ -1000,29 +1010,18 @@ function PaymentsTable({
           })}
         </div>
 
-        {/* minWidth: en pantallas angostas la tabla scrollea horizontal (wrapper
-            overflow-x-auto de ui/table) en vez de comprimir/encimar columnas */}
+        {/* Tablet (md–xl): columnas esenciales; el grupo va bajo el nombre.
+            Teléfono, Grupo, Fecha pago y Método aparecen desde xl (≥1280). */}
         <div className="hidden md:block">
-        <Table style={{ tableLayout: "fixed", width: "100%", minWidth: 860 }}>
-          <colgroup>
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "12%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "11%" }} />
-          </colgroup>
+        <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Alumno</TableHead>
-              <TableHead>Teléfono</TableHead>
-              <TableHead>Grupo</TableHead>
-              <TableHead>Fecha pago</TableHead>
+              <TableHead className="hidden xl:table-cell">Teléfono</TableHead>
+              <TableHead className="hidden xl:table-cell">Grupo</TableHead>
+              <TableHead className="hidden xl:table-cell">Fecha pago</TableHead>
               <TableHead>Fecha vence</TableHead>
-              <TableHead>Método</TableHead>
+              <TableHead className="hidden xl:table-cell">Método</TableHead>
               <TableHead className="text-right">Monto</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead />
@@ -1034,16 +1033,19 @@ function PaymentsTable({
               const days = isOverdue ? overdueDays(p.due_date) : 0;
               return (
                 <TableRow key={p.id} className={isOverdue ? "bg-red-50/40" : undefined}>
-                  <TableCell className="font-medium truncate max-w-0">
-                    <Link href={`/clients/${p.client_id}`} className="hover:underline">
+                  <TableCell className="font-medium max-w-56 xl:max-w-48">
+                    <Link href={`/clients/${p.client_id}`} className="hover:underline block truncate">
                       {p.client_name}
                     </Link>
+                    <span className="xl:hidden block truncate text-xs font-normal text-muted-foreground">
+                      {p.class_group_name}
+                    </span>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground tabular-nums">
+                  <TableCell className="hidden xl:table-cell text-sm text-muted-foreground tabular-nums">
                     {p.client_phone || "—"}
                   </TableCell>
-                  <TableCell className="text-sm truncate max-w-0">{p.class_group_name}</TableCell>
-                  <TableCell className="text-sm tabular-nums">
+                  <TableCell className="hidden xl:table-cell text-sm max-w-48 truncate">{p.class_group_name}</TableCell>
+                  <TableCell className="hidden xl:table-cell text-sm tabular-nums">
                     {p.payment_date ? formatDate(p.payment_date) : "—"}
                   </TableCell>
                   <TableCell className="text-sm tabular-nums">
@@ -1063,7 +1065,7 @@ function PaymentsTable({
                       ) : formatDate(p.due_date)
                     ) : "—"}
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="hidden xl:table-cell text-sm">
                     {p.payment_method ? (PAYMENT_METHOD_LABELS[p.payment_method] ?? p.payment_method) : "—"}
                   </TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">
