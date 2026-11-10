@@ -448,7 +448,7 @@ export default function PaymentsPage() {
             // Monto grande + cuántos cobros (no "alumnos": un alumno en 2 grupos son 2 cobros).
             // "Condonados" se quitó (decisión de Paul 2026-11-10): nadie lo entendía; lo
             // condonado sigue en la lista y se vuelve a poner si lo piden.
-            <div className="grid grid-cols-3 gap-3 max-w-2xl">
+            <div className="grid grid-cols-3 gap-3">
               <StatBox label="Cobrado" tone="green" amount={summary.amounts.collected} count={summary.counts.paid} />
               <StatBox label="Por cobrar" tone="amber" amount={toCollect?.amount} count={toCollect?.count} />
               <StatBox
@@ -998,7 +998,7 @@ function PaymentsTable({
     );
 
   return (
-    <Card>
+    <Card className="py-0 overflow-hidden">
       <CardContent className="p-0">
         {/* Móvil: tarjetas compactas */}
         <div className="md:hidden divide-y">

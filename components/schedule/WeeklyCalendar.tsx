@@ -387,6 +387,8 @@ export function WeeklyCalendar({
     return now.getHours() * 60 + now.getMinutes();
   }, []);
   const [nowMins, setNowMins] = useState(getNowMins);
+  // Día de hoy en el orden del calendario (0 = lunes); Date.getDay() usa 0 = domingo
+  const todayIdx = (new Date().getDay() + 6) % 7;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     if (!showCurrentTime) return;
@@ -541,8 +543,14 @@ export function WeeklyCalendar({
           style={{ gridTemplateColumns: `${HOUR_W}px repeat(7, 1fr)` }}
         >
           <div className="border-r" />
-          {DAYS_SHORT.map((d) => (
-            <div key={d} className="py-2 text-center text-[11px] font-semibold text-muted-foreground border-r last:border-r-0">
+          {DAYS_SHORT.map((d, i) => (
+            <div
+              key={d}
+              aria-current={showCurrentTime && i === todayIdx ? "date" : undefined}
+              className={`py-2 text-center text-[11px] font-semibold border-r last:border-r-0 ${
+                showCurrentTime && i === todayIdx ? "text-primary bg-primary/10" : "text-muted-foreground"
+              }`}
+            >
               {d}
             </div>
           ))}
