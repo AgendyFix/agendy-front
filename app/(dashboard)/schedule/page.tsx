@@ -6,7 +6,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Users, ChevronDown, ChevronUp, CalendarPlus, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -17,6 +18,7 @@ import { WeeklyCalendar, GROUP_COLORS } from "@/components/schedule/WeeklyCalend
 import { DayAgenda } from "@/components/schedule/DayAgenda";
 import type { ClassGroup, Employee } from "@/lib/types/models";
 import { useFeatures } from "@/lib/hooks/useFeatures";
+import { PUBLIC_SITE_FEATURE } from "@/components/publicPage/constants";
 
 export default function SchedulePage() {
   const router = useRouter();
@@ -64,9 +66,14 @@ export default function SchedulePage() {
   const handleFilterChange = async (instructorId: string) => {
     setFilterInstructor(instructorId);
     setActiveGroupIds(new Set());
+    // "Todos" ya está cargado: sin fetch, y sin un instante de estado vacío falso
+    if (instructorId === "all") {
+      setFilteredGroups(allGroups);
+      return;
+    }
     try {
       setLoadingFilter(true);
-      const params = instructorId === "all" ? { limit: 100 } : { limit: 100, instructor: instructorId };
+      const params = { limit: 100, instructor: instructorId };
       const res = await classGroupsApi.getAll(params);
       setFilteredGroups(res.results);
     } catch {
@@ -131,17 +138,30 @@ export default function SchedulePage() {
           <h1 className="text-2xl font-bold tracking-tight">Horarios</h1>
           <p className="text-xs text-muted-foreground">Vista general de clases de la semana</p>
         </div>
-        <Select value={filterInstructor} onValueChange={handleFilterChange}>
-          <SelectTrigger className="w-full sm:w-52 h-9 sm:h-8 text-sm">
-            <SelectValue placeholder="Todos los instructores" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los instructores</SelectItem>
-            {selectableInstructors.map((e) => (
-              <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <Select value={filterInstructor} onValueChange={handleFilterChange}>
+            <SelectTrigger className="w-full sm:w-52 h-9 sm:h-8 text-sm">
+              <SelectValue placeholder="Todos los instructores" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los instructores</SelectItem>
+              {selectableInstructors.map((e) => (
+                <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Tablet/escritorio: acción principal a la derecha, como en las demás
+              pantallas (en celular va abajo de la agenda del día) */}
+          <Button
+            size="icon-sm"
+            className="hidden md:inline-flex"
+            title="Nuevo grupo"
+            aria-label="Nuevo grupo"
+            onClick={() => router.push("/class-groups/new")}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Calendario — flex-1 ocupa todo el espacio restante */}
@@ -149,10 +169,58 @@ export default function SchedulePage() {
         <div className="flex-1 flex justify-center items-center py-16 md:py-0">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      ) : groupsWithSchedule.length === 0 ? (
+        // Estado vacío: explica por qué no hay nada y lleva a crear/configurar grupos
+        <Card className="md:flex-1">
+          <CardContent className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
+            <CalendarPlus className="h-10 w-10 text-muted-foreground/40" />
+            {filterInstructor !== "all" ? (
+              <>
+                <p className="font-medium">Este instructor no tiene clases con horario</p>
+                <Button variant="outline" onClick={() => handleFilterChange("all")}>
+                  Ver todos los instructores
+                </Button>
+              </>
+            ) : allGroups.length === 0 ? (
+              <>
+                <p className="font-medium">Aún no tienes grupos</p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  Crea tu primer grupo con sus días y horarios.{" "}
+                  {features.length > 0 && isFeatureEnabled(PUBLIC_SITE_FEATURE)
+                    ? "Aparecerá aquí y en Mi Sitio para que nuevos alumnos se inscriban."
+                    : "Aparecerá aquí, en el calendario de la semana."}
+                </p>
+                <Button onClick={() => router.push("/class-groups/new")}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Crear grupo
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="font-medium">Tus grupos todavía no tienen horario</p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  Agrega los días y horas de cada grupo para verlo en el calendario.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button onClick={() => router.push("/class-groups")}>Ver grupos</Button>
+                  <Button variant="outline" onClick={() => router.push("/class-groups/new")}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Crear grupo
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <>
           <div className={`md:hidden pb-4 transition-opacity ${loadingFilter ? "opacity-50 pointer-events-none" : ""}`}>
             <DayAgenda groups={visibleGroups} colorMap={colorMap} onNavigate={openGroup} />
+            {/* Atajo en celular (idea de Paul); en tablet/escritorio está "Gestión de Clases" */}
+            <Button className="mt-3 w-full" onClick={() => router.push("/class-groups/new")}>
+              <Plus className="h-4 w-4 mr-1" />
+              Nuevo grupo
+            </Button>
           </div>
           <div className="hidden md:flex flex-col flex-1 min-h-0 gap-2">
             {/* El calendario se estira para llenar el espacio */}

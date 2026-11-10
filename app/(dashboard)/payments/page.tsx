@@ -49,13 +49,14 @@ import { parseApiError } from "@/lib/apiError";
 import { todayLocalISO, formatDate, overdueDays } from "@/lib/dates";
 import type { Payment, UnpaidEnrollment } from "@/lib/types/models";
 import { PAYMENT_METHOD_LABELS } from "@/lib/paymentMethods";
+import { PhoneLink } from "@/components/common/PhoneLink";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<string, string> = {
   paid:    "bg-green-100 text-green-700",
   partial: "bg-yellow-100 text-yellow-700",
-  pending: "bg-blue-100 text-blue-700",
+  pending: "bg-amber-100 text-amber-800", // mismo tono que "Por cobrar"
   overdue: "bg-red-100 text-red-700",
   waived:  "bg-gray-100 text-gray-600",
 };
@@ -417,31 +418,15 @@ export default function PaymentsPage() {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-              <div className="text-center p-3 rounded-lg bg-green-50">
-                <p className="text-2xl font-bold text-green-700">{summary.counts.paid}</p>
-                <p className="text-xs text-green-600 font-medium">Cobrados</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-red-50">
-                <p className="text-2xl font-bold text-red-600">{overdueCount}</p>
-                <p className="text-xs text-red-500 font-medium">Vencidos</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-gray-50">
-                <p className="text-2xl font-bold text-gray-600">{summary.counts.waived}</p>
-                <p className="text-xs text-muted-foreground font-medium">Condonados</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-green-50">
-                <p className="text-2xl font-bold text-green-700">
-                  ${summary.amounts.collected.toLocaleString("es-MX")}
-                </p>
-                <p className="text-xs text-green-600 font-medium">Monto cobrado</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-red-50">
-                <p className="text-2xl font-bold text-red-600">
-                  ${overduePayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString("es-MX")}
-                </p>
-                <p className="text-xs text-red-500 font-medium">Monto vencido</p>
-              </div>
+            // Monto grande + cuántos cobros (no "alumnos": un alumno en 2 grupos son 2 cobros).
+            // "Condonados" se quitó (decisión de Paul 2026-11-10): nadie lo entendía; lo
+            // condonado sigue en la lista y se vuelve a poner si lo piden.
+            <div className="grid grid-cols-3 gap-3">
+              {/* Calculados en el backend (summary.kpis): Cobrado = caja del mes;
+                  Por cobrar / Vencido = saldo de lo que vence en el mes. */}
+              <StatBox label="Cobrado" tone="green" amount={summary.kpis?.collected.amount} count={summary.kpis?.collected.count} />
+              <StatBox label="Por cobrar" tone="amber" amount={summary.kpis?.to_collect.amount} count={summary.kpis?.to_collect.count} />
+              <StatBox label="Vencido" tone="red" amount={summary.kpis?.overdue.amount} count={summary.kpis?.overdue.count} />
             </div>
           )}
         </CardContent>
@@ -784,6 +769,30 @@ export default function PaymentsPage() {
 
 // ── Tabla unificada ───────────────────────────────────────────────────────────
 
+const STAT_TONES = {
+  green: { box: "bg-green-50", label: "text-green-700", amount: "text-green-700", count: "text-green-700" },
+  amber: { box: "bg-amber-50", label: "text-amber-800", amount: "text-amber-700", count: "text-amber-800" },
+  red:   { box: "bg-red-50",   label: "text-red-700",   amount: "text-red-600",   count: "text-red-700" },
+} as const;
+
+/** Recuadro del resumen: monto grande y número de cobros debajo. */
+function StatBox({ label, tone, amount, count }: {
+  label: string; tone: keyof typeof STAT_TONES; amount?: number; count?: number;
+}) {
+  const t = STAT_TONES[tone];
+  return (
+    <div className={`text-center p-3 rounded-lg ${t.box}`}>
+      <p className={`text-xs font-medium ${t.label}`}>{label}</p>
+      <p className={`text-xl sm:text-2xl font-bold tabular-nums ${t.amount}`}>
+        {amount === undefined ? "—" : `$${amount.toLocaleString("es-MX")}`}
+      </p>
+      <p className={`text-xs tabular-nums ${t.count}`}>
+        {count === undefined ? "\u00a0" : `${count} ${count === 1 ? "cobro" : "cobros"}`}
+      </p>
+    </div>
+  );
+}
+
 function PaymentsTable({
   payments,
   onEditMethod,
@@ -825,7 +834,7 @@ function PaymentsTable({
                         {(onPause || onDrop || onReactivate) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Más acciones" disabled={enrollmentActionLoading}>
+                              <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Acciones de ${p.client_name}`} disabled={enrollmentActionLoading}>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -877,7 +886,7 @@ function PaymentsTable({
                         )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Más acciones">
+                            <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Acciones de ${p.client_name}`}>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -912,7 +921,7 @@ function PaymentsTable({
                     ) : (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Más acciones">
+                          <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Acciones de ${p.client_name}`}>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -959,7 +968,7 @@ function PaymentsTable({
     );
 
   return (
-    <Card>
+    <Card className="py-0 overflow-hidden">
       <CardContent className="p-0">
         {/* Móvil: tarjetas compactas */}
         <div className="md:hidden divide-y">
@@ -974,7 +983,15 @@ function PaymentsTable({
                     <Link href={`/clients/${p.client_id}`} className="font-medium hover:underline block truncate">
                       {p.client_name}
                     </Link>
-                    <p className="text-sm text-muted-foreground truncate">{p.class_group_name}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {p.class_group_name}
+                      {p.client_phone && (
+                        <>
+                          {" · "}
+                          <PhoneLink phone={p.client_phone} name={p.client_name} className="underline-offset-2 hover:underline" />
+                        </>
+                      )}
+                    </p>
                   </div>
                   <div className="text-right font-semibold tabular-nums shrink-0">{amountCell(p)}</div>
                 </div>
@@ -1000,29 +1017,18 @@ function PaymentsTable({
           })}
         </div>
 
-        {/* minWidth: en pantallas angostas la tabla scrollea horizontal (wrapper
-            overflow-x-auto de ui/table) en vez de comprimir/encimar columnas */}
+        {/* Tablet (md–xl): columnas esenciales; el grupo va bajo el nombre.
+            Teléfono, Grupo, Fecha pago y Método aparecen desde xl (≥1280). */}
         <div className="hidden md:block">
-        <Table style={{ tableLayout: "fixed", width: "100%", minWidth: 860 }}>
-          <colgroup>
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "12%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "11%" }} />
-          </colgroup>
+        <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Alumno</TableHead>
-              <TableHead>Teléfono</TableHead>
-              <TableHead>Grupo</TableHead>
-              <TableHead>Fecha pago</TableHead>
+              <TableHead className="hidden xl:table-cell">Teléfono</TableHead>
+              <TableHead className="hidden xl:table-cell">Grupo</TableHead>
+              <TableHead className="hidden xl:table-cell">Fecha pago</TableHead>
               <TableHead>Fecha vence</TableHead>
-              <TableHead>Método</TableHead>
+              <TableHead className="hidden xl:table-cell">Método</TableHead>
               <TableHead className="text-right">Monto</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead />
@@ -1034,16 +1040,24 @@ function PaymentsTable({
               const days = isOverdue ? overdueDays(p.due_date) : 0;
               return (
                 <TableRow key={p.id} className={isOverdue ? "bg-red-50/40" : undefined}>
-                  <TableCell className="font-medium truncate max-w-0">
-                    <Link href={`/clients/${p.client_id}`} className="hover:underline">
-                      {p.client_name}
-                    </Link>
+                  <TableCell className="font-medium">
+                    {/* max-width en un div (no en el td): Safari 15 no lo respeta en celdas */}
+                    <div className="max-w-56 xl:max-w-48">
+                      <Link href={`/clients/${p.client_id}`} className="hover:underline block truncate">
+                        {p.client_name}
+                      </Link>
+                      <span className="xl:hidden block truncate text-xs font-normal text-muted-foreground">
+                        {p.class_group_name}
+                      </span>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground tabular-nums">
+                  <TableCell className="hidden xl:table-cell text-sm text-muted-foreground tabular-nums">
                     {p.client_phone || "—"}
                   </TableCell>
-                  <TableCell className="text-sm truncate max-w-0">{p.class_group_name}</TableCell>
-                  <TableCell className="text-sm tabular-nums">
+                  <TableCell className="hidden xl:table-cell text-sm">
+                    <div className="max-w-48 truncate">{p.class_group_name}</div>
+                  </TableCell>
+                  <TableCell className="hidden xl:table-cell text-sm tabular-nums">
                     {p.payment_date ? formatDate(p.payment_date) : "—"}
                   </TableCell>
                   <TableCell className="text-sm tabular-nums">
@@ -1063,7 +1077,7 @@ function PaymentsTable({
                       ) : formatDate(p.due_date)
                     ) : "—"}
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="hidden xl:table-cell text-sm">
                     {p.payment_method ? (PAYMENT_METHOD_LABELS[p.payment_method] ?? p.payment_method) : "—"}
                   </TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">

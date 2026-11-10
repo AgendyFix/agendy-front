@@ -431,7 +431,7 @@ export default function NewEnrollmentPage() {
                           disabled={loadingGroups || !!preselectedGroupId}
                         >
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               {loadingGroups ? (
                                 <span className="flex items-center gap-2 text-muted-foreground">
                                   <Loader2 className="h-4 w-4 animate-spin" />

@@ -605,26 +605,15 @@ export default function AppointmentsPage() {
                   {/* Vista Desktop - Tabla */}
                   <div className="p-0 hidden md:block">
                     <Table className="table-fixed">
-                      <colgroup>
-                        <col style={{ width: "90px" }} />
-                        <col style={{ width: "180px" }} />
-                        <col style={{ width: "140px" }} />
-                        <col style={{ width: "160px" }} />
-                        <col style={{ width: "130px" }} />
-                        <col style={{ width: "110px" }} />
-                        <col style={{ width: "100px" }} />
-                        <col style={{ width: "130px" }} />
-                        <col style={{ width: "60px" }} />
-                      </colgroup>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
                           <TableHead className="h-9 py-2 w-[90px]">Hora</TableHead>
-                          <TableHead className="h-9 py-2 w-[180px]">Título</TableHead>
+                          <TableHead className="hidden xl:table-cell h-9 py-2 w-[180px]">Título</TableHead>
                           <TableHead className="h-9 py-2 w-[140px]">Cliente</TableHead>
                           <TableHead className="h-9 py-2 w-[160px]">Servicio</TableHead>
-                          <TableHead className="h-9 py-2 w-[130px]">Asignado</TableHead>
-                          <TableHead className="h-9 py-2 w-[110px]">Origen</TableHead>
-                          <TableHead className="h-9 py-2 w-[100px]">Notas</TableHead>
+                          <TableHead className="hidden xl:table-cell h-9 py-2 w-[130px]">Asignado</TableHead>
+                          <TableHead className="hidden xl:table-cell h-9 py-2 w-[110px]">Origen</TableHead>
+                          <TableHead className="hidden xl:table-cell h-9 py-2 w-[100px]">Notas</TableHead>
                           <TableHead className="h-9 py-2 w-[130px]">Estado</TableHead>
                           <TableHead className="h-9 py-2 text-right w-[60px]"></TableHead>
                         </TableRow>
@@ -642,7 +631,7 @@ export default function AppointmentsPage() {
                                 {apt.time}
                               </span>
                             </TableCell>
-                            <TableCell className="py-2 w-[180px]">
+                            <TableCell className="hidden xl:table-cell py-2 w-[180px]">
                               <span className="text-sm font-medium truncate block">
                                 {apt.title || `Cita de ${apt.client}`}
                               </span>
@@ -660,14 +649,14 @@ export default function AppointmentsPage() {
                                 )}
                               </span>
                             </TableCell>
-                            <TableCell className="py-2 w-[130px]">
+                            <TableCell className="hidden xl:table-cell py-2 w-[130px]">
                               <span className="text-sm text-muted-foreground truncate block">
                                 {apt.assigned_to || (
                                   <span className="italic">Sin asignar</span>
                                 )}
                               </span>
                             </TableCell>
-                            <TableCell className="py-2 w-[110px]">
+                            <TableCell className="hidden xl:table-cell py-2 w-[110px]">
                               {apt.source ? (
                                 <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                                   apt.source === "admin" ? "bg-gray-50 text-gray-700" :
@@ -681,7 +670,7 @@ export default function AppointmentsPage() {
                                 <span className="text-muted-foreground italic text-xs">N/A</span>
                               )}
                             </TableCell>
-                            <TableCell className="py-2 w-[100px]">
+                            <TableCell className="hidden xl:table-cell py-2 w-[100px]">
                               {(apt.notes_count || 0) > 0 ? (
                                 <span className="inline-flex items-center rounded-full bg-purple-50 text-purple-700 px-2 py-1 text-xs font-medium">
                                   {apt.notes_count} nota{apt.notes_count !== 1 ? "s" : ""}
@@ -796,26 +785,15 @@ export default function AppointmentsPage() {
                 {/* Vista Desktop - Tabla */}
                 <div className="hidden md:block rounded-md border">
                    <Table className="table-fixed">
-                     <colgroup>
-                       <col style={{ width: "140px" }} />
-                       <col style={{ width: "180px" }} />
-                       <col style={{ width: "140px" }} />
-                       <col style={{ width: "160px" }} />
-                       <col style={{ width: "130px" }} />
-                       <col style={{ width: "110px" }} />
-                       <col style={{ width: "100px" }} />
-                       <col style={{ width: "130px" }} />
-                       <col style={{ width: "60px" }} />
-                     </colgroup>
                    <TableHeader>
                      <TableRow>
                        <TableHead className="w-[140px]">Fecha y Hora</TableHead>
-                       <TableHead className="w-[180px]">Título</TableHead>
+                       <TableHead className="hidden xl:table-cell w-[180px]">Título</TableHead>
                        <TableHead className="w-[140px]">Cliente</TableHead>
                        <TableHead className="w-[160px]">Servicio</TableHead>
-                       <TableHead className="w-[130px]">Asignado A</TableHead>
-                       <TableHead className="w-[110px]">Origen</TableHead>
-                       <TableHead className="w-[100px]">Notas</TableHead>
+                       <TableHead className="hidden xl:table-cell w-[130px]">Asignado A</TableHead>
+                       <TableHead className="hidden xl:table-cell w-[110px]">Origen</TableHead>
+                       <TableHead className="hidden xl:table-cell w-[100px]">Notas</TableHead>
                        <TableHead className="w-[130px]">Estado</TableHead>
                        <TableHead className="text-right w-[60px]">Acciones</TableHead>
                      </TableRow>
@@ -839,7 +817,7 @@ export default function AppointmentsPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="py-2 w-[180px]">
+                        <TableCell className="hidden xl:table-cell py-2 w-[180px]">
                           <span className="text-sm font-medium truncate block">
                             {appointment.title || `Cita de ${appointment.client_name}`}
                           </span>
@@ -859,14 +837,14 @@ export default function AppointmentsPage() {
                             )}
                           </span>
                         </TableCell>
-                        <TableCell className="py-2 w-[130px]">
+                        <TableCell className="hidden xl:table-cell py-2 w-[130px]">
                           {appointment.assigned_to_name ? (
                             <span className="text-sm text-muted-foreground truncate block">{appointment.assigned_to_name}</span>
                           ) : (
                             <span className="text-muted-foreground italic text-sm">Sin asignar</span>
                           )}
                         </TableCell>
-                        <TableCell className="py-2 w-[110px]">
+                        <TableCell className="hidden xl:table-cell py-2 w-[110px]">
                           {appointment.source ? (
                             <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                               appointment.source === "manual" ? "bg-gray-50 text-gray-700" :
@@ -879,7 +857,7 @@ export default function AppointmentsPage() {
                             <span className="text-muted-foreground italic text-xs">N/A</span>
                           )}
                         </TableCell>
-                        <TableCell className="py-2 w-[100px]">
+                        <TableCell className="hidden xl:table-cell py-2 w-[100px]">
                           {(appointment.notes_count || 0) > 0 ? (
                             <span className="inline-flex items-center rounded-full bg-purple-50 text-purple-700 px-2 py-1 text-xs font-medium">
                               {appointment.notes_count} nota{appointment.notes_count !== 1 ? "s" : ""}
