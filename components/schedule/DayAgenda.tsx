@@ -7,10 +7,9 @@
 import { useState } from "react";
 import { Calendar, ChevronRight, Users } from "lucide-react";
 import type { ClassGroup } from "@/lib/types/models";
-import { GROUP_COLORS, to12h } from "@/components/schedule/WeeklyCalendar";
+import { DAYS_FULL, GROUP_COLORS, to12h } from "@/components/schedule/WeeklyCalendar";
 
 const DAYS_CHIP = ["L", "M", "M", "J", "V", "S", "D"];
-const DAYS_FULL = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
 interface DayAgendaProps {
   groups: ClassGroup[];
@@ -33,15 +32,15 @@ export function DayAgenda({ groups, colorMap, onNavigate }: DayAgendaProps) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-7 gap-1" role="tablist" aria-label="Día de la semana">
+      <div className="grid grid-cols-7 gap-1" role="group" aria-label="Día de la semana">
         {DAYS_CHIP.map((label, d) => {
           const active = d === day;
           return (
             <button
               key={d}
-              role="tab"
-              aria-selected={active}
-              aria-label={DAYS_FULL[d]}
+              aria-pressed={active}
+              aria-current={d === today ? "date" : undefined}
+              aria-label={`${DAYS_FULL[d]}${countByDay[d] ? `, ${countByDay[d]} clases` : ", sin clases"}`}
               onClick={() => setDay(d)}
               className={`flex h-12 flex-col items-center justify-center rounded-lg border text-sm font-semibold transition-colors
                 ${active ? "border-primary bg-primary text-primary-foreground" : "bg-background text-foreground"}
@@ -82,8 +81,8 @@ export function DayAgenda({ groups, colorMap, onNavigate }: DayAgendaProps) {
                   className={`flex w-full items-center gap-3 rounded-lg border-l-4 ${color.border} border bg-card p-3 text-left`}
                 >
                   <div className="w-16 shrink-0 text-xs leading-tight">
-                    <p className="font-semibold">{to12h(schedule.start_time.slice(0, 5))}</p>
-                    <p className="text-muted-foreground">{to12h(schedule.end_time.slice(0, 5))}</p>
+                    <p className="font-semibold">{to12h(schedule.start_time)}</p>
+                    <p className="text-muted-foreground">{to12h(schedule.end_time)}</p>
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{name}</p>

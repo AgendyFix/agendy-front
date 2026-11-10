@@ -16,7 +16,7 @@ const HOUR_W  = 52;   // px columna horas
 const PAD     = 2;    // px entre bloques solapados
 
 const DAYS_SHORT = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
-const DAYS_FULL  = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+export const DAYS_FULL  = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 
 const LEVEL_LABELS: Record<string, string> = {
   all: "Todos los niveles", beginner: "Principiante",

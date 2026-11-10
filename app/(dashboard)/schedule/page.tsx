@@ -146,87 +146,87 @@ export default function SchedulePage() {
 
       {/* Calendario — flex-1 ocupa todo el espacio restante */}
       {loading ? (
-        <div className="flex-1 flex justify-center items-center">
+        <div className="flex-1 flex justify-center items-center py-16 md:py-0">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
         <>
-        <div className="md:hidden pb-4">
-          <DayAgenda groups={filteredGroups} colorMap={colorMap} onNavigate={openGroup} />
-        </div>
-        <div className="hidden md:flex flex-col flex-1 min-h-0 gap-2">
-          {/* El calendario se estira para llenar el espacio */}
-          <div className="flex-1 min-h-0 relative">
-            {loadingFilter && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 rounded-lg">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className={`md:hidden pb-4 transition-opacity ${loadingFilter ? "opacity-50 pointer-events-none" : ""}`}>
+            <DayAgenda groups={visibleGroups} colorMap={colorMap} onNavigate={openGroup} />
+          </div>
+          <div className="hidden md:flex flex-col flex-1 min-h-0 gap-2">
+            {/* El calendario se estira para llenar el espacio */}
+            <div className="flex-1 min-h-0 relative">
+              {loadingFilter && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 rounded-lg">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              <WeeklyCalendar
+                groups={visibleGroups}
+                allGroups={allGroups}
+                colorMap={colorMap}
+                showInstructor
+                showCurrentTime
+                fillHeight
+                onNavigate={openGroup}
+              />
+            </div>
+
+            {/* Leyenda interactiva — solo grupos con horario */}
+            {groupsWithSchedule.length > 0 && (
+              <div className="shrink-0 pb-1 space-y-1.5">
+                <div className="flex flex-wrap gap-1.5">
+                  {(legendExpanded
+                    ? groupsWithSchedule
+                    : groupsWithSchedule.slice(0, LEGEND_COLLAPSE_THRESHOLD)
+                  ).map((g) => {
+                    const isActive = activeGroupIds.has(g.id);
+                    const color    = GROUP_COLORS[colorMap[g.id]];
+                    return (
+                      <button
+                        key={g.id}
+                        onClick={() => toggleGroup(g.id)}
+                        title={g.name}
+                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs transition-all
+                          ${isActive
+                            ? `${color.bg} ${color.border} ${color.text} font-medium`
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                          }`}
+                      >
+                        <div className={`h-2 w-2 rounded-full shrink-0 ${color.dot}`} />
+                        {legendName(g)}
+                      </button>
+                    );
+                  })}
+
+                  {/* Expandir / colapsar */}
+                  {groupsWithSchedule.length > LEGEND_COLLAPSE_THRESHOLD && (
+                    <button
+                      onClick={() => setLegendExpanded((v) => !v)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {legendExpanded ? (
+                        <><ChevronUp className="h-3 w-3" />Colapsar</>
+                      ) : (
+                        <><ChevronDown className="h-3 w-3" />+{groupsWithSchedule.length - LEGEND_COLLAPSE_THRESHOLD} más</>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Limpiar filtros */}
+                  {activeGroupIds.size > 0 && (
+                    <button
+                      onClick={() => setActiveGroupIds(new Set())}
+                      className="px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
               </div>
             )}
-            <WeeklyCalendar
-              groups={visibleGroups}
-              allGroups={allGroups}
-              colorMap={colorMap}
-              showInstructor
-              showCurrentTime
-              fillHeight
-              onNavigate={openGroup}
-            />
           </div>
-
-          {/* Leyenda interactiva — solo grupos con horario */}
-          {groupsWithSchedule.length > 0 && (
-            <div className="shrink-0 pb-1 space-y-1.5">
-              <div className="flex flex-wrap gap-1.5">
-                {(legendExpanded
-                  ? groupsWithSchedule
-                  : groupsWithSchedule.slice(0, LEGEND_COLLAPSE_THRESHOLD)
-                ).map((g) => {
-                  const isActive = activeGroupIds.has(g.id);
-                  const color    = GROUP_COLORS[colorMap[g.id]];
-                  return (
-                    <button
-                      key={g.id}
-                      onClick={() => toggleGroup(g.id)}
-                      title={g.name}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs transition-all
-                        ${isActive
-                          ? `${color.bg} ${color.border} ${color.text} font-medium`
-                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                        }`}
-                    >
-                      <div className={`h-2 w-2 rounded-full shrink-0 ${color.dot}`} />
-                      {legendName(g)}
-                    </button>
-                  );
-                })}
-
-                {/* Expandir / colapsar */}
-                {groupsWithSchedule.length > LEGEND_COLLAPSE_THRESHOLD && (
-                  <button
-                    onClick={() => setLegendExpanded((v) => !v)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {legendExpanded ? (
-                      <><ChevronUp className="h-3 w-3" />Colapsar</>
-                    ) : (
-                      <><ChevronDown className="h-3 w-3" />+{groupsWithSchedule.length - LEGEND_COLLAPSE_THRESHOLD} más</>
-                    )}
-                  </button>
-                )}
-
-                {/* Limpiar filtros */}
-                {activeGroupIds.size > 0 && (
-                  <button
-                    onClick={() => setActiveGroupIds(new Set())}
-                    className="px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Limpiar filtros
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
         </>
       )}
 
