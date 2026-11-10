@@ -685,7 +685,8 @@ export interface PaymentSummary {
   };
   unpaid_enrollments: UnpaidEnrollment[];
   /** Recuadros del resumen: Cobrado (caja), Por cobrar y Vencido (saldo, mes de vencimiento) */
-  kpis: {
+  /** Opcional mientras haya un backend previo a agendy-api#29 desplegado */
+  kpis?: {
     collected: { amount: number; count: number };
     to_collect: { amount: number; count: number };
     overdue: { amount: number; count: number };
