@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Search, Phone, Mail, Pause, Play, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Phone, Mail, Pause, Play, Loader2, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -27,6 +30,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { disciplinesApi } from "@/lib/api/disciplines";
 import { clientsApi } from "@/lib/api/clients";
 import { ClientStatusBadge } from "@/components/clients/ClientStatusBadge";
+import { PhoneLink } from "@/components/common/PhoneLink";
 import type { Discipline } from "@/lib/types/models";
 import type { ClientEnrollmentStatus } from "@/lib/types/models";
 
@@ -206,13 +210,13 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
         <CardContent className="pt-4 space-y-4">
 
           {/* Tabs de filtro por status (en móvil se desplazan en vez de ensanchar la página) */}
-          <div className="flex items-center gap-1 overflow-x-auto border-b pb-0">
+          <div className="flex items-center sm:gap-1 overflow-x-auto border-b pb-0">
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab.value}
                 type="button"
                 onClick={() => handleStatusFilter(tab.value)}
-                className={`shrink-0 whitespace-nowrap px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                className={`shrink-0 whitespace-nowrap px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                   statusFilter === tab.value
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
@@ -273,17 +277,17 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                   <TableRow>
                     <TableHead>{entitySingular}</TableHead>
                     <TableHead>Estado</TableHead>
-                    {/* En móvil solo nombre, estado y acciones; el contacto está en la ficha */}
+                    {/* Móvil: el teléfono va bajo el nombre. Correo solo desde xl. */}
                     <TableHead className="hidden md:table-cell">Teléfono</TableHead>
-                    <TableHead className="hidden md:table-cell">Correo</TableHead>
-                    <TableHead className="text-right">
-                      {/* En móvil el título no cabe; los íconos se explican solos */}
-                      <span className="max-md:sr-only">Acciones</span>
+                    <TableHead className="hidden xl:table-cell">Correo</TableHead>
+                    <TableHead className="w-12">
+                      <span className="sr-only">Acciones</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredClients.map((client) => {
+                    const phone = client.primary_contact_phone || client.phone;
                     return (
                       <TableRow
                         key={client.id}
@@ -299,6 +303,9 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                                 {client.active_enrollment_count} grupo{client.active_enrollment_count !== 1 ? "s" : ""} activo{client.active_enrollment_count !== 1 ? "s" : ""}
                               </span>
                             )}
+                            {phone && (
+                              <PhoneLink phone={phone} name={client.full_name} className="md:hidden text-xs font-normal self-start" />
+                            )}
                           </div>
                         </TableCell>
 
@@ -313,10 +320,10 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
 
                         {/* Teléfono */}
                         <TableCell className="hidden md:table-cell">
-                          {(client.primary_contact_phone ?? client.phone) ? (
+                          {phone ? (
                             <div className="flex items-center gap-2 text-sm">
                               <Phone className="h-3 w-3 text-muted-foreground" />
-                              <span>{client.primary_contact_phone ?? client.phone}</span>
+                              <span>{phone}</span>
                             </div>
                           ) : (
                             <span className="text-muted-foreground italic text-sm">—</span>
@@ -324,7 +331,7 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                         </TableCell>
 
                         {/* Correo */}
-                        <TableCell className="hidden md:table-cell">
+                        <TableCell className="hidden xl:table-cell">
                           {client.email ? (
                             <div className="flex items-center gap-2 text-sm">
                               <Mail className="h-3 w-3 text-muted-foreground" />
@@ -337,49 +344,44 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
 
                         {/* Acciones */}
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-end gap-2">
-                            {/* Pausar / Reactivar en 1 clic (según estado del alumno) */}
-                            {client.enrollment_status === "active" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Pausar alumno"
-                                onClick={() =>
-                                  setPauseTarget({ id: client.id, name: client.full_name, action: "pause" })
-                                }
-                              >
-                                <Pause className="h-4 w-4 text-yellow-600" />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Acciones de ${client.full_name}`}>
+                                <MoreHorizontal className="h-4 w-4" />
                               </Button>
-                            )}
-                            {client.enrollment_status === "paused" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Reactivar alumno"
-                                onClick={() =>
-                                  setPauseTarget({ id: client.id, name: client.full_name, action: "reactivate" })
-                                }
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {/* Pausar / Reactivar según estado del alumno */}
+                              {client.enrollment_status === "active" && (
+                                <DropdownMenuItem
+                                  onClick={() => setPauseTarget({ id: client.id, name: client.full_name, action: "pause" })}
+                                >
+                                  <Pause className="text-yellow-600" />
+                                  Pausar
+                                </DropdownMenuItem>
+                              )}
+                              {client.enrollment_status === "paused" && (
+                                <DropdownMenuItem
+                                  onClick={() => setPauseTarget({ id: client.id, name: client.full_name, action: "reactivate" })}
+                                >
+                                  <Play className="text-green-600" />
+                                  Reactivar
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => router.push(`/clients/${client.id}`)}>
+                                <Pencil />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => openDeleteDialog(client.id, client.full_name)}
                               >
-                                <Play className="h-4 w-4 text-green-600" />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Editar alumno"
-                              onClick={() => router.push(`/clients/${client.id}`)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Eliminar alumno"
-                              onClick={() => openDeleteDialog(client.id, client.full_name)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                                <Trash2 />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     );

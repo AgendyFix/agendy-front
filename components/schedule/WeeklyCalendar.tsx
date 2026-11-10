@@ -40,7 +40,10 @@ export function to12h(time: string): string {
   let h = parseInt(hStr, 10);
   const period = h >= 12 ? "PM" : "AM";
   h = h % 12 || 12;
-  return `${h}:${mStr} ${period}`;
+  // Espacio no separable: en columnas angostas "9:00 AM" no se parte en dos
+  // renglones; el salto queda en el guion del rango ("9:00 AM–" / "10:00 AM"),
+  // marcado con <wbr> porque Safari 15 no corta después de "–".
+  return `${h}:${mStr}\u00a0${period}`;
 }
 
 function toMins(time: string): number {
@@ -387,6 +390,8 @@ export function WeeklyCalendar({
     return now.getHours() * 60 + now.getMinutes();
   }, []);
   const [nowMins, setNowMins] = useState(getNowMins);
+  // Día de hoy en el orden del calendario (0 = lunes); Date.getDay() usa 0 = domingo
+  const todayIdx = (new Date().getDay() + 6) % 7;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     if (!showCurrentTime) return;
@@ -541,8 +546,14 @@ export function WeeklyCalendar({
           style={{ gridTemplateColumns: `${HOUR_W}px repeat(7, 1fr)` }}
         >
           <div className="border-r" />
-          {DAYS_SHORT.map((d) => (
-            <div key={d} className="py-2 text-center text-[11px] font-semibold text-muted-foreground border-r last:border-r-0">
+          {DAYS_SHORT.map((d, i) => (
+            <div
+              key={d}
+              aria-current={showCurrentTime && i === todayIdx ? "date" : undefined}
+              className={`py-2 text-center text-[11px] font-semibold border-r last:border-r-0 ${
+                showCurrentTime && i === todayIdx ? "text-primary bg-primary/10" : "text-muted-foreground"
+              }`}
+            >
               {d}
             </div>
           ))}
@@ -653,7 +664,7 @@ export function WeeklyCalendar({
                           <p className="text-[11px] font-semibold leading-tight truncate">
                             {displayName}
                             <span className="font-normal opacity-70 ml-1 tabular-nums">
-                              {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
+                              {to12h(schedule.start_time)}–<wbr />{to12h(schedule.end_time)}
                             </span>
                           </p>
                         ) : isNarrow ? (
@@ -663,7 +674,7 @@ export function WeeklyCalendar({
                               {displayName}
                             </p>
                             <p className="text-[10px] opacity-70 tabular-nums leading-tight">
-                              {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
+                              {to12h(schedule.start_time)}–<wbr />{to12h(schedule.end_time)}
                             </p>
                             {disciplineLabel && h > 52 && (
                               <p className="text-[10px] opacity-65 truncate leading-tight">
@@ -683,7 +694,7 @@ export function WeeklyCalendar({
                               </p>
                             )}
                             <p className="text-[11px] opacity-65 tabular-nums leading-tight">
-                              {to12h(schedule.start_time)}–{to12h(schedule.end_time)}
+                              {to12h(schedule.start_time)}–<wbr />{to12h(schedule.end_time)}
                             </p>
                             {showInstructor && occupant.group.instructor_name && h > 72 && (
                               <p className="text-[11px] opacity-55 truncate leading-tight">
