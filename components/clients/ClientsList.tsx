@@ -287,7 +287,7 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                 </TableHeader>
                 <TableBody>
                   {filteredClients.map((client) => {
-                    const phone = client.primary_contact_phone ?? client.phone;
+                    const phone = client.primary_contact_phone || client.phone;
                     return (
                       <TableRow
                         key={client.id}

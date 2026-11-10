@@ -4,7 +4,7 @@
 // SCHEDULE PAGE - Calendario global de clases
 // ============================================
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Users, ChevronDown, ChevronUp, CalendarPlus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,11 +41,17 @@ export default function SchedulePage() {
 
   const LEGEND_COLLAPSE_THRESHOLD = 12;
 
+  const [loadError, setLoadError]               = useState(false);
+  const [reloadKey, setReloadKey]               = useState(0);
+  // Solo aplica la respuesta del último filtro pedido (evita que una tardía pise "Todos")
+  const filterRequestRef = useRef(0);
+
   // Carga inicial: todos los grupos + todos los employees
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
+        setLoadError(false);
         const [groupsRes, empRes] = await Promise.all([
           classGroupsApi.getAll({ limit: 100 }),
           employeesApi.getAll({ limit: 100 }),
@@ -54,32 +60,34 @@ export default function SchedulePage() {
         setFilteredGroups(groupsRes.results);
         setEmployees(empRes.results);
       } catch {
-        // no bloqueante
+        // Sin esto, un error se vería como "Aún no tienes grupos"
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, []);
+  }, [reloadKey]);
 
   // Cuando cambia el filtro de instructor, consulta el backend directamente
   const handleFilterChange = async (instructorId: string) => {
+    const requestId = ++filterRequestRef.current;
     setFilterInstructor(instructorId);
     setActiveGroupIds(new Set());
     // "Todos" ya está cargado: sin fetch, y sin un instante de estado vacío falso
     if (instructorId === "all") {
       setFilteredGroups(allGroups);
+      setLoadingFilter(false);
       return;
     }
     try {
       setLoadingFilter(true);
-      const params = { limit: 100, instructor: instructorId };
-      const res = await classGroupsApi.getAll(params);
-      setFilteredGroups(res.results);
+      const res = await classGroupsApi.getAll({ limit: 100, instructor: instructorId });
+      if (requestId === filterRequestRef.current) setFilteredGroups(res.results);
     } catch {
       // no bloqueante
     } finally {
-      setLoadingFilter(false);
+      if (requestId === filterRequestRef.current) setLoadingFilter(false);
     }
   };
 
@@ -169,6 +177,14 @@ export default function SchedulePage() {
         <div className="flex-1 flex justify-center items-center py-16 md:py-0">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      ) : loadError ? (
+        <Card className="md:flex-1">
+          <CardContent className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
+            <p className="font-medium">No se pudieron cargar los horarios</p>
+            <p className="text-sm text-muted-foreground">Revisa tu conexión e intenta de nuevo.</p>
+            <Button variant="outline" onClick={() => setReloadKey((k) => k + 1)}>Reintentar</Button>
+          </CardContent>
+        </Card>
       ) : groupsWithSchedule.length === 0 ? (
         // Estado vacío: explica por qué no hay nada y lleva a crear/configurar grupos
         <Card className="md:flex-1">

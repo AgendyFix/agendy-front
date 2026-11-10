@@ -624,6 +624,11 @@ export default function AppointmentsPage() {
                             key={apt.id}
                             className="cursor-pointer hover:bg-accent/50 transition-colors"
                             onClick={() => router.push(`/appointments/${apt.id}`)}
+                            // Teclado: Enter abre el detalle (en tablet hay columnas ocultas)
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && e.target === e.currentTarget) router.push(`/appointments/${apt.id}`);
+                            }}
                           >
                             <TableCell className="py-2 w-[90px]">
                               <span className="text-sm flex items-center gap-1">
@@ -804,6 +809,10 @@ export default function AppointmentsPage() {
                         key={appointment.id}
                         className="cursor-pointer hover:bg-accent/50 transition-colors"
                         onClick={() => router.push(`/appointments/${appointment.id}`)}
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && e.target === e.currentTarget) router.push(`/appointments/${appointment.id}`);
+                        }}
                       >
                         <TableCell className="font-medium py-2 w-[140px]">
                           <div className="flex items-center gap-1">

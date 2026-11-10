@@ -1051,8 +1051,8 @@ function PaymentsTable({
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell text-sm text-muted-foreground tabular-nums">
-                    {p.client_phone || "—"}
+                  <TableCell className="hidden xl:table-cell text-sm text-muted-foreground">
+                    {p.client_phone ? <PhoneLink phone={p.client_phone} name={p.client_name} className="hover:underline" /> : "—"}
                   </TableCell>
                   <TableCell className="hidden xl:table-cell text-sm">
                     <div className="max-w-48 truncate">{p.class_group_name}</div>
