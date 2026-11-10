@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Search, Phone, Mail, Pause, Play, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Phone, Mail, Pause, Play, Loader2, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -273,12 +276,11 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                   <TableRow>
                     <TableHead>{entitySingular}</TableHead>
                     <TableHead>Estado</TableHead>
-                    {/* En móvil solo nombre, estado y acciones; el contacto está en la ficha */}
+                    {/* Móvil: el teléfono va bajo el nombre. Correo solo desde xl. */}
                     <TableHead className="hidden md:table-cell">Teléfono</TableHead>
-                    <TableHead className="hidden md:table-cell">Correo</TableHead>
-                    <TableHead className="text-right">
-                      {/* En móvil el título no cabe; los íconos se explican solos */}
-                      <span className="max-md:sr-only">Acciones</span>
+                    <TableHead className="hidden xl:table-cell">Correo</TableHead>
+                    <TableHead className="w-12">
+                      <span className="sr-only">Acciones</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -298,6 +300,15 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                               <span className="text-xs text-muted-foreground">
                                 {client.active_enrollment_count} grupo{client.active_enrollment_count !== 1 ? "s" : ""} activo{client.active_enrollment_count !== 1 ? "s" : ""}
                               </span>
+                            )}
+                            {(client.primary_contact_phone ?? client.phone) && (
+                              <a
+                                href={`tel:${client.primary_contact_phone ?? client.phone}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="md:hidden text-xs font-normal text-muted-foreground tabular-nums self-start"
+                              >
+                                {client.primary_contact_phone ?? client.phone}
+                              </a>
                             )}
                           </div>
                         </TableCell>
@@ -324,7 +335,7 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                         </TableCell>
 
                         {/* Correo */}
-                        <TableCell className="hidden md:table-cell">
+                        <TableCell className="hidden xl:table-cell">
                           {client.email ? (
                             <div className="flex items-center gap-2 text-sm">
                               <Mail className="h-3 w-3 text-muted-foreground" />
@@ -337,49 +348,44 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
 
                         {/* Acciones */}
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-end gap-2">
-                            {/* Pausar / Reactivar en 1 clic (según estado del alumno) */}
-                            {client.enrollment_status === "active" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Pausar alumno"
-                                onClick={() =>
-                                  setPauseTarget({ id: client.id, name: client.full_name, action: "pause" })
-                                }
-                              >
-                                <Pause className="h-4 w-4 text-yellow-600" />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Acciones de ${client.full_name}`}>
+                                <MoreHorizontal className="h-4 w-4" />
                               </Button>
-                            )}
-                            {client.enrollment_status === "paused" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Reactivar alumno"
-                                onClick={() =>
-                                  setPauseTarget({ id: client.id, name: client.full_name, action: "reactivate" })
-                                }
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {/* Pausar / Reactivar según estado del alumno */}
+                              {client.enrollment_status === "active" && (
+                                <DropdownMenuItem
+                                  onClick={() => setPauseTarget({ id: client.id, name: client.full_name, action: "pause" })}
+                                >
+                                  <Pause className="text-yellow-600" />
+                                  Pausar
+                                </DropdownMenuItem>
+                              )}
+                              {client.enrollment_status === "paused" && (
+                                <DropdownMenuItem
+                                  onClick={() => setPauseTarget({ id: client.id, name: client.full_name, action: "reactivate" })}
+                                >
+                                  <Play className="text-green-600" />
+                                  Reactivar
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => router.push(`/clients/${client.id}`)}>
+                                <Pencil />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => openDeleteDialog(client.id, client.full_name)}
                               >
-                                <Play className="h-4 w-4 text-green-600" />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Editar alumno"
-                              onClick={() => router.push(`/clients/${client.id}`)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Eliminar alumno"
-                              onClick={() => openDeleteDialog(client.id, client.full_name)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                                <Trash2 />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     );
