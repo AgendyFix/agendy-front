@@ -18,6 +18,8 @@ import {
   GraduationCap,
   CreditCard,
   Globe,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -97,7 +99,7 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { sidebarOpen, closeSidebar } = useUIStore();
+  const { sidebarOpen, closeSidebar, sidebarCollapsed, toggleSidebarCollapsed } = useUIStore();
   const { isFeatureEnabled, getFeatureName } = useFeatures();
 
   const isAdmin = useIsAdmin();
@@ -128,8 +130,9 @@ export function Sidebar() {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed lg:static inset-y-0 left-0 z-50 w-64 border-r bg-background transition-transform duration-300 lg:translate-x-0",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed lg:static inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r bg-background transition-[transform,width] duration-300 lg:translate-x-0",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full",
+        sidebarCollapsed && "lg:w-16"
       )}>
         {/* Botón cerrar en móvil */}
         <div className="flex items-center justify-between p-4 lg:hidden border-b">
@@ -139,7 +142,7 @@ export function Sidebar() {
           </Button>
         </div>
 
-        <nav className="flex flex-col gap-1 p-4">
+        <nav className={cn("flex flex-col gap-1 p-4", sidebarCollapsed && "lg:px-2")}>
           {visibleNavigation.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
@@ -154,19 +157,41 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                title={sidebarCollapsed ? label : undefined}
+                aria-label={sidebarCollapsed ? label : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-agendyfix px-3 py-2 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-foreground/70 hover:bg-accent/20 hover:text-foreground"
+                    : "text-foreground/70 hover:bg-accent/20 hover:text-foreground",
+                  sidebarCollapsed && "lg:justify-center lg:px-0"
                 )}
               >
-                <Icon className="h-5 w-5" />
-                {label}
+                <Icon className="h-5 w-5 shrink-0" />
+                <span className={cn("truncate", sidebarCollapsed && "lg:hidden")}>{label}</span>
               </Link>
             );
           })}
         </nav>
+
+        {/* Contraer / expandir — solo donde el menú es fijo (lg+) */}
+        <div className={cn("mt-auto hidden border-t p-4 lg:block", sidebarCollapsed && "lg:px-2")}>
+          <button
+            type="button"
+            onClick={toggleSidebarCollapsed}
+            title={sidebarCollapsed ? "Expandir menú" : undefined}
+            aria-label={sidebarCollapsed ? "Expandir menú" : "Contraer menú"}
+            aria-expanded={!sidebarCollapsed}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-agendyfix px-3 py-2 text-sm font-medium text-foreground/70 transition-colors hover:bg-accent/20 hover:text-foreground",
+              sidebarCollapsed && "justify-center px-0"
+            )}
+          >
+            {sidebarCollapsed
+              ? <PanelLeftOpen className="h-5 w-5 shrink-0" />
+              : <><PanelLeftClose className="h-5 w-5 shrink-0" />Contraer menú</>}
+          </button>
+        </div>
       </aside>
     </>
   );
