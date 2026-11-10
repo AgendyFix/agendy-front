@@ -130,7 +130,7 @@ export function Sidebar() {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed lg:static inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r bg-background transition-[transform,width] duration-300 lg:translate-x-0",
+        "fixed lg:static inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r bg-background transition-[translate,width] duration-300 lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full",
         sidebarCollapsed && "lg:w-16"
       )}>
@@ -142,7 +142,7 @@ export function Sidebar() {
           </Button>
         </div>
 
-        <nav className={cn("flex flex-col gap-1 p-4", sidebarCollapsed && "lg:px-2")}>
+        <nav className={cn("flex flex-col gap-1 overflow-y-auto p-4", sidebarCollapsed && "lg:px-2")}>
           {visibleNavigation.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;

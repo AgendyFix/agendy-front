@@ -40,7 +40,7 @@ export function DayAgenda({ groups, colorMap, onNavigate }: DayAgendaProps) {
               key={d}
               aria-pressed={active}
               aria-current={d === today ? "date" : undefined}
-              aria-label={`${DAYS_FULL[d]}${countByDay[d] ? `, ${countByDay[d]} clases` : ", sin clases"}`}
+              aria-label={`${DAYS_FULL[d]}${countByDay[d] ? `, ${countByDay[d]} ${countByDay[d] === 1 ? "clase" : "clases"}` : ", sin clases"}`}
               onClick={() => setDay(d)}
               className={`flex h-12 flex-col items-center justify-center rounded-lg border text-sm font-semibold transition-colors
                 ${active ? "border-primary bg-primary text-primary-foreground" : "bg-background text-foreground"}
