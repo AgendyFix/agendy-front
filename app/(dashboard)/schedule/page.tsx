@@ -15,9 +15,17 @@ import { classGroupsApi } from "@/lib/api/classGroups";
 import { employeesApi } from "@/lib/api/employees";
 import { WeeklyCalendar, GROUP_COLORS } from "@/components/schedule/WeeklyCalendar";
 import type { ClassGroup, Employee } from "@/lib/types/models";
+import { useFeatures } from "@/lib/hooks/useFeatures";
 
 export default function SchedulePage() {
   const router = useRouter();
+  const { features, isFeatureEnabled } = useFeatures();
+
+  // Horarios es la pantalla de inicio tras el login; una empresa sin el módulo
+  // de clases vuelve a "/", que la manda a su módulo por prioridad.
+  useEffect(() => {
+    if (features.length > 0 && !isFeatureEnabled("class_management")) router.replace("/");
+  }, [features, isFeatureEnabled, router]);
 
   const [allGroups, setAllGroups]               = useState<ClassGroup[]>([]);
   const [filteredGroups, setFilteredGroups]     = useState<ClassGroup[]>([]);

@@ -777,8 +777,8 @@ export default function ClientDetailPage() {
               </span>
             </CardTitle>
             <Button size="sm" className="shrink-0" aria-label="Inscribir" title="Inscribir" onClick={() => router.push(`/enrollments/new?client=${id}`)}>
-              <UserPlus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Inscribir</span>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Inscribir
             </Button>
           </CardHeader>
           <CardContent>
@@ -1092,8 +1092,9 @@ export default function ClientDetailPage() {
             )}
           </CardTitle>
           <Button size="sm" className="shrink-0" aria-label="Registrar pago" title="Registrar pago" onClick={() => openRegisterPayment()}>
-            <Plus className="h-4 w-4 sm:mr-2" />
+            <Plus className="h-4 w-4 mr-2" />
             <span className="hidden sm:inline">Registrar pago</span>
+            <span className="sm:hidden">Pago</span>
           </Button>
         </CardHeader>
         <CardContent>

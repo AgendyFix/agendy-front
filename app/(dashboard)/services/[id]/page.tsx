@@ -150,7 +150,7 @@ export default function EditServicePage() {
                 <Label htmlFor="price">Precio</Label>
                 <Input
                   id="price"
-                  type="number" inputMode="numeric"
+                  type="number" inputMode="decimal"
                   step="0.01"
                   placeholder="0.00"
                   disabled={isLoading}

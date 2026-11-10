@@ -256,7 +256,7 @@ export default function PaymentsPage() {
     try {
       setActionLoading(true);
       await deletePayment(deleteTarget.id);
-      toast.success("Pago revertido — el alumno vuelve a Sin pagar");
+      toast.success("Pago revertido — el alumno vuelve a Vencidos");
       setDeleteTarget(null);
       fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear });
       fetchOverdue({ month: summaryMonth, year: summaryYear });
@@ -459,7 +459,7 @@ export default function PaymentsPage() {
             </TabsTrigger>
             <TabsTrigger value="unpaid" className="gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
-              Sin pagar
+              Vencidos
               {unpaidCount > 0 && (
                 <span className="ml-0.5 text-xs text-red-600 font-semibold">
                   ({unpaidCount})
@@ -825,7 +825,7 @@ function PaymentsTable({
                         {(onPause || onDrop || onReactivate) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={enrollmentActionLoading}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Más acciones" disabled={enrollmentActionLoading}>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -877,7 +877,7 @@ function PaymentsTable({
                         )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Más acciones">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -912,7 +912,7 @@ function PaymentsTable({
                     ) : (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Más acciones">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -1031,7 +1031,6 @@ function PaymentsTable({
           <TableBody>
             {payments.map((p) => {
               const isOverdue = p.status === "overdue";
-              const isPartial = p.status === "partial";
               const days = isOverdue ? overdueDays(p.due_date) : 0;
               return (
                 <TableRow key={p.id} className={isOverdue ? "bg-red-50/40" : undefined}>
@@ -1068,14 +1067,7 @@ function PaymentsTable({
                     {p.payment_method ? (PAYMENT_METHOD_LABELS[p.payment_method] ?? p.payment_method) : "—"}
                   </TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">
-                    {isPartial && p.amount_paid != null ? (
-                      <span className="flex flex-col items-end leading-tight">
-                        <span>${p.amount_paid.toLocaleString("es-MX")}</span>
-                        <span className="text-xs font-normal text-muted-foreground">de ${p.amount.toLocaleString("es-MX")}</span>
-                      </span>
-                    ) : (
-                      `$${p.amount.toLocaleString("es-MX")}`
-                    )}
+                    {amountCell(p)}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[p.status]}`}>

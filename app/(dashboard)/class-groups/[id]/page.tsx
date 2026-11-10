@@ -278,7 +278,7 @@ export default function ClassGroupDetailPage() {
           {/* ── 3 stat cards ── */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
 
-            <Card>
+            <Card className="py-3 sm:py-6">
               <CardContent className="p-3 sm:p-5 flex flex-col sm:flex-row items-center text-center sm:text-left gap-1 sm:gap-4">
                 <div className="rounded-full bg-blue-100 p-2 sm:p-3 shrink-0">
                   <Users className="h-5 w-5 text-blue-600" />
@@ -290,7 +290,7 @@ export default function ClassGroupDetailPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="py-3 sm:py-6">
               <CardContent className="p-3 sm:p-5 flex flex-col sm:flex-row items-center text-center sm:text-left gap-1 sm:gap-4">
                 <div className="rounded-full bg-green-100 p-2 sm:p-3 shrink-0">
                   <DollarSign className="h-5 w-5 text-green-600" />
@@ -306,7 +306,7 @@ export default function ClassGroupDetailPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="py-3 sm:py-6">
               <CardContent className="p-3 sm:p-5 flex flex-col sm:flex-row items-center text-center sm:text-left gap-1 sm:gap-4">
                 <div className="rounded-full bg-purple-100 p-2 sm:p-3 shrink-0">
                   <Clock className="h-5 w-5 text-purple-600" />
@@ -344,8 +344,9 @@ export default function ClassGroupDetailPage() {
                   title="Inscribir alumno"
                   onClick={() => router.push(`/enrollments/new?class_group=${group.id}`)}
                 >
-                  <UserPlus className="h-4 w-4 sm:mr-2" />
+                  <UserPlus className="h-4 w-4 mr-2" />
                   <span className="hidden sm:inline">Inscribir alumno</span>
+                  <span className="sm:hidden">Inscribir</span>
                 </Button>
               </CardHeader>
 
