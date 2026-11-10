@@ -108,7 +108,7 @@ export function EnrollmentCharges({
 
   return (
     <div className="rounded-lg border bg-muted/20 p-3 space-y-4">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+      <p className="text-sm font-semibold">
         Cobros al inscribir
       </p>
 
@@ -129,7 +129,7 @@ export function EnrollmentCharges({
                 <Label htmlFor={`${idPrefix}-signup-fee`}>Costo</Label>
                 <Input
                   id={`${idPrefix}-signup-fee`}
-                  type="number" min={1} placeholder="Ej: 300"
+                  type="number" inputMode="numeric" min={1} placeholder="Ej: 300"
                   value={value.signupFee}
                   disabled={disabled}
                   onChange={(e) => set({ signupFee: e.target.value })}
@@ -139,9 +139,9 @@ export function EnrollmentCharges({
                 <Label htmlFor={`${idPrefix}-signup-paid`}>Pagó hoy</Label>
                 <Input
                   id={`${idPrefix}-signup-paid`}
-                  type="number" min={0}
+                  type="number" inputMode="numeric" min={0}
                   max={signupTotal || undefined}
-                  placeholder="Vacío = no ha pagado"
+                  placeholder="0"
                   value={value.signupPaid}
                   disabled={disabled}
                   onChange={(e) => set({ signupPaid: e.target.value })}
@@ -179,7 +179,7 @@ export function EnrollmentCharges({
                 <Label htmlFor={`${idPrefix}-pay-amount`}>Monto</Label>
                 <Input
                   id={`${idPrefix}-pay-amount`}
-                  type="number" min={1}
+                  type="number" inputMode="numeric" min={1}
                   max={monthlyFee || undefined}
                   value={value.paymentAmount}
                   disabled={disabled}
@@ -215,9 +215,9 @@ export function EnrollmentCharges({
             <p className="pl-7 flex items-start gap-1.5 text-xs text-muted-foreground">
               <BellRing className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               <span>
-                El cobro aparecerá como <strong className="text-foreground">Pendiente</strong>.
+                La mensualidad queda como <strong className="text-foreground">Pendiente</strong>.
                 Si para el <strong className="text-foreground">{formatDayMonth(reminder)}</strong> no
-                está registrado, se le enviará un WhatsApp de pago vencido.
+                se ha registrado el pago, se le enviará un WhatsApp de pago vencido.
               </span>
             </p>
           )

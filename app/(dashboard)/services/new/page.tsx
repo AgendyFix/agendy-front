@@ -131,7 +131,7 @@ export default function NewServicePage() {
                 <Label htmlFor="price">Precio (opcional)</Label>
                 <Input
                   id="price"
-                  type="number"
+                  type="number" inputMode="decimal"
                   step="0.01"
                   placeholder="Ej: 300.00"
                   disabled={isLoading}

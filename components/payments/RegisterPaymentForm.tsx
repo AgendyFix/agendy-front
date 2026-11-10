@@ -449,7 +449,7 @@ export function RegisterPaymentForm({
               </FormLabel>
               <FormControl>
                 <Input
-                  type="number"
+                  type="number" inputMode="numeric"
                   min={1}
                   step={1}
                   placeholder="Ej: 1200"

@@ -226,8 +226,8 @@ export default function ClassGroupDetailPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold tracking-tight truncate">{group.name}</h1>
+          <div className="flex items-center gap-x-2 flex-wrap">
+            <h1 className="text-2xl font-bold tracking-tight break-words sm:truncate">{group.name}</h1>
             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${LEVEL_COLORS[group.level]}`}>
               {group.level_display}
             </span>
@@ -238,13 +238,15 @@ export default function ClassGroupDetailPage() {
         </div>
         {!editing && (
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" onClick={() => setEditing(true)}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Editar
+            <Button variant="outline" className="max-sm:size-9 max-sm:px-0" aria-label="Editar grupo" title="Editar grupo" onClick={() => setEditing(true)}>
+              <Pencil className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Editar</span>
             </Button>
             <Button
               variant="outline"
               size="icon"
+              aria-label="Eliminar grupo"
+              title="Eliminar grupo"
               className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
               onClick={() => setShowDeleteGroup(true)}
             >
@@ -274,43 +276,43 @@ export default function ClassGroupDetailPage() {
       ) : (
         <>
           {/* ── 3 stat cards ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
 
-            <Card>
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="rounded-full bg-blue-100 p-3 shrink-0">
+            <Card className="py-3 sm:py-6">
+              <CardContent className="p-3 sm:p-5 flex flex-col sm:flex-row items-center text-center sm:text-left gap-1 sm:gap-4">
+                <div className="rounded-full bg-blue-100 p-2 sm:p-3 shrink-0">
                   <Users className="h-5 w-5 text-blue-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{activeCount}</p>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold">{activeCount}</p>
                   <p className="text-xs text-muted-foreground">Alumnos activos</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="rounded-full bg-green-100 p-3 shrink-0">
+            <Card className="py-3 sm:py-6">
+              <CardContent className="p-3 sm:p-5 flex flex-col sm:flex-row items-center text-center sm:text-left gap-1 sm:gap-4">
+                <div className="rounded-full bg-green-100 p-2 sm:p-3 shrink-0">
                   <DollarSign className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
+                  <p className="text-lg sm:text-2xl font-bold">
                     {displayFee != null ? `$${displayFee.toLocaleString("es-MX")}` : "—"}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground leading-tight">
                     {group.is_individual ? "Mensualidad del alumno" : "Mensualidad base"}
                   </p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="rounded-full bg-purple-100 p-3 shrink-0">
+            <Card className="py-3 sm:py-6">
+              <CardContent className="p-3 sm:p-5 flex flex-col sm:flex-row items-center text-center sm:text-left gap-1 sm:gap-4">
+                <div className="rounded-full bg-purple-100 p-2 sm:p-3 shrink-0">
                   <Clock className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{group.schedules.length}</p>
+                  <p className="text-lg sm:text-2xl font-bold">{group.schedules.length}</p>
                   <p className="text-xs text-muted-foreground">
                     Día{group.schedules.length !== 1 ? "s" : ""} de clase
                   </p>
@@ -326,21 +328,25 @@ export default function ClassGroupDetailPage() {
             {/* Alumnos inscritos — ocupa 3/5 del ancho */}
             <Card className="lg:col-span-3">
               <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  Alumnos inscritos
+                <CardTitle className="text-base flex items-center gap-2 min-w-0 whitespace-nowrap">
+                  <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="truncate">Alumnos inscritos</span>
                   {!loadingEnrollments && (
-                    <span className="text-muted-foreground font-normal text-sm">
+                    <span className="text-muted-foreground font-normal text-sm shrink-0">
                       ({enrollments.length})
                     </span>
                   )}
                 </CardTitle>
                 <Button
                   size="sm"
+                  className="shrink-0"
+                  aria-label="Inscribir alumno"
+                  title="Inscribir alumno"
                   onClick={() => router.push(`/enrollments/new?class_group=${group.id}`)}
                 >
                   <UserPlus className="h-4 w-4 mr-2" />
-                  Inscribir alumno
+                  <span className="hidden sm:inline">Inscribir alumno</span>
+                  <span className="sm:hidden">Inscribir</span>
                 </Button>
               </CardHeader>
 
@@ -396,7 +402,7 @@ export default function ClassGroupDetailPage() {
                               <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                 <span>Día:</span>
                                 <input
-                                  type="number"
+                                  type="number" inputMode="numeric"
                                   min={1}
                                   max={28}
                                   value={billingDayValue}

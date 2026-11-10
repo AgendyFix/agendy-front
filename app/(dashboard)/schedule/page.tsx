@@ -14,10 +14,19 @@ import {
 import { classGroupsApi } from "@/lib/api/classGroups";
 import { employeesApi } from "@/lib/api/employees";
 import { WeeklyCalendar, GROUP_COLORS } from "@/components/schedule/WeeklyCalendar";
+import { DayAgenda } from "@/components/schedule/DayAgenda";
 import type { ClassGroup, Employee } from "@/lib/types/models";
+import { useFeatures } from "@/lib/hooks/useFeatures";
 
 export default function SchedulePage() {
   const router = useRouter();
+  const { features, isFeatureEnabled } = useFeatures();
+
+  // Horarios es la pantalla de inicio tras el login; una empresa sin el módulo
+  // de clases vuelve a "/", que la manda a su módulo por prioridad.
+  useEffect(() => {
+    if (features.length > 0 && !isFeatureEnabled("class_management")) router.replace("/");
+  }, [features, isFeatureEnabled, router]);
 
   const [allGroups, setAllGroups]               = useState<ClassGroup[]>([]);
   const [filteredGroups, setFilteredGroups]     = useState<ClassGroup[]>([]);
@@ -94,6 +103,14 @@ export default function SchedulePage() {
   );
   const selectableInstructors = employees;
 
+  const openGroup = (group: ClassGroup) => {
+    if (group.is_individual && group.primary_client?.id) {
+      router.push(`/clients/${group.primary_client.id}`);
+    } else {
+      router.push(`/class-groups/${group.id}`);
+    }
+  };
+
   const toggleGroup = (id: string) => {
     setActiveGroupIds((prev) => {
       const next = new Set(prev);
@@ -104,8 +121,9 @@ export default function SchedulePage() {
   };
 
   return (
-    // header h-16 (64px) + padding top p-6 (24px) + padding bottom p-6 (24px) = 112px
-    <div className="flex flex-col overflow-hidden" style={{ height: "calc(100dvh - 112px)" }}>
+    // Desde md: alto fijo = viewport − header h-16 (64px) − padding p-6 ×2 (48px).
+    // En celular la página fluye con scroll normal y muestra la agenda del día.
+    <div className="flex flex-col md:overflow-hidden md:h-[calc(100dvh-112px)]">
 
       {/* Header compacto */}
       <div className="flex items-center justify-between gap-4 flex-wrap pb-3 shrink-0">
@@ -114,7 +132,7 @@ export default function SchedulePage() {
           <p className="text-xs text-muted-foreground">Vista general de clases de la semana</p>
         </div>
         <Select value={filterInstructor} onValueChange={handleFilterChange}>
-          <SelectTrigger className="w-52 h-8 text-sm">
+          <SelectTrigger className="w-full sm:w-52 h-9 sm:h-8 text-sm">
             <SelectValue placeholder="Todos los instructores" />
           </SelectTrigger>
           <SelectContent>
@@ -128,89 +146,88 @@ export default function SchedulePage() {
 
       {/* Calendario — flex-1 ocupa todo el espacio restante */}
       {loading ? (
-        <div className="flex-1 flex justify-center items-center">
+        <div className="flex-1 flex justify-center items-center py-16 md:py-0">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="flex flex-col flex-1 min-h-0 gap-2">
-          {/* El calendario se estira para llenar el espacio */}
-          <div className="flex-1 min-h-0 relative">
-            {loadingFilter && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 rounded-lg">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <>
+          <div className={`md:hidden pb-4 transition-opacity ${loadingFilter ? "opacity-50 pointer-events-none" : ""}`}>
+            <DayAgenda groups={visibleGroups} colorMap={colorMap} onNavigate={openGroup} />
+          </div>
+          <div className="hidden md:flex flex-col flex-1 min-h-0 gap-2">
+            {/* El calendario se estira para llenar el espacio */}
+            <div className="flex-1 min-h-0 relative">
+              {loadingFilter && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 rounded-lg">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              <WeeklyCalendar
+                groups={visibleGroups}
+                allGroups={allGroups}
+                colorMap={colorMap}
+                showInstructor
+                showCurrentTime
+                fillHeight
+                onNavigate={openGroup}
+              />
+            </div>
+
+            {/* Leyenda interactiva — solo grupos con horario */}
+            {groupsWithSchedule.length > 0 && (
+              <div className="shrink-0 pb-1 space-y-1.5">
+                <div className="flex flex-wrap gap-1.5">
+                  {(legendExpanded
+                    ? groupsWithSchedule
+                    : groupsWithSchedule.slice(0, LEGEND_COLLAPSE_THRESHOLD)
+                  ).map((g) => {
+                    const isActive = activeGroupIds.has(g.id);
+                    const color    = GROUP_COLORS[colorMap[g.id]];
+                    return (
+                      <button
+                        key={g.id}
+                        onClick={() => toggleGroup(g.id)}
+                        title={g.name}
+                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs transition-all
+                          ${isActive
+                            ? `${color.bg} ${color.border} ${color.text} font-medium`
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                          }`}
+                      >
+                        <div className={`h-2 w-2 rounded-full shrink-0 ${color.dot}`} />
+                        {legendName(g)}
+                      </button>
+                    );
+                  })}
+
+                  {/* Expandir / colapsar */}
+                  {groupsWithSchedule.length > LEGEND_COLLAPSE_THRESHOLD && (
+                    <button
+                      onClick={() => setLegendExpanded((v) => !v)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {legendExpanded ? (
+                        <><ChevronUp className="h-3 w-3" />Colapsar</>
+                      ) : (
+                        <><ChevronDown className="h-3 w-3" />+{groupsWithSchedule.length - LEGEND_COLLAPSE_THRESHOLD} más</>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Limpiar filtros */}
+                  {activeGroupIds.size > 0 && (
+                    <button
+                      onClick={() => setActiveGroupIds(new Set())}
+                      className="px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
               </div>
             )}
-            <WeeklyCalendar
-              groups={visibleGroups}
-              allGroups={allGroups}
-              colorMap={colorMap}
-              showInstructor
-              showCurrentTime
-              fillHeight
-              onNavigate={(group) => {
-                if (group.is_individual && group.primary_client?.id) {
-                  router.push(`/clients/${group.primary_client.id}`);
-                } else {
-                  router.push(`/class-groups/${group.id}`);
-                }
-              }}
-            />
           </div>
-
-          {/* Leyenda interactiva — solo grupos con horario */}
-          {groupsWithSchedule.length > 0 && (
-            <div className="shrink-0 pb-1 space-y-1.5">
-              <div className="flex flex-wrap gap-1.5">
-                {(legendExpanded
-                  ? groupsWithSchedule
-                  : groupsWithSchedule.slice(0, LEGEND_COLLAPSE_THRESHOLD)
-                ).map((g) => {
-                  const isActive = activeGroupIds.has(g.id);
-                  const color    = GROUP_COLORS[colorMap[g.id]];
-                  return (
-                    <button
-                      key={g.id}
-                      onClick={() => toggleGroup(g.id)}
-                      title={g.name}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs transition-all
-                        ${isActive
-                          ? `${color.bg} ${color.border} ${color.text} font-medium`
-                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                        }`}
-                    >
-                      <div className={`h-2 w-2 rounded-full shrink-0 ${color.dot}`} />
-                      {legendName(g)}
-                    </button>
-                  );
-                })}
-
-                {/* Expandir / colapsar */}
-                {groupsWithSchedule.length > LEGEND_COLLAPSE_THRESHOLD && (
-                  <button
-                    onClick={() => setLegendExpanded((v) => !v)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {legendExpanded ? (
-                      <><ChevronUp className="h-3 w-3" />Colapsar</>
-                    ) : (
-                      <><ChevronDown className="h-3 w-3" />+{groupsWithSchedule.length - LEGEND_COLLAPSE_THRESHOLD} más</>
-                    )}
-                  </button>
-                )}
-
-                {/* Limpiar filtros */}
-                {activeGroupIds.size > 0 && (
-                  <button
-                    onClick={() => setActiveGroupIds(new Set())}
-                    className="px-2 py-1 rounded-full border border-dashed text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Limpiar filtros
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        </>
       )}
 
       {/* Resumen instructores — solo si hay espacio (oculto cuando hay filtro activo) */}

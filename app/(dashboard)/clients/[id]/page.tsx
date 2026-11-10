@@ -769,14 +769,14 @@ export default function ClientDetailPage() {
         {/* ── Inscripciones (3/5) ── */}
         <Card className="lg:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-muted-foreground" />
-              Grupos inscritos
-              <span className="text-muted-foreground font-normal text-sm">
+            <CardTitle className="text-base flex items-center gap-2 min-w-0 whitespace-nowrap">
+              <GraduationCap className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="truncate">Grupos inscritos</span>
+              <span className="text-muted-foreground font-normal text-sm shrink-0">
                 ({activeEnrollments.length} activo{activeEnrollments.length !== 1 ? "s" : ""})
               </span>
             </CardTitle>
-            <Button size="sm" onClick={() => router.push(`/enrollments/new?client=${id}`)}>
+            <Button size="sm" className="shrink-0" aria-label="Inscribir" title="Inscribir" onClick={() => router.push(`/enrollments/new?client=${id}`)}>
               <UserPlus className="h-4 w-4 mr-2" />
               Inscribir
             </Button>
@@ -1016,10 +1016,6 @@ export default function ClientDetailPage() {
                   </span>
                 )}
               </CardTitle>
-              <Button size="sm" variant="outline" onClick={openCreateContact}>
-                <Plus className="h-4 w-4 mr-1" />
-                Agregar
-              </Button>
             </CardHeader>
             <CardContent>
               {loadingContacts ? (
@@ -1071,6 +1067,12 @@ export default function ClientDetailPage() {
                       </div>
                     </div>
                   ))}
+                  <div className="pt-3">
+                    <Button variant="outline" className="w-full border-dashed" onClick={openCreateContact}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Agregar otro contacto
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -1082,16 +1084,17 @@ export default function ClientDetailPage() {
       {/* ── Historial de pagos ── */}
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-            Historial de pagos
+          <CardTitle className="text-base flex items-center gap-2 min-w-0 whitespace-nowrap">
+            <CreditCard className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="truncate">Historial de pagos</span>
             {!loadingPayments && payments.length > 0 && (
-              <span className="text-muted-foreground font-normal text-sm">({payments.length})</span>
+              <span className="text-muted-foreground font-normal text-sm shrink-0">({payments.length})</span>
             )}
           </CardTitle>
-          <Button size="sm" onClick={() => openRegisterPayment()}>
+          <Button size="sm" className="shrink-0" aria-label="Registrar pago" title="Registrar pago" onClick={() => openRegisterPayment()}>
             <Plus className="h-4 w-4 mr-2" />
-            Registrar pago
+            <span className="hidden sm:inline">Registrar pago</span>
+            <span className="sm:hidden">Pago</span>
           </Button>
         </CardHeader>
         <CardContent>
@@ -1253,7 +1256,7 @@ export default function ClientDetailPage() {
                   </Label>
                   <Input
                     id="enr-fee"
-                    type="number"
+                    type="number" inputMode="numeric"
                     min={0}
                     placeholder={String(editEnrollment.monthly_fee)}
                     value={editEnrFee}
@@ -1269,7 +1272,7 @@ export default function ClientDetailPage() {
                   </Label>
                   <Input
                     id="enr-day"
-                    type="number"
+                    type="number" inputMode="numeric"
                     min={1}
                     max={28}
                     placeholder={String(editEnrollment.billing_day)}
@@ -1302,7 +1305,7 @@ export default function ClientDetailPage() {
                     </Label>
                     <Input
                       id="enr-signup-fee"
-                      type="number"
+                      type="number" inputMode="numeric"
                       min={0}
                       placeholder={editEnrollment.signup_fee != null ? String(editEnrollment.signup_fee) : "Sin cargo"}
                       value={editEnrSignupFee}
@@ -1316,7 +1319,7 @@ export default function ClientDetailPage() {
                     </Label>
                     <Input
                       id="enr-signup-paid"
-                      type="number"
+                      type="number" inputMode="numeric"
                       min={0}
                       max={editEnrSignupFee ? Number(editEnrSignupFee) : undefined}
                       placeholder="0"
@@ -1682,7 +1685,7 @@ export default function ClientDetailPage() {
                 <Label htmlFor="settle-amount">Monto a pagar ahora</Label>
                 <Input
                   id="settle-amount"
-                  type="number"
+                  type="number" inputMode="numeric"
                   min={1}
                   max={settlePayment.balance}
                   placeholder={`Máx. $${settlePayment.balance.toLocaleString("es-MX")}`}
@@ -1746,7 +1749,7 @@ export default function ClientDetailPage() {
                 <Label htmlFor="settle-signup-amount">Monto a pagar ahora</Label>
                 <Input
                   id="settle-signup-amount"
-                  type="number"
+                  type="number" inputMode="numeric"
                   min={1}
                   max={settleSignup.signup_fee_balance}
                   placeholder={`Máx. $${settleSignup.signup_fee_balance.toLocaleString("es-MX")}`}
