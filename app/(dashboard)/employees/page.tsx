@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, UserCog, Shield, Pencil, UserMinus, GraduationCap, Loader2 } from "lucide-react";
+import { Search, UserCog, Shield, Pencil, UserMinus, GraduationCap, Loader2, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { whatsappUrl } from "@/lib/phone";
 import { useEmployees } from "@/lib/hooks/useEmployees";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { employeesApi } from "@/lib/api/employees";
@@ -179,11 +183,12 @@ export default function EmployeesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
-                   <TableHead>Disciplinas</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Rol</TableHead>
-                  {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
+                  {/* Móvil: rol, disciplinas y teléfono van bajo el nombre. Email desde xl. */}
+                  <TableHead className="hidden md:table-cell">Disciplinas</TableHead>
+                  <TableHead className="hidden xl:table-cell">Email</TableHead>
+                  <TableHead className="hidden md:table-cell">Teléfono</TableHead>
+                  <TableHead className="hidden md:table-cell">Rol</TableHead>
+                  {isAdmin && <TableHead className="w-12"><span className="sr-only">Acciones</span></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -193,8 +198,34 @@ export default function EmployeesPage() {
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => router.push(`/employees/${emp.id}`)}
                   >
-                    <TableCell className="font-medium">{emp.full_name}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-col gap-1">
+                        <span>{emp.full_name}</span>
+                        <div className="md:hidden flex flex-wrap items-center gap-1">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_STYLES[emp.role] ?? "bg-gray-50 text-gray-700"}`}>
+                            {ROLE_LABELS[emp.role] ?? emp.role}
+                          </span>
+                          {emp.disciplines?.map((d) => (
+                            <span key={d.id} className="inline-flex items-center rounded-md bg-secondary text-secondary-foreground px-1.5 py-0.5 text-xs font-medium">
+                              {d.name}
+                            </span>
+                          ))}
+                        </div>
+                        {emp.phone && (
+                          <a
+                            href={whatsappUrl(emp.phone) ?? `tel:${emp.phone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`WhatsApp a ${emp.full_name}: ${emp.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="md:hidden text-xs font-normal text-green-700 tabular-nums self-start"
+                          >
+                            {emp.phone}
+                          </a>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {emp.disciplines && emp.disciplines.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {emp.disciplines.map((d) => (
@@ -210,34 +241,37 @@ export default function EmployeesPage() {
                         <span className="text-muted-foreground italic text-sm">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{emp.email || "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{emp.phone || "—"}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden xl:table-cell text-sm text-muted-foreground">{emp.email || "—"}</TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{emp.phone || "—"}</TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_STYLES[emp.role] ?? "bg-gray-50 text-gray-700"}`}>
                         {ROLE_LABELS[emp.role] ?? emp.role}
                       </span>
                     </TableCell>
                     {isAdmin && (
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => router.push(`/employees/${emp.id}?tab=info`)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Eliminar instructor"
-                            className="text-red-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:pointer-events-none"
-                            disabled={emp.role === "admin"}
-                            onClick={() => openDeactivateDialog(emp)}
-                          >
-                            <UserMinus className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Acciones de ${emp.full_name}`}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => router.push(`/employees/${emp.id}?tab=info`)}>
+                              <Pencil />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              variant="destructive"
+                              disabled={emp.role === "admin"}
+                              onClick={() => openDeactivateDialog(emp)}
+                            >
+                              <UserMinus />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     )}
                   </TableRow>
