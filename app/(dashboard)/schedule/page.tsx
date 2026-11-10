@@ -138,17 +138,30 @@ export default function SchedulePage() {
           <h1 className="text-2xl font-bold tracking-tight">Horarios</h1>
           <p className="text-xs text-muted-foreground">Vista general de clases de la semana</p>
         </div>
-        <Select value={filterInstructor} onValueChange={handleFilterChange}>
-          <SelectTrigger className="w-full sm:w-52 h-9 sm:h-8 text-sm">
-            <SelectValue placeholder="Todos los instructores" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los instructores</SelectItem>
-            {selectableInstructors.map((e) => (
-              <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <Select value={filterInstructor} onValueChange={handleFilterChange}>
+            <SelectTrigger className="w-full sm:w-52 h-9 sm:h-8 text-sm">
+              <SelectValue placeholder="Todos los instructores" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los instructores</SelectItem>
+              {selectableInstructors.map((e) => (
+                <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Tablet/escritorio: acción principal a la derecha, como en las demás
+              pantallas (en celular va abajo de la agenda del día) */}
+          <Button
+            size="icon"
+            className="hidden h-8 w-8 md:inline-flex"
+            title="Nuevo grupo"
+            aria-label="Nuevo grupo"
+            onClick={() => router.push("/class-groups/new")}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Calendario — flex-1 ocupa todo el espacio restante */}
@@ -204,11 +217,7 @@ export default function SchedulePage() {
           <div className={`md:hidden pb-4 transition-opacity ${loadingFilter ? "opacity-50 pointer-events-none" : ""}`}>
             <DayAgenda groups={visibleGroups} colorMap={colorMap} onNavigate={openGroup} />
             {/* Atajo en celular (idea de Paul); en tablet/escritorio está "Gestión de Clases" */}
-            <Button
-              variant="outline"
-              className="mt-3 w-full border-dashed"
-              onClick={() => router.push("/class-groups/new")}
-            >
+            <Button className="mt-3 w-full" onClick={() => router.push("/class-groups/new")}>
               <Plus className="h-4 w-4 mr-1" />
               Nuevo grupo
             </Button>

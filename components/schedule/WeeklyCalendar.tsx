@@ -40,7 +40,9 @@ export function to12h(time: string): string {
   let h = parseInt(hStr, 10);
   const period = h >= 12 ? "PM" : "AM";
   h = h % 12 || 12;
-  return `${h}:${mStr} ${period}`;
+  // Espacio no separable: en columnas angostas "9:00 AM" no se parte en dos
+  // renglones; el salto queda en el guion del rango ("9:00 AM–" / "10:00 AM").
+  return `${h}:${mStr}\u00a0${period}`;
 }
 
 function toMins(time: string): number {
