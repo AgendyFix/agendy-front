@@ -14,6 +14,7 @@ import {
 import { classGroupsApi } from "@/lib/api/classGroups";
 import { employeesApi } from "@/lib/api/employees";
 import { WeeklyCalendar, GROUP_COLORS } from "@/components/schedule/WeeklyCalendar";
+import { DayAgenda } from "@/components/schedule/DayAgenda";
 import type { ClassGroup, Employee } from "@/lib/types/models";
 import { useFeatures } from "@/lib/hooks/useFeatures";
 
@@ -102,6 +103,14 @@ export default function SchedulePage() {
   );
   const selectableInstructors = employees;
 
+  const openGroup = (group: ClassGroup) => {
+    if (group.is_individual && group.primary_client?.id) {
+      router.push(`/clients/${group.primary_client.id}`);
+    } else {
+      router.push(`/class-groups/${group.id}`);
+    }
+  };
+
   const toggleGroup = (id: string) => {
     setActiveGroupIds((prev) => {
       const next = new Set(prev);
@@ -112,8 +121,9 @@ export default function SchedulePage() {
   };
 
   return (
-    // header h-16 (64px) + padding top p-6 (24px) + padding bottom p-6 (24px) = 112px
-    <div className="flex flex-col overflow-hidden" style={{ height: "calc(100dvh - 112px)" }}>
+    // Desde md: alto fijo = viewport − header h-16 (64px) − padding p-6 ×2 (48px).
+    // En celular la página fluye con scroll normal y muestra la agenda del día.
+    <div className="flex flex-col md:overflow-hidden md:h-[calc(100dvh-112px)]">
 
       {/* Header compacto */}
       <div className="flex items-center justify-between gap-4 flex-wrap pb-3 shrink-0">
@@ -122,7 +132,7 @@ export default function SchedulePage() {
           <p className="text-xs text-muted-foreground">Vista general de clases de la semana</p>
         </div>
         <Select value={filterInstructor} onValueChange={handleFilterChange}>
-          <SelectTrigger className="w-52 h-8 text-sm">
+          <SelectTrigger className="w-full sm:w-52 h-9 sm:h-8 text-sm">
             <SelectValue placeholder="Todos los instructores" />
           </SelectTrigger>
           <SelectContent>
@@ -140,7 +150,11 @@ export default function SchedulePage() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="flex flex-col flex-1 min-h-0 gap-2">
+        <>
+        <div className="md:hidden pb-4">
+          <DayAgenda groups={filteredGroups} colorMap={colorMap} onNavigate={openGroup} />
+        </div>
+        <div className="hidden md:flex flex-col flex-1 min-h-0 gap-2">
           {/* El calendario se estira para llenar el espacio */}
           <div className="flex-1 min-h-0 relative">
             {loadingFilter && (
@@ -155,13 +169,7 @@ export default function SchedulePage() {
               showInstructor
               showCurrentTime
               fillHeight
-              onNavigate={(group) => {
-                if (group.is_individual && group.primary_client?.id) {
-                  router.push(`/clients/${group.primary_client.id}`);
-                } else {
-                  router.push(`/class-groups/${group.id}`);
-                }
-              }}
+              onNavigate={openGroup}
             />
           </div>
 
@@ -219,6 +227,7 @@ export default function SchedulePage() {
             </div>
           )}
         </div>
+        </>
       )}
 
       {/* Resumen instructores — solo si hay espacio (oculto cuando hay filtro activo) */}
