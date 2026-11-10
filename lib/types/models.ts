@@ -684,6 +684,12 @@ export interface PaymentSummary {
     pending: number;
   };
   unpaid_enrollments: UnpaidEnrollment[];
+  /** Recuadros del resumen: Cobrado (caja), Por cobrar y Vencido (saldo, mes de vencimiento) */
+  kpis: {
+    collected: { amount: number; count: number };
+    to_collect: { amount: number; count: number };
+    overdue: { amount: number; count: number };
+  };
 }
 // ============================================
 // PUBLIC PAGE (página pública de la academia)

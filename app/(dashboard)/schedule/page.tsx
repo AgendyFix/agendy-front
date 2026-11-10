@@ -66,6 +66,11 @@ export default function SchedulePage() {
   const handleFilterChange = async (instructorId: string) => {
     setFilterInstructor(instructorId);
     setActiveGroupIds(new Set());
+    // "Todos" ya está cargado: sin fetch, y sin un instante de estado vacío falso
+    if (instructorId === "all") {
+      setFilteredGroups(allGroups);
+      return;
+    }
     try {
       setLoadingFilter(true);
       const params = instructorId === "all" ? { limit: 100 } : { limit: 100, instructor: instructorId };
@@ -168,7 +173,7 @@ export default function SchedulePage() {
                 <p className="font-medium">Aún no tienes grupos</p>
                 <p className="max-w-sm text-sm text-muted-foreground">
                   Crea tu primer grupo con sus días y horarios.{" "}
-                  {isFeatureEnabled(PUBLIC_SITE_FEATURE)
+                  {features.length > 0 && isFeatureEnabled(PUBLIC_SITE_FEATURE)
                     ? "Aparecerá aquí y en Mi Sitio para que nuevos alumnos se inscriban."
                     : "Aparecerá aquí, en el calendario de la semana."}
                 </p>
@@ -198,6 +203,15 @@ export default function SchedulePage() {
         <>
           <div className={`md:hidden pb-4 transition-opacity ${loadingFilter ? "opacity-50 pointer-events-none" : ""}`}>
             <DayAgenda groups={visibleGroups} colorMap={colorMap} onNavigate={openGroup} />
+            {/* Atajo en celular (idea de Paul); en tablet/escritorio está "Gestión de Clases" */}
+            <Button
+              variant="outline"
+              className="mt-3 w-full border-dashed"
+              onClick={() => router.push("/class-groups/new")}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Nuevo grupo
+            </Button>
           </div>
           <div className="hidden md:flex flex-col flex-1 min-h-0 gap-2">
             {/* El calendario se estira para llenar el espacio */}

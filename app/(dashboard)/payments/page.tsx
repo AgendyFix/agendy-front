@@ -114,8 +114,6 @@ export default function PaymentsPage() {
   const [overduePayments, setOverduePayments]     = useState<Payment[]>([]);
   const [overdueLoading, setOverdueLoading]       = useState(false);
   const [overdueCount, setOverdueCount]           = useState(0);
-  // "Por cobrar": cobros del mes pendientes o parciales (aún no vencidos)
-  const [toCollect, setToCollect]                 = useState<{ count: number; amount: number } | null>(null);
 
   // Acciones de corrección
   const [editMethodTarget, setEditMethodTarget] = useState<Payment | null>(null);
@@ -153,28 +151,10 @@ export default function PaymentsPage() {
     }
   }, []);
 
-  const fetchToCollect = useCallback(async (month: number, year: number) => {
-    try {
-      const params = { due_date__month: month, due_date__year: year, limit: 100 };
-      const [pending, partial] = await Promise.all([
-        paymentsApi.getAll({ ...params, status: "pending" }),
-        paymentsApi.getAll({ ...params, status: "partial" }),
-      ]);
-      const rows = [...pending.results, ...partial.results];
-      setToCollect({
-        count: pending.count + partial.count,
-        amount: rows.reduce((sum, p) => sum + p.balance, 0),
-      });
-    } catch {
-      // no bloqueante
-    }
-  }, []);
-
   // Carga inicial
   useEffect(() => {
     fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear });
     fetchSummary({ year: summaryYear, month: summaryMonth });
-    fetchToCollect(summaryMonth, summaryYear);
     fetchOverdue({ month: summaryMonth, year: summaryYear });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -182,7 +162,6 @@ export default function PaymentsPage() {
   // Al cambiar mes o año: refrescar resumen + ambas tabs
   useEffect(() => {
     fetchSummary({ year: summaryYear, month: summaryMonth });
-    fetchToCollect(summaryMonth, summaryYear);
     fetchPayments({
       page: 1,
       due_date__month: summaryMonth,
@@ -236,7 +215,6 @@ export default function PaymentsPage() {
       fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear });
       fetchOverdue({ month: summaryMonth, year: summaryYear });
       fetchSummary({ year: summaryYear, month: summaryMonth });
-      fetchToCollect(summaryMonth, summaryYear);
     } catch (err: unknown) {
       toast.error(parseApiError(err, "Error al registrar el pago"));
     } finally {
@@ -252,7 +230,6 @@ export default function PaymentsPage() {
       toast.success("Método de pago corregido");
       setEditMethodTarget(null);
       fetchSummary({ year: summaryYear, month: summaryMonth });
-      fetchToCollect(summaryMonth, summaryYear);
     } catch (err) {
       toast.error(parseApiError(err, "Error al corregir el método"));
     } finally {
@@ -268,7 +245,6 @@ export default function PaymentsPage() {
       toast.success("Fecha de pago corregida");
       setEditDateTarget(null);
       fetchSummary({ year: summaryYear, month: summaryMonth });
-      fetchToCollect(summaryMonth, summaryYear);
     } catch (err) {
       toast.error(parseApiError(err, "Error al corregir la fecha"));
     } finally {
@@ -286,7 +262,6 @@ export default function PaymentsPage() {
       fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear });
       fetchOverdue({ month: summaryMonth, year: summaryYear });
       fetchSummary({ year: summaryYear, month: summaryMonth });
-      fetchToCollect(summaryMonth, summaryYear);
     } catch {
       toast.error("Error al revertir el pago");
     } finally {
@@ -323,7 +298,6 @@ export default function PaymentsPage() {
       fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear });
       fetchOverdue({ month: summaryMonth, year: summaryYear });
       fetchSummary({ year: summaryYear, month: summaryMonth });
-      fetchToCollect(summaryMonth, summaryYear);
     } catch (err) {
       toast.error(parseApiError(err, "No se pudo actualizar el pago"));
     } finally {
@@ -341,7 +315,6 @@ export default function PaymentsPage() {
       fetchOverdue({ month: summaryMonth, year: summaryYear }),
       fetchPayments({ page: 1, due_date__month: summaryMonth, due_date__year: summaryYear }),
       fetchSummary({ year: summaryYear, month: summaryMonth }),
-      fetchToCollect(summaryMonth, summaryYear),
     ]);
   };
 
@@ -449,14 +422,11 @@ export default function PaymentsPage() {
             // "Condonados" se quitó (decisión de Paul 2026-11-10): nadie lo entendía; lo
             // condonado sigue en la lista y se vuelve a poner si lo piden.
             <div className="grid grid-cols-3 gap-3">
-              <StatBox label="Cobrado" tone="green" amount={summary.amounts.collected} count={summary.counts.paid} />
-              <StatBox label="Por cobrar" tone="amber" amount={toCollect?.amount} count={toCollect?.count} />
-              <StatBox
-                label="Vencido"
-                tone="red"
-                amount={overduePayments.reduce((sum, p) => sum + p.balance, 0)}
-                count={overdueCount}
-              />
+              {/* Calculados en el backend (summary.kpis): Cobrado = caja del mes;
+                  Por cobrar / Vencido = saldo de lo que vence en el mes. */}
+              <StatBox label="Cobrado" tone="green" amount={summary.kpis?.collected.amount} count={summary.kpis?.collected.count} />
+              <StatBox label="Por cobrar" tone="amber" amount={summary.kpis?.to_collect.amount} count={summary.kpis?.to_collect.count} />
+              <StatBox label="Vencido" tone="red" amount={summary.kpis?.overdue.amount} count={summary.kpis?.overdue.count} />
             </div>
           )}
         </CardContent>
