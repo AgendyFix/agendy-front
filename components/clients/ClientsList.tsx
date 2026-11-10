@@ -30,6 +30,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { disciplinesApi } from "@/lib/api/disciplines";
 import { clientsApi } from "@/lib/api/clients";
 import { ClientStatusBadge } from "@/components/clients/ClientStatusBadge";
+import { whatsappUrl } from "@/lib/phone";
 import type { Discipline } from "@/lib/types/models";
 import type { ClientEnrollmentStatus } from "@/lib/types/models";
 
@@ -303,9 +304,12 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
                             )}
                             {(client.primary_contact_phone ?? client.phone) && (
                               <a
-                                href={`tel:${client.primary_contact_phone ?? client.phone}`}
+                                href={whatsappUrl(client.primary_contact_phone ?? client.phone) ?? `tel:${client.primary_contact_phone ?? client.phone}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`WhatsApp a ${client.full_name}: ${client.primary_contact_phone ?? client.phone}`}
                                 onClick={(e) => e.stopPropagation()}
-                                className="md:hidden text-xs font-normal text-muted-foreground tabular-nums self-start"
+                                className="md:hidden text-xs font-normal text-green-700 tabular-nums self-start"
                               >
                                 {client.primary_contact_phone ?? client.phone}
                               </a>
