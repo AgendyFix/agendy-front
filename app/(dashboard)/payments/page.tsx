@@ -49,6 +49,7 @@ import { parseApiError } from "@/lib/apiError";
 import { todayLocalISO, formatDate, overdueDays } from "@/lib/dates";
 import type { Payment, UnpaidEnrollment } from "@/lib/types/models";
 import { PAYMENT_METHOD_LABELS } from "@/lib/paymentMethods";
+import { whatsappUrl } from "@/lib/phone";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -979,7 +980,13 @@ function PaymentsTable({
                       {p.client_phone && (
                         <>
                           {" · "}
-                          <a href={`tel:${p.client_phone}`} className="tabular-nums underline-offset-2 hover:underline">
+                          <a
+                            href={whatsappUrl(p.client_phone) ?? `tel:${p.client_phone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`WhatsApp a ${p.client_name}: ${p.client_phone}`}
+                            className="tabular-nums text-green-700 underline-offset-2 hover:underline"
+                          >
                             {p.client_phone}
                           </a>
                         </>
