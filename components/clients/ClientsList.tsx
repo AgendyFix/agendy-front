@@ -210,13 +210,13 @@ export function ClientsList({ entityName = "Clientes" }: ClientsListProps) {
         <CardContent className="pt-4 space-y-4">
 
           {/* Tabs de filtro por status (en móvil se desplazan en vez de ensanchar la página) */}
-          <div className="flex items-center gap-1 overflow-x-auto border-b pb-0">
+          <div className="flex items-center sm:gap-1 overflow-x-auto border-b pb-0">
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab.value}
                 type="button"
                 onClick={() => handleStatusFilter(tab.value)}
-                className={`shrink-0 whitespace-nowrap px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                className={`shrink-0 whitespace-nowrap px-2 sm:px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                   statusFilter === tab.value
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
