@@ -29,7 +29,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { whatsappUrl } from "@/lib/phone";
+import { PhoneLink } from "@/components/common/PhoneLink";
 import { useEmployees } from "@/lib/hooks/useEmployees";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { employeesApi } from "@/lib/api/employees";
@@ -212,16 +212,7 @@ export default function EmployeesPage() {
                           ))}
                         </div>
                         {emp.phone && (
-                          <a
-                            href={whatsappUrl(emp.phone) ?? `tel:${emp.phone}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={`WhatsApp a ${emp.full_name}: ${emp.phone}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="md:hidden text-xs font-normal text-green-700 tabular-nums self-start"
-                          >
-                            {emp.phone}
-                          </a>
+                          <PhoneLink phone={emp.phone} name={emp.full_name} className="md:hidden text-xs font-normal self-start" />
                         )}
                       </div>
                     </TableCell>
