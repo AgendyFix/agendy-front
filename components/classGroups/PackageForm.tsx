@@ -8,7 +8,7 @@
 // "Todos" (opcional: el alumno tiene todos los grupos del paquete). Sin
 // "Todos", con más grupos que el último escalón paga el último.
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Info, Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { tuitionTablesApi } from "@/lib/api/tuitionTables";
-import { TIER_ALL, formatFrom, nextMonthStartLabel, tiersChanged } from "@/lib/tuition";
+import { TIER_ALL, formatFrom, nextMonthStartLabel, tiersChanged, tiersLabel } from "@/lib/tuition";
 import type { TuitionTable, TuitionTier } from "@/lib/types/models";
 
 /** "1 grupo" y "Todos" */
@@ -25,13 +25,17 @@ const DEFAULT_ROWS = ["", ""];
 interface Props {
   /** Paquete a editar; sin él se crea uno nuevo */
   initial?: TuitionTable;
-  onSaved: (table: TuitionTable) => void;
+  onSaved: (table: TuitionTable) => void | Promise<void>;
   onCancel?: () => void;
   /** Texto del botón al crear (la página sigue con "elegir grupos") */
   createLabel?: string;
+  /** La página de edición muestra y edita el nombre en el título */
+  hideName?: boolean;
+  /** Contenido extra antes de los botones (p.ej. elegir grupos al crear) */
+  children?: ReactNode;
 }
 
-export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear paquete" }: Props) {
+export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear paquete", hideName = false, children }: Props) {
   // Se edita lo último que se guardó: si hay un cambio programado, ese
   const base = initial?.pending_tiers ?? initial?.tiers;
   const [name, setName] = useState(initial?.name ?? "");
@@ -49,12 +53,12 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
     ...fees.slice(0, -1).map((f, i) => ({ count: i + 1, fee: Number(f) })),
     ...(allFee !== "" ? [{ count: TIER_ALL, fee: Number(allFee) }] : []),
   ];
-  const valid = name.trim().length > 0 && fees.slice(0, -1).every((f) => f !== "");
+  const valid = (hideName || name.trim().length > 0) && fees.slice(0, -1).every((f) => f !== "");
   const changed = !!initial && !!base && tiersChanged(base, tiers);
   const students = initial?.students_count ?? 0;
   // Volver a los precios de hoy con un cambio programado lo cancela (TuitionTable.schedule_tiers)
   const revertsPending = !!initial?.pending_tiers && !!initial.pending_from && !tiersChanged(initial.tiers, tiers);
-  const dirty = !initial || changed || name.trim() !== initial.name;
+  const dirty = !initial || changed || (!hideName && name.trim() !== initial.name);
   // Aviso suave (no bloquea): un escalón más caro que el siguiente
   const priceDrop = (() => {
     const labels = fees.map((_, i) => (i === fees.length - 1 ? "Todos" : `${i + 1} ${i === 0 ? "grupo" : "grupos"}`));
@@ -76,12 +80,12 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
     try {
       setSaving(true);
       const saved = initial
-        ? await tuitionTablesApi.update(initial.id, { name: name.trim(), tiers })
+        ? await tuitionTablesApi.update(initial.id, hideName ? { tiers } : { name: name.trim(), tiers })
         : await tuitionTablesApi.create({ name: name.trim(), tiers });
       toast.success(
         changed && saved.pending_from ? `Guardado. Precio nuevo desde el ${formatFrom(saved.pending_from)}` : "Paquete guardado"
       );
-      onSaved(saved);
+      await onSaved(saved);
     } catch (err: unknown) {
       const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
       const msg = data ? Object.values(data).flat().map(String)[0] : null;
@@ -93,7 +97,7 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
 
   return (
     <div className="space-y-5">
-      <div className="space-y-1.5">
+      {!hideName && <div className="space-y-1.5">
         <Label htmlFor="package-name">Nombre</Label>
         <Input
           id="package-name"
@@ -102,14 +106,18 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
           onChange={(e) => setName(e.target.value)}
           disabled={saving}
         />
-      </div>
+      </div>}
 
       <div className="space-y-2">
         <Label>Precio por número de grupos</Label>
         <p className="text-xs text-muted-foreground">
-          Un solo cobro al mes según cuántos grupos del paquete toma. «Todos» (opcional) es para quien
-          toma todos los grupos del paquete; si no lo pones, con más grupos que el último precio paga ese.
+          Un solo cobro al mes según cuántos grupos del paquete toma.
         </p>
+        {initial?.pending_tiers && initial.pending_from && (
+          <p className="text-xs text-muted-foreground">
+            Hoy se cobra: {tiersLabel(initial.tiers)}. Abajo, los precios desde el {formatFrom(initial.pending_from)}.
+          </p>
+        )}
         <ul className="space-y-2">
           {fees.map((fee, i) => {
             const isAll = i === fees.length - 1;
@@ -118,6 +126,7 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
               <li key={i} className="flex items-center gap-3">
                 <Label htmlFor={`tier-${i}`} className="w-20 shrink-0 flex-col items-start gap-0 font-normal leading-tight">
                   <span>{label}</span>
+                  {isAll && <span className="text-xs text-muted-foreground">si toma todos</span>}
                 </Label>
                 <div className="relative flex-1">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
@@ -149,7 +158,7 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
           })}
         </ul>
         <Button
-          type="button" variant="outline" size="sm"
+          type="button" variant="outline" className="h-11"
           onClick={() => setFees((cur) => [...cur.slice(0, -1), "", cur[cur.length - 1]])}
           disabled={saving || fees.length >= 10}
         >
@@ -179,6 +188,8 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
         </p>
       )}
 
+      {children}
+
       <div className="flex gap-3">
         {onCancel && (
           <Button type="button" variant="outline" className="flex-1" onClick={onCancel} disabled={saving}>
@@ -187,7 +198,7 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
         )}
         <Button type="button" className="flex-1" onClick={save} disabled={saving || !dirty}>
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          {initial ? "Guardar cambios" : createLabel}
+          {!initial ? createLabel : dirty ? "Guardar cambios" : "Sin cambios"}
         </Button>
       </div>
     </div>

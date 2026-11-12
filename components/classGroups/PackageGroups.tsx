@@ -25,13 +25,11 @@ interface Props {
   table: TuitionTable;
   /** Se llama tras ligar/desligar para recargar el paquete */
   onChanged: () => void;
-  /** Abrir "Agregar grupos" al montar (paquete recién creado) */
-  openAdd?: boolean;
 }
 
-export function PackageGroups({ table, onChanged, openAdd = false }: Props) {
+export function PackageGroups({ table, onChanged }: Props) {
   const groups = table.groups ?? [];
-  const [addOpen, setAddOpen] = useState(openAdd);
+  const [addOpen, setAddOpen] = useState(false);
   const [all, setAll] = useState<ClassGroup[] | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -97,7 +95,7 @@ export function PackageGroups({ table, onChanged, openAdd = false }: Props) {
     <section className="space-y-2">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold">Grupos en este paquete ({groups.length})</h2>
-        <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+        <Button variant="outline" className="h-11" onClick={() => setAddOpen(true)}>
           <Plus className="h-4 w-4 mr-1" />
           Agregar grupos
         </Button>
@@ -142,41 +140,7 @@ export function PackageGroups({ table, onChanged, openAdd = false }: Props) {
           ) : candidates.length === 0 ? (
             <p className="text-sm text-muted-foreground">Todos los grupos ya están en este paquete.</p>
           ) : (
-            <ul className="space-y-2" role="group" aria-label="Grupos">
-              {candidates.map((g) => {
-                const checked = picked.includes(g.id);
-                const side = g.tuition_table_name
-                  ? `En ${g.tuition_table_name}`
-                  : g.monthly_fee != null ? `$${g.monthly_fee.toLocaleString("es-MX")}/mes` : "";
-                return (
-                  <li key={g.id}>
-                    <button
-                      type="button" role="checkbox" aria-checked={checked}
-                      onClick={() => toggle(g.id)} disabled={saving}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-lg border p-3 text-left",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        checked ? "border-primary bg-primary/5" : "bg-background",
-                      )}
-                    >
-                      <span className={cn(
-                        "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
-                        checked ? "border-primary bg-primary text-primary-foreground" : "border-input",
-                      )}>
-                        {checked && <Check className="h-3.5 w-3.5" />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block break-words text-sm font-medium">{g.name}</span>
-                        {g.schedule_display && (
-                          <span className="block break-words text-xs text-muted-foreground">{g.schedule_display}</span>
-                        )}
-                      </span>
-                      {side && <span className="max-w-[35%] shrink-0 text-right text-xs text-muted-foreground">{side}</span>}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <GroupPicker groups={candidates} picked={picked} onToggle={toggle} disabled={saving} />
           )}
           {picked.length > 0 && (
             <p className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
@@ -233,5 +197,51 @@ export function PackageGroups({ table, onChanged, openAdd = false }: Props) {
         </DialogContent>
       </Dialog>
     </section>
+  );
+}
+
+/** Lista de grupos con casilla (agregar a un paquete, o al crearlo) */
+export function GroupPicker({ groups, picked, onToggle, disabled }: {
+  groups: ClassGroup[];
+  picked: string[];
+  onToggle: (id: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <ul className="space-y-2" role="group" aria-label="Grupos">
+      {groups.map((g) => {
+        const checked = picked.includes(g.id);
+        const side = g.tuition_table_name
+          ? `En ${g.tuition_table_name}`
+          : g.monthly_fee != null ? `$${g.monthly_fee.toLocaleString("es-MX")}/mes` : "";
+        return (
+          <li key={g.id}>
+            <button
+              type="button" role="checkbox" aria-checked={checked}
+              onClick={() => onToggle(g.id)} disabled={disabled}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg border p-3 text-left",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                checked ? "border-primary bg-primary/5" : "bg-background",
+              )}
+            >
+              <span className={cn(
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                checked ? "border-primary bg-primary text-primary-foreground" : "border-input",
+              )}>
+                {checked && <Check className="h-3.5 w-3.5" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block break-words text-sm font-medium">{g.name}</span>
+                {g.schedule_display && (
+                  <span className="block break-words text-xs text-muted-foreground">{g.schedule_display}</span>
+                )}
+              </span>
+              {side && <span className="max-w-[35%] shrink-0 text-right text-xs text-muted-foreground">{side}</span>}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
