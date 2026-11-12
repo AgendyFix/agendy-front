@@ -77,7 +77,7 @@ export function PackageForm({ initial, onSaved, onCancel }: Props) {
         ? await tuitionTablesApi.update(initial.id, { name: name.trim(), tiers })
         : await tuitionTablesApi.create({ name: name.trim(), tiers });
       toast.success(
-        saved.pending_from ? `Guardado. Precio nuevo desde el ${formatFrom(saved.pending_from)}` : "Paquete guardado"
+        changed && saved.pending_from ? `Guardado. Precio nuevo desde el ${formatFrom(saved.pending_from)}` : "Paquete guardado"
       );
       onSaved(saved);
     } catch (err: unknown) {
