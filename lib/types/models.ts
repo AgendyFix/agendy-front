@@ -615,7 +615,8 @@ export interface ClassGroup {
 
 /** Tabulador: mensualidad única según cuántos grupos del paquete toma el alumno */
 export interface TuitionTier {
-  count: number;
+  /** Número de grupos, o "all" = "Todos": el alumno tiene todos los grupos del paquete */
+  count: number | "all";
   fee: number;
 }
 

@@ -29,6 +29,7 @@ describe("feeFor", () => {
 
   it("etiqueta los escalones en orden", () => {
     expect(tiersLabel([TIERS[1], TIERS[0]])).toBe("1 grupo $450 · 2 $650");
+    expect(tiersLabel([{ count: "all", fee: 950 }, TIERS[0]])).toBe("1 grupo $450 · Todos $950");
   });
 });
 
@@ -69,6 +70,20 @@ describe("enrollmentSummary", () => {
   it("sin tabulador (o inactivo) todo es precio fijo", () => {
     const s = enrollmentSummary([a], groups, [{ ...danza, is_active: false }]);
     expect(s.lines).toEqual([{ kind: "fixed", groupId: "A", name: "A", fee: 0 }]);
+  });
+});
+
+describe("escalón Todos", () => {
+  const conTodos = [TIERS[0], TIERS[1], { count: "all" as const, fee: 900 }];
+  it("aplica solo si tiene todos los grupos del paquete", () => {
+    expect(feeFor(conTodos, 4, 4)).toBe(900);
+    expect(feeFor(conTodos, 3, 4)).toBe(650);
+    expect(feeFor(conTodos, 0, 4)).toBe(0);
+  });
+  it("el resumen cuenta los grupos del paquete", () => {
+    const t = { ...danza, tiers: conTodos };
+    expect(enrollmentSummary([a, b, c, d], groups, [t]).monthlyTotal).toBe(900);
+    expect(enrollmentSummary([a, b, c], groups, [t]).monthlyTotal).toBe(650);
   });
 });
 

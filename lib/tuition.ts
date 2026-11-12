@@ -11,19 +11,31 @@
 
 import type { ClassGroup, Enrollment, TuitionTable, TuitionTier } from "@/lib/types/models";
 
-/** Mensualidad para `count` grupos: el escalón más alto con count <= `count`. */
-export function feeFor(tiers: TuitionTier[], count: number): number {
-  const eligible = tiers.filter((t) => t.count <= count);
+export const TIER_ALL = "all" as const;
+
+/**
+ * Mensualidad para `count` grupos (espejo de TuitionTable.fee_for): si tiene
+ * todos los grupos del paquete (`groupCount`) y hay escalón "Todos", ese; si
+ * no, el escalón numérico más alto con count <= `count`.
+ */
+export function feeFor(tiers: TuitionTier[], count: number, groupCount = Infinity): number {
+  const all = tiers.find((t) => t.count === TIER_ALL);
+  if (all && count > 0 && count >= groupCount) return all.fee;
+  const eligible = tiers.filter((t): t is TuitionTier & { count: number } => t.count !== TIER_ALL && t.count <= count);
   if (eligible.length === 0) return 0;
   return eligible.reduce((a, b) => (b.count > a.count ? b : a)).fee;
 }
 
-/** "1 grupo $450 · 2 $650 · 3 $850" */
+/** "1 grupo $450 · 2 $650 · 3 $850 · Todos $950" */
 export function tiersLabel(tiers: TuitionTier[]): string {
-  return [...tiers]
-    .sort((a, b) => a.count - b.count)
-    .map((t, i) => `${t.count}${i === 0 ? (t.count === 1 ? " grupo" : " grupos") : ""} $${t.fee.toLocaleString("es-MX")}`)
-    .join(" · ");
+  const numeric = tiers
+    .filter((t): t is TuitionTier & { count: number } => t.count !== TIER_ALL)
+    .sort((a, b) => a.count - b.count);
+  const all = tiers.find((t) => t.count === TIER_ALL);
+  return [
+    ...numeric.map((t, i) => `${t.count}${i === 0 ? (t.count === 1 ? " grupo" : " grupos") : ""} $${t.fee.toLocaleString("es-MX")}`),
+    ...(all ? [`Todos $${all.fee.toLocaleString("es-MX")}`] : []),
+  ].join(" · ");
 }
 
 export interface PackageLine {
@@ -70,6 +82,9 @@ export function enrollmentSummary(
   const tableById = new Map(tables.filter((t) => t.is_active).map((t) => [t.id, t]));
   const groupById = new Map(groups.map((g) => [g.id, g]));
   const tableOf = (g?: ClassGroup) => (g?.tuition_table ? tableById.get(g.tuition_table) : undefined);
+  // Grupos activos de cada paquete (para el escalón "Todos")
+  const packageSize = (tableId: string) =>
+    groups.filter((g) => g.tuition_table === tableId && g.is_active !== false && !g.is_individual).length;
 
   const active = existing.filter((e) => e.status === "active");
   const beforeCount = new Map<string, number>();
@@ -96,8 +111,8 @@ export function enrollmentSummary(
     packages.push({
       kind: "package", tableId, name: table.name,
       before, after: before + added,
-      feeBefore: feeFor(table.tiers, before),
-      feeAfter: feeFor(table.tiers, before + added),
+      feeBefore: feeFor(table.tiers, before, packageSize(tableId)),
+      feeAfter: feeFor(table.tiers, before + added, packageSize(tableId)),
     });
   }
 
