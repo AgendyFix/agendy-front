@@ -5,9 +5,8 @@
 // ============================================
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PackageForm } from "@/components/classGroups/PackageForm";
+import { PackageGroups } from "@/components/classGroups/PackageGroups";
 import { tuitionTablesApi } from "@/lib/api/tuitionTables";
 import { formatFrom, tiersLabel } from "@/lib/tuition";
 import type { TuitionTable } from "@/lib/types/models";
@@ -28,10 +28,12 @@ export default function PackagePage() {
   const [error, setError] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const [version, setVersion] = useState(0);
+  const reload = () => setVersion((v) => v + 1);
   useEffect(() => {
     if (isNew) return;
     tuitionTablesApi.getById(id).then(setTable).catch(() => setError(true));
-  }, [id, isNew]);
+  }, [id, isNew, version]);
 
   const groups = table?.groups ?? [];
 
@@ -80,23 +82,7 @@ export default function PackagePage() {
 
           {table && (
             <section className="space-y-2">
-              <h2 className="text-sm font-semibold">Grupos en este paquete ({groups.length})</h2>
-              {groups.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Ninguno todavía. Abre un grupo y marca &ldquo;Entra al paquete por número de grupos&rdquo;.
-                </p>
-              ) : (
-                <ul className="divide-y rounded-lg border">
-                  {groups.map((g) => (
-                    <li key={g.id}>
-                      <Link href={`/class-groups/${g.id}`} className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-muted/30">
-                        <span className="flex-1 break-words">{g.name}</span>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <PackageGroups table={table} onChanged={reload} />
 
               <div className="pt-4">
                 <Button

@@ -103,11 +103,9 @@ export function PackageForm({ initial, onSaved, onCancel }: Props) {
             const label = isAll ? "Todos" : `${i + 1} ${i === 0 ? "grupo" : "grupos"}`;
             return (
               <li key={i} className="flex items-center gap-3">
-                <Label htmlFor={`tier-${i}`} className="w-20 shrink-0 font-normal leading-tight">
-                  {label}
-                  {isAll && (
-                    <span className="block text-xs text-muted-foreground">Opcional</span>
-                  )}
+                <Label htmlFor={`tier-${i}`} className="w-20 shrink-0 flex-col items-start gap-0 font-normal leading-tight">
+                  <span>{label}</span>
+                  {isAll && <span className="text-xs text-muted-foreground">Opcional</span>}
                 </Label>
                 <div className="relative flex-1">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
