@@ -27,9 +27,11 @@ interface Props {
   initial?: TuitionTable;
   onSaved: (table: TuitionTable) => void;
   onCancel?: () => void;
+  /** Texto del botón al crear (la página sigue con "elegir grupos") */
+  createLabel?: string;
 }
 
-export function PackageForm({ initial, onSaved, onCancel }: Props) {
+export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear paquete" }: Props) {
   // Se edita lo último que se guardó: si hay un cambio programado, ese
   const base = initial?.pending_tiers ?? initial?.tiers;
   const [name, setName] = useState(initial?.name ?? "");
@@ -185,7 +187,7 @@ export function PackageForm({ initial, onSaved, onCancel }: Props) {
         )}
         <Button type="button" className="flex-1" onClick={save} disabled={saving || !dirty}>
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          {initial ? "Guardar cambios" : "Crear paquete"}
+          {initial ? "Guardar cambios" : createLabel}
         </Button>
       </div>
     </div>

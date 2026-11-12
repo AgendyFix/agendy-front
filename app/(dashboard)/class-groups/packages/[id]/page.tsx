@@ -78,13 +78,14 @@ export default function PackagePage() {
             <PackageForm
               key={table?.id ?? "new"}
               initial={table ?? undefined}
+              createLabel="Siguiente: elegir grupos"
               onSaved={(saved) => (isNew ? router.replace(`/class-groups/packages/${saved.id}?agregar=1`) : setTable(saved))}
             />
           </div>
 
           {isNew && (
             <p className="text-sm text-muted-foreground">
-              Primero pon nombre y precios; al crear el paquete eliges qué grupos entran.
+              Paso 1 de 2: nombre y precios. En el siguiente paso eliges qué grupos entran.
             </p>
           )}
 
