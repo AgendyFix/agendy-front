@@ -6,6 +6,7 @@ import apiClient from "./client";
 import type { PaginatedResponse } from "@/lib/types/api";
 import type {
   CreateEnrollmentRequest,
+  EnrollGroupsRequest,
   UpdateEnrollmentRequest,
   EnrollmentListParams,
 } from "@/lib/types/api";
@@ -53,6 +54,15 @@ export const enrollmentsApi = {
    */
   create: async (data: CreateEnrollmentRequest): Promise<Enrollment> => {
     const response = await apiClient.post("/enrollments/", data);
+    return response.data;
+  },
+
+  /**
+   * POST /api/v1/enrollments/bulk/
+   * Inscribe a un alumno a varios grupos de una vez.
+   */
+  createMany: async (data: EnrollGroupsRequest): Promise<Enrollment[]> => {
+    const response = await apiClient.post("/enrollments/bulk/", data);
     return response.data;
   },
 
