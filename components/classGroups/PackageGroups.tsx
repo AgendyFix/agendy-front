@@ -25,11 +25,13 @@ interface Props {
   table: TuitionTable;
   /** Se llama tras ligar/desligar para recargar el paquete */
   onChanged: () => void;
+  /** Abrir "Agregar grupos" al montar (paquete recién creado) */
+  openAdd?: boolean;
 }
 
-export function PackageGroups({ table, onChanged }: Props) {
+export function PackageGroups({ table, onChanged, openAdd = false }: Props) {
   const groups = table.groups ?? [];
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(openAdd);
   const [all, setAll] = useState<ClassGroup[] | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);

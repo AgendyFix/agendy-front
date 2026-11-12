@@ -5,7 +5,7 @@
 // ============================================
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,6 +24,8 @@ export default function PackagePage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const isNew = id === "new";
+  // Recién creado: abre de una vez "Agregar grupos"
+  const justCreated = useSearchParams().get("agregar") === "1";
   const [table, setTable] = useState<TuitionTable | null>(null);
   const [error, setError] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -76,13 +78,19 @@ export default function PackagePage() {
             <PackageForm
               key={table?.id ?? "new"}
               initial={table ?? undefined}
-              onSaved={(saved) => (isNew ? router.replace(`/class-groups/packages/${saved.id}`) : setTable(saved))}
+              onSaved={(saved) => (isNew ? router.replace(`/class-groups/packages/${saved.id}?agregar=1`) : setTable(saved))}
             />
           </div>
 
+          {isNew && (
+            <p className="text-sm text-muted-foreground">
+              Primero pon nombre y precios; al crear el paquete eliges qué grupos entran.
+            </p>
+          )}
+
           {table && (
             <section className="space-y-2">
-              <PackageGroups table={table} onChanged={reload} />
+              <PackageGroups table={table} onChanged={reload} openAdd={justCreated && groups.length === 0} />
 
               <div className="pt-4">
                 <Button
