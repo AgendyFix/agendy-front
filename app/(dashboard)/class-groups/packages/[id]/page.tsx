@@ -74,6 +74,12 @@ export default function PackagePage() {
             </div>
           )}
 
+          {isNew && (
+            <p className="text-sm text-muted-foreground">
+              Paso 1 de 2: nombre y precios. En el siguiente paso eliges qué grupos entran.
+            </p>
+          )}
+
           <div className="rounded-lg border bg-card p-4">
             <PackageForm
               key={table?.id ?? "new"}
@@ -82,12 +88,6 @@ export default function PackagePage() {
               onSaved={(saved) => (isNew ? router.replace(`/class-groups/packages/${saved.id}?agregar=1`) : setTable(saved))}
             />
           </div>
-
-          {isNew && (
-            <p className="text-sm text-muted-foreground">
-              Paso 1 de 2: nombre y precios. En el siguiente paso eliges qué grupos entran.
-            </p>
-          )}
 
           {table && (
             <section className="space-y-2">
