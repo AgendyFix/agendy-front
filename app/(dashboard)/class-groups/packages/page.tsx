@@ -77,7 +77,7 @@ export default function PackagesPage() {
                       {t.name}
                       <span className="font-normal text-muted-foreground"> · {n} {n === 1 ? "grupo" : "grupos"}</span>
                     </p>
-                    <p className="text-sm text-muted-foreground">{tiersLabel(t.tiers)}</p>
+                    <p className="text-sm text-muted-foreground">{t.pending_tiers ? "Hoy: " : ""}{tiersLabel(t.tiers)}</p>
                     {t.pending_tiers && t.pending_from && (
                       <p className="text-xs text-blue-700 dark:text-blue-300">
                         Desde el {formatFrom(t.pending_from)}: {tiersLabel(t.pending_tiers)}

@@ -54,7 +54,7 @@ export default function PackagePage() {
         <Button variant="ghost" size="icon" aria-label="Volver a paquetes" onClick={() => router.push("/class-groups/packages")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-2xl font-bold tracking-tight">{isNew ? "Nuevo paquete" : "Paquete"}</h1>
+        <h1 className="text-2xl font-bold tracking-tight break-words min-w-0">{isNew ? "Nuevo paquete" : table?.name ?? "Paquete"}</h1>
       </div>
 
       {error ? (
@@ -68,7 +68,7 @@ export default function PackagePage() {
           {table?.pending_tiers && table.pending_from && (
             <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
               <p>Hoy: {tiersLabel(table.tiers)}</p>
-              <p className="font-medium">Desde el {formatFrom(table.pending_from)}: {tiersLabel(table.pending_tiers)}</p>
+              <p className="font-medium">Desde el {formatFrom(table.pending_from)} (lo que editas abajo): {tiersLabel(table.pending_tiers)}</p>
             </div>
           )}
 

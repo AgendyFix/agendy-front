@@ -146,7 +146,7 @@ export default function ClassGroupsPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Grupos / Clases</h1>
           <p className="text-muted-foreground">
@@ -155,11 +155,11 @@ export default function ClassGroupsPage() {
               : "Gestiona los grupos y horarios de tu academia"}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {showPackages && (
-            <Button variant="outline" aria-label="Paquetes" onClick={() => router.push("/class-groups/packages")}>
-              <Layers className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Paquetes</span>
+            <Button variant="outline" title="Paquetes" onClick={() => router.push("/class-groups/packages")}>
+              <Layers className="h-4 w-4 mr-2" />
+              Paquetes
             </Button>
           )}
           <Button variant="outline" onClick={() => setDisciplinesOpen(true)}>

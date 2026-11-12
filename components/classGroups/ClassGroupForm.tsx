@@ -558,9 +558,14 @@ export function ClassGroupForm({
                         : "Sin marcar, el grupo cobra su propia mensualidad."}
                     </span>
                     {canManagePackages && (
-                      <Link href="/class-groups/packages" className="block text-xs font-medium text-primary hover:underline">
-                        Administrar paquetes →
-                      </Link>
+                      <span className="flex flex-wrap gap-x-3 text-xs font-medium">
+                        <button type="button" className="text-primary hover:underline" onClick={() => setNewPackageOpen(true)}>
+                          Crear paquete
+                        </button>
+                        <Link href="/class-groups/packages" className="text-primary hover:underline">
+                          Ver paquetes →
+                        </Link>
+                      </span>
                     )}
                   </span>
                 </label>

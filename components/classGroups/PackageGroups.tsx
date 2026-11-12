@@ -15,7 +15,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { TIER_ALL } from "@/lib/tuition";
 import { classGroupsApi } from "@/lib/api/classGroups";
 import { cn } from "@/lib/utils";
 import type { ClassGroup, TuitionTable } from "@/lib/types/models";
@@ -43,19 +44,24 @@ export function PackageGroups({ table, onChanged }: Props) {
   }, [table.id, groups.length]);
 
   const candidates = (all ?? []).filter((g) => g.tuition_table !== table.id);
+  const hasAll = (table.pending_tiers ?? table.tiers).some((t) => t.count === TIER_ALL);
   const toggle = (id: string) =>
     setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
 
   const add = async () => {
+    const done: string[] = [];
     try {
       setSaving(true);
       for (const id of picked) {
         await classGroupsApi.update(id, { tuition_table: table.id });
+        done.push(id);
       }
       toast.success(picked.length === 1 ? "Grupo agregado al paquete" : `${picked.length} grupos agregados al paquete`);
       setPicked([]);
       setAddOpen(false);
     } catch {
+      // Los que sí se ligaron salen de la selección (ya no son candidatos)
+      setPicked((cur) => cur.filter((id) => !done.includes(id)));
       toast.error("No se pudieron agregar todos los grupos; revisa la lista");
     } finally {
       setSaving(false);
@@ -108,7 +114,7 @@ export function PackageGroups({ table, onChanged }: Props) {
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               </Link>
               <Button
-                variant="ghost" size="icon" className="h-9 w-9 shrink-0"
+                variant="ghost" size="icon" className="h-11 w-11 shrink-0"
                 aria-label={`Quitar ${g.name} del paquete`}
                 disabled={all === null}
                 onClick={() => openRemove(g.id)}
@@ -125,6 +131,7 @@ export function PackageGroups({ table, onChanged }: Props) {
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Agregar grupos a {table.name}</DialogTitle>
+            <DialogDescription>Marca los grupos que entran al paquete.</DialogDescription>
           </DialogHeader>
           {all === null ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -173,8 +180,14 @@ export function PackageGroups({ table, onChanged }: Props) {
             <p className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                Las alumnas de estos grupos pasan a pagar por paquete. El cobro ya generado de este mes no sube; el
+                Los alumnos de estos grupos pasan a pagar por paquete. El cobro ya generado de este mes no sube; el
                 precio del paquete aplica desde el siguiente cobro.
+                {hasAll && (
+                  <>
+                    {" "}El paquete pasará a tener {groups.length + picked.length} grupos: quien hoy paga «Todos» sin
+                    tomar los nuevos pasa al precio de {groups.length} {groups.length === 1 ? "grupo" : "grupos"}.
+                  </>
+                )}
               </span>
             </p>
           )}
@@ -194,10 +207,10 @@ export function PackageGroups({ table, onChanged }: Props) {
           <DialogHeader>
             <DialogTitle>¿Quitar {removing?.name} del paquete?</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            El grupo vuelve a cobrar su propia mensualidad. Las alumnas que lo tomen pagarán aparte, desde el
-            siguiente cobro.
-          </p>
+          <DialogDescription>
+            El grupo vuelve a cobrar su propia mensualidad. Los alumnos que lo tomen pagarán aparte, desde el
+            siguiente cobro.{hasAll && " Quien tenga el resto de los grupos pasará a pagar «Todos»."}
+          </DialogDescription>
           <div className="space-y-1.5">
             <Label htmlFor="remove-fee">Mensualidad del grupo</Label>
             <div className="relative">

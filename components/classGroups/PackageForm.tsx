@@ -50,6 +50,18 @@ export function PackageForm({ initial, onSaved, onCancel }: Props) {
   const valid = name.trim().length > 0 && fees.slice(0, -1).every((f) => f !== "");
   const changed = !!initial && !!base && tiersChanged(base, tiers);
   const students = initial?.students_count ?? 0;
+  // Volver a los precios de hoy con un cambio programado lo cancela (TuitionTable.schedule_tiers)
+  const revertsPending = !!initial?.pending_tiers && !!initial.pending_from && !tiersChanged(initial.tiers, tiers);
+  const dirty = !initial || changed || name.trim() !== initial.name;
+  // Aviso suave (no bloquea): un escalón más caro que el siguiente
+  const priceDrop = (() => {
+    const labels = fees.map((_, i) => (i === fees.length - 1 ? "Todos" : `${i + 1} ${i === 0 ? "grupo" : "grupos"}`));
+    for (let i = 1; i < fees.length; i++) {
+      if (fees[i] === "" || fees[i - 1] === "") continue;
+      if (Number(fees[i]) < Number(fees[i - 1])) return `${labels[i]} cuesta menos que ${labels[i - 1]}`;
+    }
+    return null;
+  })();
 
   const setFee = (i: number, v: string) =>
     setFees((cur) => cur.map((f, j) => (j === i ? v.replace(/\D/g, "") : f)));
@@ -93,9 +105,8 @@ export function PackageForm({ initial, onSaved, onCancel }: Props) {
       <div className="space-y-2">
         <Label>Precio por número de grupos</Label>
         <p className="text-xs text-muted-foreground">
-          El alumno paga un solo cobro al mes según cuántos grupos del paquete toma. «Todos» es
-          opcional: aplica a quien tome todos los grupos del paquete; sin él, con más grupos que el
-          último escalón paga el último.
+          Un solo cobro al mes según cuántos grupos del paquete toma. «Todos» (opcional) es para quien
+          toma todos los grupos del paquete; si no lo pones, con más grupos que el último precio paga ese.
         </p>
         <ul className="space-y-2">
           {fees.map((fee, i) => {
@@ -105,7 +116,6 @@ export function PackageForm({ initial, onSaved, onCancel }: Props) {
               <li key={i} className="flex items-center gap-3">
                 <Label htmlFor={`tier-${i}`} className="w-20 shrink-0 flex-col items-start gap-0 font-normal leading-tight">
                   <span>{label}</span>
-                  {isAll && <span className="text-xs text-muted-foreground">Opcional</span>}
                 </Label>
                 <div className="relative flex-1">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
@@ -113,7 +123,7 @@ export function PackageForm({ initial, onSaved, onCancel }: Props) {
                     id={`tier-${i}`}
                     inputMode="numeric"
                     className="pl-7"
-                    placeholder={isAll ? "Sin precio" : "0"}
+                    placeholder={isAll ? "Opcional" : "Ej: 450"}
                     value={fee}
                     onChange={(e) => setFee(i, e.target.value)}
                     onFocus={(e) => e.target.select()}
@@ -122,15 +132,15 @@ export function PackageForm({ initial, onSaved, onCancel }: Props) {
                 </div>
                 {i > 0 && !isAll ? (
                   <Button
-                    type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0"
-                    aria-label={`Quitar escalón de ${label}`}
+                    type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0"
+                    aria-label={`Quitar precio de ${label}`}
                     onClick={() => setFees((cur) => cur.filter((_, j) => j !== i))}
                     disabled={saving}
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 ) : (
-                  <span className="w-9 shrink-0" />
+                  <span className="w-11 shrink-0" />
                 )}
               </li>
             );
@@ -142,11 +152,22 @@ export function PackageForm({ initial, onSaved, onCancel }: Props) {
           disabled={saving || fees.length >= 10}
         >
           <Plus className="h-4 w-4 mr-1" />
-          Agregar {fees.length} grupos
+          Precio para {fees.length} grupos
         </Button>
       </div>
 
-      {changed && students > 0 && (
+      {priceDrop && (
+        <p className="text-xs text-amber-700 dark:text-amber-300">Revisa: {priceDrop}.</p>
+      )}
+
+      {revertsPending ? (
+        <p className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Se cancela el cambio del <strong>{formatFrom(initial!.pending_from!)}</strong>; se sigue cobrando el precio de hoy.
+          </span>
+        </p>
+      ) : changed && students > 0 && (
         <p className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
@@ -162,7 +183,7 @@ export function PackageForm({ initial, onSaved, onCancel }: Props) {
             Cancelar
           </Button>
         )}
-        <Button type="button" className="flex-1" onClick={save} disabled={saving}>
+        <Button type="button" className="flex-1" onClick={save} disabled={saving || !dirty}>
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {initial ? "Guardar cambios" : "Crear paquete"}
         </Button>
