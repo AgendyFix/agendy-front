@@ -622,8 +622,15 @@ export interface TuitionTier {
 export interface TuitionTable {
   id: string;
   name: string;
+  /** Escalones vigentes hoy */
   tiers: TuitionTier[];
+  /** Cambio de precios programado (aplica desde `pending_from`, 1.º del mes siguiente) */
+  pending_tiers?: TuitionTier[] | null;
+  pending_from?: string | null;
   is_active: boolean;
+  groups?: { id: string; name: string }[];
+  /** Alumnos con algún grupo activo en el paquete */
+  students_count?: number;
 }
 
 export type EnrollmentStatus = 'active' | 'paused' | 'dropped';

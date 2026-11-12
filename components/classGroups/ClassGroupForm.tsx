@@ -55,7 +55,13 @@ import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiS
 import { DatePicker } from "@/components/ui/date-picker";
 import { todayLocalISO } from "@/lib/dates";
 import { tuitionTablesApi } from "@/lib/api/tuitionTables";
-import { tiersLabel } from "@/lib/tuition";
+import { TUITION_TABLES_FEATURE, tiersLabel } from "@/lib/tuition";
+import { useIsAdmin } from "@/lib/hooks/useIsAdmin";
+import { PackageForm } from "@/components/classGroups/PackageForm";
+import Link from "next/link";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import type { TuitionTable } from "@/lib/types/models";
 
 // ── Schemas ────────────────────────────────────────────────────────────────
@@ -164,6 +170,10 @@ export function ClassGroupForm({
   }, []);
 
   const { isFeatureEnabled } = useFeatures();
+  // Descubrir Paquetes: admins de academias con el feature
+  const isAdmin = useIsAdmin();
+  const canManagePackages = isAdmin && isFeatureEnabled(TUITION_TABLES_FEATURE);
+  const [newPackageOpen, setNewPackageOpen] = useState(false);
   const showsOnPublicSite = isFeatureEnabled(PUBLIC_SITE_FEATURE);
 
   // ── Cargar empleados ──────────────────────────────────────────────────────
@@ -502,6 +512,31 @@ export function ClassGroupForm({
               />
             </div>
 
+            {/* Sin paquetes: link para crear uno sin perder lo capturado del grupo */}
+            {tables.length === 0 && canManagePackages && (
+              <p className="text-sm text-muted-foreground">
+                ¿Cobras un solo precio por varios grupos?{" "}
+                <button type="button" className="font-medium text-primary hover:underline" onClick={() => setNewPackageOpen(true)}>
+                  Crear paquete
+                </button>
+              </p>
+            )}
+            <Dialog open={newPackageOpen} onOpenChange={setNewPackageOpen}>
+              <DialogContent className="max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Nuevo paquete</DialogTitle>
+                </DialogHeader>
+                <PackageForm
+                  onCancel={() => setNewPackageOpen(false)}
+                  onSaved={(saved) => {
+                    setTables((cur) => [...cur, saved]);
+                    collectiveForm.setValue("tuition_table", saved.id);
+                    setNewPackageOpen(false);
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+
             {/* Paquete por número de grupos (tabulador). Default: precio fijo. */}
             {tables.length > 0 && (
               <div className="rounded-lg border p-3 space-y-2">
@@ -522,6 +557,11 @@ export function ClassGroupForm({
                         ? `${packageTable.name}: ${tiersLabel(packageTable.tiers)}. El alumno paga un solo precio por todos sus grupos del paquete.`
                         : "Sin marcar, el grupo cobra su propia mensualidad."}
                     </span>
+                    {canManagePackages && (
+                      <Link href="/class-groups/packages" className="block text-xs font-medium text-primary hover:underline">
+                        Administrar paquetes →
+                      </Link>
+                    )}
                   </span>
                 </label>
                 {inPackage && tables.length > 1 && (

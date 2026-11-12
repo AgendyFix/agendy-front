@@ -108,3 +108,27 @@ export function enrollmentSummary(
     firstChargeTotal: fixedNew + packages.filter((p) => p.before === 0).reduce((n, p) => n + p.feeAfter, 0),
   };
 }
+
+/** Slug del feature flag de Paquetes (catálogo en el backend: apps/companies/features.py). */
+export const TUITION_TABLES_FEATURE = "tuition_tables";
+
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+/** "2026-12-01" → "1 de diciembre" */
+export function formatFrom(iso: string): string {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${d} de ${MESES[m - 1]}`;
+}
+
+/** 1.º del mes siguiente a `today`, como "1 de diciembre" (espejo de TuitionTable.schedule_tiers). */
+export function nextMonthStartLabel(today = new Date()): string {
+  return `1 de ${MESES[(today.getMonth() + 1) % 12]}`;
+}
+
+/** ¿Cambiaron los escalones? (mismo orden: siempre se guardan por count ascendente) */
+export function tiersChanged(a: TuitionTier[], b: TuitionTier[]): boolean {
+  return a.length !== b.length || a.some((t, i) => t.count !== b[i].count || t.fee !== b[i].fee);
+}

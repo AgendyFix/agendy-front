@@ -71,3 +71,15 @@ describe("enrollmentSummary", () => {
     expect(s.lines).toEqual([{ kind: "fixed", groupId: "A", name: "A", fee: 0 }]);
   });
 });
+
+describe("helpers de paquetes", () => {
+  it("formatea la fecha de inicio y el mes siguiente", async () => {
+    const { formatFrom, nextMonthStartLabel, tiersChanged } = await import("./tuition");
+    expect(formatFrom("2026-12-01")).toBe("1 de diciembre");
+    expect(nextMonthStartLabel(new Date(2026, 10, 12))).toBe("1 de diciembre");
+    expect(nextMonthStartLabel(new Date(2026, 11, 31))).toBe("1 de enero");
+    expect(tiersChanged(TIERS, TIERS.map((t) => ({ ...t })))).toBe(false);
+    expect(tiersChanged(TIERS, TIERS.slice(0, 3))).toBe(true);
+    expect(tiersChanged(TIERS, [{ count: 1, fee: 500 }, ...TIERS.slice(1)])).toBe(true);
+  });
+});
