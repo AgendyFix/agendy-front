@@ -180,6 +180,7 @@ export function ClassGroupForm({
   const canManagePackages = isAdmin && isFeatureEnabled(TUITION_TABLES_FEATURE);
   const [newPackageOpen, setNewPackageOpen] = useState(false);
   const [packagesOpen, setPackagesOpen] = useState(false);
+  const [justCreatedPackage, setJustCreatedPackage] = useState<string | null>(null);
   const showsOnPublicSite = isFeatureEnabled(PUBLIC_SITE_FEATURE);
 
   // ── Cargar empleados ──────────────────────────────────────────────────────
@@ -251,11 +252,20 @@ export function ClassGroupForm({
     && (feeMode !== feeModeOf(initialData)
       || (feeMode === "package" && tuitionTable !== initialData?.tuition_table));
 
+  useEffect(() => {
+    if (justCreatedPackage && tables.some((t) => t.id === justCreatedPackage)) {
+      collectiveForm.setValue("tuition_table", justCreatedPackage, { shouldValidate: collectiveForm.formState.isSubmitted });
+      setJustCreatedPackage(null);
+    }
+  }, [justCreatedPackage, tables, collectiveForm]);
+
   const setFeeMode = (mode: FeeMode) => {
     const opts = { shouldValidate: collectiveForm.formState.isSubmitted };
     collectiveForm.setValue("fee_mode", mode, opts);
-    // Al entrar a "Por paquete" sin elección previa, proponer el primero
-    if (mode === "package" && !tuitionTable && tables.length > 0) {
+    // Al entrar a "Por paquete" sin elección previa, proponer el primero (solo grupos
+    // sin alumnos: con alumnos, mover el grupo de paquete debe ser una elección explícita)
+    const hasStudents = (initialData?.active_enrollment_count ?? 0) > 0;
+    if (mode === "package" && !tuitionTable && tables.length > 0 && !hasStudents) {
       collectiveForm.setValue("tuition_table", tables[0].id, opts);
     }
   };
@@ -600,7 +610,7 @@ export function ClassGroupForm({
                 </Tabs>
 
                 {feeChangeNotice && (
-                  <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
                     Los alumnos inscritos pagan el nuevo precio desde su siguiente cobro. Si el precio baja, el cobro abierto de este mes baja de inmediato.
                   </p>
                 )}
@@ -615,8 +625,9 @@ export function ClassGroupForm({
                 <PackageForm
                   onCancel={() => setNewPackageOpen(false)}
                   onSaved={(saved) => {
+                    // Se elige cuando la opción ya existe en el Select (si no, Radix lo vacía)
                     setTables((cur) => [...cur, saved]);
-                    collectiveForm.setValue("tuition_table", saved.id, { shouldValidate: collectiveForm.formState.isSubmitted });
+                    setJustCreatedPackage(saved.id);
                     collectiveForm.setValue("fee_mode", "package");
                     setNewPackageOpen(false);
                   }}

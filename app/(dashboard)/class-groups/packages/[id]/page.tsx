@@ -87,8 +87,9 @@ export default function PackagePage() {
       await tuitionTablesApi.delete(table.id);
       toast.success("Paquete eliminado");
       router.push("/class-groups/packages");
-    } catch {
-      toast.error("No se pudo eliminar el paquete");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail ?? "No se pudo eliminar el paquete");
     }
   };
 
@@ -184,7 +185,7 @@ export default function PackagePage() {
               <div className="pt-4">
                 <Button
                   variant="ghost"
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 px-2"
+                  className="h-11 text-red-600 hover:text-red-700 hover:bg-red-50 px-2"
                   disabled={groups.length > 0}
                   onClick={() => setConfirmDelete(true)}
                 >

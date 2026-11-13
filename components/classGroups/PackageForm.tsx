@@ -45,6 +45,7 @@ export function PackageForm({ initial, onSaved, onCancel, hideName = false, chil
     return [...numeric, all ? String(all.fee) : ""];
   });
   const [saving, setSaving] = useState(false);
+  const [tried, setTried] = useState(false);  // marcar en rojo lo que falta tras intentar guardar
 
   const allFee = fees[fees.length - 1];
   const tiers: TuitionTier[] = [
@@ -73,6 +74,7 @@ export function PackageForm({ initial, onSaved, onCancel, hideName = false, chil
 
   const save = async () => {
     if (!valid) {
+      setTried(true);
       toast.error("Captura el nombre y el precio de cada escalón (Todos es opcional)");
       return;
     }
@@ -100,6 +102,8 @@ export function PackageForm({ initial, onSaved, onCancel, hideName = false, chil
         <Label htmlFor="package-name">Nombre</Label>
         <Input
           id="package-name"
+          className="h-11"
+          aria-invalid={tried && !name.trim()}
           placeholder="Ej: Paquete Danza"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -132,7 +136,8 @@ export function PackageForm({ initial, onSaved, onCancel, hideName = false, chil
                   <Input
                     id={`tier-${i}`}
                     inputMode="numeric"
-                    className="pl-7"
+                    className="h-11 pl-7"
+                    aria-invalid={tried && !isAll && fee === ""}
                     placeholder={isAll ? "Opcional" : "Ej: 450"}
                     value={fee}
                     onChange={(e) => setFee(i, e.target.value)}
@@ -191,11 +196,11 @@ export function PackageForm({ initial, onSaved, onCancel, hideName = false, chil
 
       <div className="flex gap-3">
         {onCancel && (
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel} disabled={saving}>
+          <Button type="button" variant="outline" className="h-11 flex-1" onClick={onCancel} disabled={saving}>
             Cancelar
           </Button>
         )}
-        <Button type="button" className="flex-1" onClick={save} disabled={saving || !dirty}>
+        <Button type="button" className="h-11 flex-1" onClick={save} disabled={saving || !dirty}>
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {!initial ? "Crear paquete" : dirty ? "Guardar cambios" : "Sin cambios"}
         </Button>

@@ -39,7 +39,7 @@ export default function PackagesPage() {
             Un solo cobro mensual por todos los grupos del paquete.
           </p>
         </div>
-        <Button className="shrink-0" onClick={() => router.push("/class-groups/packages/new")}>
+        <Button className="h-11 shrink-0" onClick={() => router.push("/class-groups/packages/new")}>
           <Plus className="h-4 w-4 sm:mr-2" />
           <span className="hidden sm:inline">Nuevo</span>
           <span className="sr-only sm:hidden">Nuevo paquete</span>
@@ -79,7 +79,7 @@ export default function PackagesPage() {
                     </p>
                     <p className="text-sm text-muted-foreground">{t.pending_tiers ? "Hoy: " : ""}{tiersLabel(t.tiers)}</p>
                     {t.pending_tiers && t.pending_from && (
-                      <p className="text-xs text-blue-700 dark:text-blue-300">
+                      <p className="text-xs font-medium text-foreground">
                         Desde el {formatFrom(t.pending_from)}: {tiersLabel(t.pending_tiers)}
                       </p>
                     )}
