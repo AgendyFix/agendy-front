@@ -27,15 +27,13 @@ interface Props {
   initial?: TuitionTable;
   onSaved: (table: TuitionTable) => void | Promise<void>;
   onCancel?: () => void;
-  /** Texto del botón al crear (la página sigue con "elegir grupos") */
-  createLabel?: string;
   /** La página de edición muestra y edita el nombre en el título */
   hideName?: boolean;
   /** Contenido extra antes de los botones (p.ej. elegir grupos al crear) */
   children?: ReactNode;
 }
 
-export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear paquete", hideName = false, children }: Props) {
+export function PackageForm({ initial, onSaved, onCancel, hideName = false, children }: Props) {
   // Se edita lo último que se guardó: si hay un cambio programado, ese
   const base = initial?.pending_tiers ?? initial?.tiers;
   const [name, setName] = useState(initial?.name ?? "");
@@ -57,7 +55,8 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
   const changed = !!initial && !!base && tiersChanged(base, tiers);
   const students = initial?.students_count ?? 0;
   // Volver a los precios de hoy con un cambio programado lo cancela (TuitionTable.schedule_tiers)
-  const revertsPending = !!initial?.pending_tiers && !!initial.pending_from && !tiersChanged(initial.tiers, tiers);
+  const pendingFrom = initial?.pending_tiers ? initial.pending_from : null;
+  const revertsPending = !!pendingFrom && !tiersChanged(initial!.tiers, tiers);
   const dirty = !initial || changed || (!hideName && name.trim() !== initial.name);
   // Aviso suave (no bloquea): un escalón más caro que el siguiente
   const priceDrop = (() => {
@@ -175,7 +174,7 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
         <p className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            Se cancela el cambio del <strong>{formatFrom(initial!.pending_from!)}</strong>; se sigue cobrando el precio de hoy.
+            Se cancela el cambio del <strong>{formatFrom(pendingFrom!)}</strong>; se sigue cobrando el precio de hoy.
           </span>
         </p>
       ) : changed && students > 0 && (
@@ -198,7 +197,7 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
         )}
         <Button type="button" className="flex-1" onClick={save} disabled={saving || !dirty}>
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          {!initial ? createLabel : dirty ? "Guardar cambios" : "Sin cambios"}
+          {!initial ? "Crear paquete" : dirty ? "Guardar cambios" : "Sin cambios"}
         </Button>
       </div>
     </div>

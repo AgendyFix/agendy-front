@@ -229,7 +229,7 @@ export default function NewEnrollmentPage() {
     if (day && !form.getFieldState("custom_billing_day").isDirty && !form.getValues("custom_billing_day")) {
       form.setValue("custom_billing_day", day);
     }
-  }, [clientEnrollments, selectedTableIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clientEnrollments, selectedTableIds, form]);
 
   const handleSubmit = async (values: FormValues) => {
     const chargesError = validateCharges(charges, effectiveFee);
