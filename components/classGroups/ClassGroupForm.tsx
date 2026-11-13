@@ -59,7 +59,6 @@ import { TUITION_TABLES_FEATURE, feeModeOf, feePayload, tiersLabel, type FeeMode
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsAdmin } from "@/lib/hooks/useIsAdmin";
 import { PackageForm } from "@/components/classGroups/PackageForm";
-import Link from "next/link";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -180,6 +179,7 @@ export function ClassGroupForm({
   const isAdmin = useIsAdmin();
   const canManagePackages = isAdmin && isFeatureEnabled(TUITION_TABLES_FEATURE);
   const [newPackageOpen, setNewPackageOpen] = useState(false);
+  const [packagesOpen, setPackagesOpen] = useState(false);
   const showsOnPublicSite = isFeatureEnabled(PUBLIC_SITE_FEATURE);
 
   // ── Cargar empleados ──────────────────────────────────────────────────────
@@ -589,9 +589,11 @@ export function ClassGroupForm({
                         <button type="button" className="min-h-11 text-primary hover:underline" onClick={() => setNewPackageOpen(true)}>
                           Crear paquete
                         </button>
-                        <Link href="/class-groups/packages" className="inline-flex min-h-11 items-center text-primary hover:underline">
-                          Ver paquetes →
-                        </Link>
+                        {tables.length > 0 && (
+                          <button type="button" className="min-h-11 text-primary hover:underline" onClick={() => setPackagesOpen(true)}>
+                            Ver paquetes
+                          </button>
+                        )}
                       </div>
                     )}
                   </TabsContent>
@@ -619,6 +621,44 @@ export function ClassGroupForm({
                     setNewPackageOpen(false);
                   }}
                 />
+              </DialogContent>
+            </Dialog>
+
+            {/* Ver paquetes sin salir del formulario */}
+            <Dialog open={packagesOpen} onOpenChange={setPackagesOpen}>
+              <DialogContent className="max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Paquetes</DialogTitle>
+                </DialogHeader>
+                <ul className="space-y-2">
+                  {tables.map((t) => {
+                    const current = collectiveForm.watch("tuition_table") === t.id;
+                    return (
+                      <li key={t.id} className="flex items-center gap-3 rounded-lg border p-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words text-sm font-medium">{t.name}</p>
+                          <p className="text-xs text-muted-foreground">{tiersLabel(t.tiers)}</p>
+                          {t.groups && (
+                            <p className="text-xs text-muted-foreground">
+                              {t.groups.length} {t.groups.length === 1 ? "grupo" : "grupos"}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          type="button" variant={current ? "secondary" : "outline"} className="h-11 shrink-0"
+                          disabled={current}
+                          onClick={() => {
+                            collectiveForm.setValue("tuition_table", t.id, { shouldValidate: collectiveForm.formState.isSubmitted });
+                            collectiveForm.setValue("fee_mode", "package");
+                            setPackagesOpen(false);
+                          }}
+                        >
+                          {current ? "Elegido" : "Usar este"}
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
               </DialogContent>
             </Dialog>
 
