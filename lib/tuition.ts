@@ -154,9 +154,13 @@ export function tiersChanged(a: TuitionTier[], b: TuitionTier[]): boolean {
  * En precio fijo no se precarga (cada grupo sigue con su fecha de inicio).
  */
 export function packageBillingDay(
-  enrollments: { status: string; billing_day?: number | null; tuition?: unknown }[],
+  enrollments: { status: string; billing_day?: number | null; tuition?: { table_id: string } | null }[],
+  tableIds: (string | null | undefined)[],
 ): string | undefined {
-  const e = enrollments.find((x) => x.status === "active" && x.tuition && x.billing_day);
+  // Solo el paquete de los grupos que se están inscribiendo (no otro paquete ni precio fijo)
+  const e = enrollments.find(
+    (x) => x.status === "active" && x.tuition && x.billing_day && tableIds.includes(x.tuition.table_id),
+  );
   return e ? String(Math.min(e.billing_day as number, 28)) : undefined;
 }
 

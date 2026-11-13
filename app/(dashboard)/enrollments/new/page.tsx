@@ -219,13 +219,17 @@ export default function NewEnrollmentPage() {
     if (!clientId) { setClientEnrollments([]); return; }
     enrollmentsApi.getAll({ client: clientId, limit: 200 }).then((res) => {
       setClientEnrollments(res.results);
-      // Con paquete: mismo día de pago que ya tiene (precio fijo no se precarga)
-      const day = packageBillingDay(res.results);
-      if (day && !form.getValues("custom_billing_day")) {
-        form.setValue("custom_billing_day", day);
-      }
     }).catch(() => {});
-  }, [selectedClientId, preselectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedClientId, preselectedClientId]);
+
+  // Grupo de un paquete que el alumno ya paga: mismo día de pago (precio fijo no se precarga)
+  const selectedTableIds = selectedGroups.map((g) => g.tuition_table).join(",");
+  useEffect(() => {
+    const day = packageBillingDay(clientEnrollments, selectedTableIds.split(","));
+    if (day && !form.getFieldState("custom_billing_day").isDirty && !form.getValues("custom_billing_day")) {
+      form.setValue("custom_billing_day", day);
+    }
+  }, [clientEnrollments, selectedTableIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (values: FormValues) => {
     const chargesError = validateCharges(charges, effectiveFee);

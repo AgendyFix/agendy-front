@@ -100,17 +100,21 @@ describe("helpers de paquetes", () => {
 });
 
 describe("día de pago precargado", () => {
-  const act = (billing_day: number, tuition: unknown = null) => ({ status: "active", billing_day, tuition });
+  const act = (billing_day: number, tuition: { table_id: string } | null = null) => ({ status: "active", billing_day, tuition });
   it("precio fijo: no se precarga (aunque empiece el 30)", () => {
-    expect(packageBillingDay([act(30)])).toBeUndefined();
-    expect(packageBillingDay([act(12)])).toBeUndefined();
+    expect(packageBillingDay([act(30)], [null])).toBeUndefined();
+    expect(packageBillingDay([act(12)], ["t"])).toBeUndefined();
   });
-  it("paquete: el día del paquete, con tope 28", () => {
-    expect(packageBillingDay([act(12, { table_id: "t" })])).toBe("12");
-    expect(packageBillingDay([act(31, { table_id: "t" })])).toBe("28");
+  it("paquete del grupo que se inscribe: su día, con tope 28", () => {
+    expect(packageBillingDay([act(12, { table_id: "t" })], ["t"])).toBe("12");
+    expect(packageBillingDay([act(31, { table_id: "t" })], ["t"])).toBe("28");
+  });
+  it("grupo de precio fijo u otro paquete: no se precarga", () => {
+    expect(packageBillingDay([act(12, { table_id: "t" })], [null])).toBeUndefined();
+    expect(packageBillingDay([act(12, { table_id: "t" })], ["otro"])).toBeUndefined();
   });
   it("ignora inscripciones no activas", () => {
-    expect(packageBillingDay([{ status: "paused", billing_day: 5, tuition: { table_id: "t" } }])).toBeUndefined();
+    expect(packageBillingDay([{ status: "paused", billing_day: 5, tuition: { table_id: "t" } }], ["t"])).toBeUndefined();
   });
 });
 
