@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClassGroup, Enrollment, TuitionTable } from "@/lib/types/models";
-import { enrollmentSummary, feeFor, feeModeOf, feePayload, packageBillingDay, signupFeeGroup, tiersLabel } from "./tuition";
+import { enrollmentSummary, feeFor, feeModeOf, feePayload, packageBillingDay, packagePricingMissing, signupFeeGroup, tiersLabel } from "./tuition";
 
 const TIERS = [
   { count: 1, fee: 450 }, { count: 2, fee: 650 },
@@ -147,5 +147,13 @@ describe("modo de cobro del grupo (pestañas)", () => {
     expect(feePayload("package", { monthly_fee: 350, tuition_table: "t1" }, true)).toEqual({ monthly_fee: 350, tuition_table: "t1" });
     expect(feePayload("package", { tuition_table: "t1" }, true)).toEqual({ monthly_fee: null, tuition_table: "t1" });
     expect(feePayload("package", { monthly_fee: 350, tuition_table: "" }, true)).toEqual({ monthly_fee: 350, tuition_table: null });
+  });
+});
+
+describe("precios del paquete sin cargar", () => {
+  it("bloquea si un grupo de paquete no tiene su tabla", () => {
+    expect(packagePricingMissing([{ tuition_table: "t" }], [])).toBe(true);
+    expect(packagePricingMissing([{ tuition_table: "t" }], [{ id: "t" }])).toBe(false);
+    expect(packagePricingMissing([{ tuition_table: null }], [])).toBe(false);
   });
 });

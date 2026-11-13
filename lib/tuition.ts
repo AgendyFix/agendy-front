@@ -195,3 +195,14 @@ export function feePayload(
   if (mode === "package") return { monthly_fee, tuition_table: values.tuition_table || null };
   return hasTables || values.tuition_table ? { monthly_fee, tuition_table: null } : { monthly_fee };
 }
+
+/**
+ * Hay grupos de paquete elegidos cuyo precio no se pudo cargar (la tabla aún
+ * no llega o falló): no se debe confirmar la inscripción con un total de $0.
+ */
+export function packagePricingMissing(
+  selected: { tuition_table?: string | null }[],
+  tables: { id: string }[],
+): boolean {
+  return selected.some((g) => g.tuition_table && !tables.some((t) => t.id === g.tuition_table));
+}

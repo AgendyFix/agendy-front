@@ -26,7 +26,7 @@ import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiS
 import { EnrollmentCharges } from "@/components/enrollments/EnrollmentCharges";
 import { GroupMultiPicker } from "@/components/enrollments/GroupMultiPicker";
 import { tuitionTablesApi } from "@/lib/api/tuitionTables";
-import { enrollmentSummary, signupFeeGroup } from "@/lib/tuition";
+import { enrollmentSummary, packagePricingMissing, signupFeeGroup } from "@/lib/tuition";
 import {
   EMPTY_CHARGES, chargesPayload, validateCharges, type EnrollmentChargesValue,
 } from "@/lib/enrollmentCharges";
@@ -187,6 +187,10 @@ export default function NewClientPage() {
   // ── Submit ───────────────────────────────────────────────────────────────
 
   const onSubmit = async (data: FormData) => {
+    if (enrollmentMode === "group" && packagePricingMissing(selectedGroups, tables)) {
+      toast.error("No se pudieron cargar los precios del paquete. Recarga la página e inténtalo de nuevo.");
+      return;
+    }
     try {
       setSaving(true);
 

@@ -4,7 +4,7 @@
 // NEW ENROLLMENT PAGE - Inscribir alumno
 // ============================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,7 +38,7 @@ import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiS
 import { EnrollmentCharges } from "@/components/enrollments/EnrollmentCharges";
 import { GroupMultiPicker } from "@/components/enrollments/GroupMultiPicker";
 import { tuitionTablesApi } from "@/lib/api/tuitionTables";
-import { enrollmentSummary, packageBillingDay, signupFeeGroup } from "@/lib/tuition";
+import { enrollmentSummary, packageBillingDay, packagePricingMissing, signupFeeGroup } from "@/lib/tuition";
 import {
   EMPTY_CHARGES, chargesPayload, validateCharges, type EnrollmentChargesValue,
 } from "@/lib/enrollmentCharges";
@@ -82,7 +82,9 @@ export default function NewEnrollmentPage() {
   const preselectedGroupId   = searchParams.get("class_group") ?? "";
   const preselectedClientId  = searchParams.get("client") ?? "";
 
-  const { createEnrollment, isLoading } = useEnrollments();
+  const { createEnrollment, isLoading: creating } = useEnrollments();
+  const [submitting, setSubmitting] = useState(false);
+  const isLoading = creating || submitting;  // bulk no pasa por useEnrollments
 
   const [clients, setClients]                     = useState<Client[]>([]);
   const [groups, setGroups]                       = useState<ClassGroup[]>([]);
@@ -125,7 +127,7 @@ export default function NewEnrollmentPage() {
   const selectedGroupId  = form.watch("class_group") ?? "";
   const selectedClient   = clients.find((c) => c.id === selectedClientId) ?? preselectedClient;
   const selectedGroup    = groups.find((g) => g.id === selectedGroupId) ?? preselectedGroup;
-  const bulk             = multi && groupIds.length > 1;
+  const bulk             = mode === "group" && multi && groupIds.length > 1;
   const selectedGroups   = bulk ? groups.filter((g) => groupIds.includes(g.id)) : selectedGroup ? [selectedGroup] : [];
   const summary          = enrollmentSummary(selectedGroups, groups, tables, clientEnrollments);
   // Cuota de inscripción: una por alumno (no se propone si ya tiene grupos)
@@ -216,28 +218,46 @@ export default function NewEnrollmentPage() {
   // Cuando cambia el cliente seleccionado, cargar sus inscripciones activas
   useEffect(() => {
     const clientId = selectedClientId || preselectedClientId;
-    if (!clientId) { setClientEnrollments([]); return; }
+    setClientEnrollments([]);
+    if (!clientId) return;
+    let stale = false;  // ignora la respuesta si mientras tanto se eligió otro alumno
     enrollmentsApi.getAll({ client: clientId, limit: 200 }).then((res) => {
+      if (stale) return;
       setClientEnrollments(res.results);
+      // Grupos donde ya está inscrito no pueden quedar elegidos
+      const already = new Set(res.results.filter((e) => e.status === "active" || e.status === "paused").map((e) => e.class_group));
+      setGroupIds((ids) => ids.filter((id) => !already.has(id)));
     }).catch(() => {});
+    return () => { stale = true; };
   }, [selectedClientId, preselectedClientId]);
 
   // Grupo de un paquete que el alumno ya paga: mismo día de pago (precio fijo no se precarga)
   const selectedTableIds = selectedGroups.map((g) => g.tuition_table).join(",");
+  // Lo que puso la app (no la usuaria): se reemplaza si cambia el alumno o los grupos
+  const autoBillingDay = useRef("");
   useEffect(() => {
-    const day = packageBillingDay(clientEnrollments, selectedTableIds.split(","));
-    if (day && !form.getFieldState("custom_billing_day").isDirty && !form.getValues("custom_billing_day")) {
+    const day = packageBillingDay(clientEnrollments, selectedTableIds.split(",")) ?? "";
+    const current = form.getValues("custom_billing_day") ?? "";
+    if (current === "" || current === autoBillingDay.current) {
       form.setValue("custom_billing_day", day);
+      autoBillingDay.current = day;
     }
   }, [clientEnrollments, selectedTableIds, form]);
 
   const handleSubmit = async (values: FormValues) => {
-    const chargesError = validateCharges(charges, effectiveFee);
+    if (values.mode === "group" && packagePricingMissing(selectedGroups, tables)) {
+      toast.error("No se pudieron cargar los precios del paquete. Recarga la página e inténtalo de nuevo.");
+      return;
+    }
+    // Si solo sube un paquete que ya paga, no hay cobros nuevos (el bloque está oculto)
+    const chargesValue = onlyRaisesPackage ? EMPTY_CHARGES : charges;
+    const chargesError = validateCharges(chargesValue, effectiveFee);
     if (chargesError) {
       toast.error(chargesError);
       return;
     }
-    const chargeFields = chargesPayload(charges, todayLocalISO());
+    const chargeFields = chargesPayload(chargesValue, todayLocalISO());
+    setSubmitting(true);
     try {
       if (values.mode === "group" && bulk) {
         // ── Varios grupos: un solo POST /enrollments/bulk/ ──
@@ -309,6 +329,8 @@ export default function NewEnrollmentPage() {
       } else {
         toast.error("Error al inscribir al alumno");
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -677,8 +699,8 @@ export default function NewEnrollmentPage() {
                 disabled={isLoading}
               />}
 
-              {/* ── Notas ── */}
-              <FormField
+              {/* ── Notas (la inscripción a varios grupos no las guarda) ── */}
+              {!bulk && <FormField
                 control={form.control}
                 name="notes"
                 render={({ field }) => (
@@ -690,7 +712,7 @@ export default function NewEnrollmentPage() {
                     <FormMessage />
                   </FormItem>
                 )}
-              />
+              />}
 
               {/* ── Acciones ── */}
               <div className="flex gap-3 pt-2">
