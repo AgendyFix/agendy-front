@@ -108,3 +108,14 @@ export function enrollmentSummary(
     firstChargeTotal: fixedNew + packages.filter((p) => p.before === 0).reduce((n, p) => n + p.feeAfter, 0),
   };
 }
+
+/**
+ * Hay grupos de paquete elegidos cuyo precio no se pudo cargar (la tabla aún
+ * no llega o falló): no se debe confirmar la inscripción con un total de $0.
+ */
+export function packagePricingMissing(
+  selected: { tuition_table?: string | null }[],
+  tables: { id: string }[],
+): boolean {
+  return selected.some((g) => g.tuition_table && !tables.some((t) => t.id === g.tuition_table));
+}

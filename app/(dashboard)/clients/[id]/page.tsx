@@ -738,7 +738,9 @@ export default function ClientDetailPage() {
           tableId: e.tuition.table_id, name: e.tuition.table_name,
           count: e.tuition.count, fee: e.tuition.fee, billingDay: e.billing_day, items: [],
         });
-        if (e.tuition.is_anchor) b.billingDay = e.billing_day;
+        if (e.tuition.is_anchor) {  // solo el ancla cobra: su precio y día mandan
+          b.billingDay = e.billing_day; b.fee = e.tuition.fee; b.count = e.tuition.count;
+        }
         b.items.push(e);
         return acc;
       }, {}),
