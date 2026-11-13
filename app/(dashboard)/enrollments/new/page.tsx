@@ -38,7 +38,7 @@ import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiS
 import { EnrollmentCharges } from "@/components/enrollments/EnrollmentCharges";
 import { GroupMultiPicker } from "@/components/enrollments/GroupMultiPicker";
 import { tuitionTablesApi } from "@/lib/api/tuitionTables";
-import { enrollmentSummary } from "@/lib/tuition";
+import { enrollmentSummary, packageBillingDay, signupFeeGroup } from "@/lib/tuition";
 import {
   EMPTY_CHARGES, chargesPayload, validateCharges, type EnrollmentChargesValue,
 } from "@/lib/enrollmentCharges";
@@ -130,7 +130,7 @@ export default function NewEnrollmentPage() {
   const summary          = enrollmentSummary(selectedGroups, groups, tables, clientEnrollments);
   // Cuota de inscripción: una por alumno (no se propone si ya tiene grupos)
   const hasEnrollments   = clientEnrollments.some((e) => e.status === "active" || e.status === "paused");
-  const signupGroup      = hasEnrollments ? undefined : selectedGroups.find((g) => (g.signup_fee ?? 0) > 0) ?? selectedGroups[0];
+  const signupGroup      = hasEnrollments ? undefined : signupFeeGroup(selectedGroups);
 
   const onlyRaisesPackage = mode === "group" && summary.firstChargeTotal === 0 && !form.watch("custom_monthly_fee")
     && summary.lines.length > 0
@@ -219,10 +219,10 @@ export default function NewEnrollmentPage() {
     if (!clientId) { setClientEnrollments([]); return; }
     enrollmentsApi.getAll({ client: clientId, limit: 200 }).then((res) => {
       setClientEnrollments(res.results);
-      // Mismo día de pago que los grupos que ya tiene
-      const current = res.results.find((e) => e.status === "active");
-      if (current && !form.getValues("custom_billing_day")) {
-        form.setValue("custom_billing_day", String(current.billing_day));
+      // Con paquete: mismo día de pago que ya tiene (precio fijo no se precarga)
+      const day = packageBillingDay(res.results);
+      if (day && !form.getValues("custom_billing_day")) {
+        form.setValue("custom_billing_day", day);
       }
     }).catch(() => {});
   }, [selectedClientId, preselectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -669,6 +669,7 @@ export default function NewEnrollmentPage() {
                 billingDay={form.watch("custom_billing_day")}
                 groupId={mode === "group" ? signupGroup?.id ?? (hasEnrollments ? "existing" : undefined) : undefined}
                 groupSignupFee={mode === "group" ? signupGroup?.signup_fee ?? null : null}
+                multiGroup={mode === "group" && selectedGroups.length > 1}
                 disabled={isLoading}
               />}
 

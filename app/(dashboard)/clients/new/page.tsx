@@ -26,7 +26,7 @@ import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiS
 import { EnrollmentCharges } from "@/components/enrollments/EnrollmentCharges";
 import { GroupMultiPicker } from "@/components/enrollments/GroupMultiPicker";
 import { tuitionTablesApi } from "@/lib/api/tuitionTables";
-import { enrollmentSummary } from "@/lib/tuition";
+import { enrollmentSummary, signupFeeGroup } from "@/lib/tuition";
 import {
   EMPTY_CHARGES, chargesPayload, validateCharges, type EnrollmentChargesValue,
 } from "@/lib/enrollmentCharges";
@@ -161,7 +161,7 @@ export default function NewClientPage() {
   const bulk           = groupIds.length > 1;
   const selectedGroups = groups.filter((g) => groupIds.includes(g.id));
   const summary        = enrollmentSummary(selectedGroups, groups, tables);
-  const signupGroup    = selectedGroups.find((g) => (g.signup_fee ?? 0) > 0) ?? selectedGroups[0];
+  const signupGroup    = signupFeeGroup(selectedGroups);
   const packageGroupSelected = !bulk && !!selectedGroup?.tuition_table;
   const onPickGroups = (ids: string[]) => {
     setGroupIds(ids);
@@ -614,6 +614,7 @@ export default function NewClientPage() {
                   billingDay={watch("grp_billing_day")}
                   groupId={signupGroup?.id}
                   groupSignupFee={signupGroup?.signup_fee ?? null}
+                  multiGroup={selectedGroups.length > 1}
                   disabled={saving}
                 />
 

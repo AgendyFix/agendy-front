@@ -147,3 +147,20 @@ export function nextMonthStartLabel(today = new Date()): string {
 export function tiersChanged(a: TuitionTier[], b: TuitionTier[]): boolean {
   return a.length !== b.length || a.some((t, i) => t.count !== b[i].count || t.fee !== b[i].fee);
 }
+
+/**
+ * Día de pago a precargar al inscribir a un alumno existente: solo si ya paga
+ * un paquete (un solo día de pago por paquete). Tope 28, como el campo.
+ * En precio fijo no se precarga (cada grupo sigue con su fecha de inicio).
+ */
+export function packageBillingDay(
+  enrollments: { status: string; billing_day?: number | null; tuition?: unknown }[],
+): string | undefined {
+  const e = enrollments.find((x) => x.status === "active" && x.tuition && x.billing_day);
+  return e ? String(Math.min(e.billing_day as number, 28)) : undefined;
+}
+
+/** Grupo cuya cuota de inscripción se cobra: una sola por alumno (el primero que tenga cuota). */
+export function signupFeeGroup<T extends { signup_fee?: number | null }>(groups: T[]): T | undefined {
+  return groups.find((g) => (g.signup_fee ?? 0) > 0) ?? groups[0];
+}

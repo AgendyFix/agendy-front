@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClassGroup, Enrollment, TuitionTable } from "@/lib/types/models";
-import { enrollmentSummary, feeFor, tiersLabel } from "./tuition";
+import { enrollmentSummary, feeFor, packageBillingDay, signupFeeGroup, tiersLabel } from "./tuition";
 
 const TIERS = [
   { count: 1, fee: 450 }, { count: 2, fee: 650 },
@@ -96,5 +96,31 @@ describe("helpers de paquetes", () => {
     expect(tiersChanged(TIERS, TIERS.map((t) => ({ ...t })))).toBe(false);
     expect(tiersChanged(TIERS, TIERS.slice(0, 3))).toBe(true);
     expect(tiersChanged(TIERS, [{ count: 1, fee: 500 }, ...TIERS.slice(1)])).toBe(true);
+  });
+});
+
+describe("día de pago precargado", () => {
+  const act = (billing_day: number, tuition: unknown = null) => ({ status: "active", billing_day, tuition });
+  it("precio fijo: no se precarga (aunque empiece el 30)", () => {
+    expect(packageBillingDay([act(30)])).toBeUndefined();
+    expect(packageBillingDay([act(12)])).toBeUndefined();
+  });
+  it("paquete: el día del paquete, con tope 28", () => {
+    expect(packageBillingDay([act(12, { table_id: "t" })])).toBe("12");
+    expect(packageBillingDay([act(31, { table_id: "t" })])).toBe("28");
+  });
+  it("ignora inscripciones no activas", () => {
+    expect(packageBillingDay([{ status: "paused", billing_day: 5, tuition: { table_id: "t" } }])).toBeUndefined();
+  });
+});
+
+describe("cuota de inscripción una por alumno", () => {
+  it("toma el primer grupo con cuota", () => {
+    const gs = [{ id: "a", signup_fee: null }, { id: "b", signup_fee: 300 }, { id: "c", signup_fee: 500 }];
+    expect(signupFeeGroup(gs)?.id).toBe("b");
+  });
+  it("sin cuotas: el primero; sin grupos: nada", () => {
+    expect(signupFeeGroup([{ id: "a", signup_fee: 0 }])?.id).toBe("a");
+    expect(signupFeeGroup([])).toBeUndefined();
   });
 });

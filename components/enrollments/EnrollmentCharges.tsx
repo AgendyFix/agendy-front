@@ -38,6 +38,8 @@ interface Props {
    */
   groupId?: string;
   groupSignupFee?: number | null;
+  /** Se inscribe a varios grupos: la cuota es una sola por alumno */
+  multiGroup?: boolean;
   disabled?: boolean;
   /** Prefijo para ids de inputs (evita duplicados si hay dos bloques en la página). */
   idPrefix?: string;
@@ -71,7 +73,7 @@ function CheckRow({
 
 export function EnrollmentCharges({
   value, onChange, monthlyFee, startDate, billingDay,
-  groupId, groupSignupFee, disabled, idPrefix = "charges",
+  groupId, groupSignupFee, multiGroup = false, disabled, idPrefix = "charges",
 }: Props) {
   // Proponer la cuota del grupo cada vez que cambia el grupo elegido.
   // (No en el primer render sin grupo, para no pisar lo que traiga el form.)
@@ -120,7 +122,10 @@ export function EnrollmentCharges({
           disabled={disabled}
           onChange={(checked) => set({ signupEnabled: checked, ...(checked ? {} : { signupFee: "", signupPaid: "" }) })}
           title="Cuota de inscripción"
-          hint={groupSignupFee ? `El grupo cobra ${money(groupSignupFee)} de inscripción` : "Cargo único al darse de alta"}
+          hint={
+            multiGroup ? "Una sola por alumno, aunque tome varios grupos"
+            : groupSignupFee ? `El grupo cobra ${money(groupSignupFee)} de inscripción` : "Cargo único al darse de alta"
+          }
         />
         {value.signupEnabled && (
           <div className="pl-7 space-y-2">
