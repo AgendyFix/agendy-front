@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, GraduationCap, Loader2, BookOpen } from "lucide-react";
+import { Plus, Search, GraduationCap, Loader2, BookOpen, Layers } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,9 @@ import { ClassGroupCard } from "@/components/classGroups/ClassGroupCard";
 import { PublicSiteNotice } from "@/components/publicPage/PublicSiteNotice";
 import { DisciplineManagerModal } from "@/components/disciplines/DisciplineManagerModal";
 import { useClassGroups } from "@/lib/hooks/useClassGroups";
+import { useFeatures } from "@/lib/hooks/useFeatures";
+import { useIsAdmin } from "@/lib/hooks/useIsAdmin";
+import { TUITION_TABLES_FEATURE } from "@/lib/tuition";
 import type { ClassGroupLevel } from "@/lib/types/models";
 
 const LEVELS = [
@@ -133,12 +136,17 @@ export default function ClassGroupsPage() {
   });
   const hasActiveFilters = !!search || levelFilter !== "all_levels" || groupSegment !== "all";
 
+  // Paquetes (precio por número de grupos): solo admins de academias con el feature
+  const { isFeatureEnabled } = useFeatures();
+  const isAdmin = useIsAdmin();
+  const showPackages = isAdmin && isFeatureEnabled(TUITION_TABLES_FEATURE);
+
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Grupos / Clases</h1>
           <p className="text-muted-foreground">
@@ -147,7 +155,13 @@ export default function ClassGroupsPage() {
               : "Gestiona los grupos y horarios de tu academia"}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {showPackages && (
+            <Button variant="outline" title="Paquetes" onClick={() => router.push("/class-groups/packages")}>
+              <Layers className="h-4 w-4 mr-2" />
+              Paquetes
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setDisciplinesOpen(true)}>
             <BookOpen className="h-4 w-4 mr-2" />
             <span className="hidden sm:inline">Disciplinas</span>

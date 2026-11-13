@@ -615,15 +615,23 @@ export interface ClassGroup {
 
 /** Tabulador: mensualidad única según cuántos grupos del paquete toma el alumno */
 export interface TuitionTier {
-  count: number;
+  /** Número de grupos, o "all" = "Todos": el alumno tiene todos los grupos del paquete */
+  count: number | "all";
   fee: number;
 }
 
 export interface TuitionTable {
   id: string;
   name: string;
+  /** Escalones vigentes hoy */
   tiers: TuitionTier[];
+  /** Cambio de precios programado (aplica desde `pending_from`, 1.º del mes siguiente) */
+  pending_tiers?: TuitionTier[] | null;
+  pending_from?: string | null;
   is_active: boolean;
+  groups?: { id: string; name: string }[];
+  /** Alumnos con algún grupo activo en el paquete */
+  students_count?: number;
 }
 
 export type EnrollmentStatus = 'active' | 'paused' | 'dropped';

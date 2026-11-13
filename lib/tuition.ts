@@ -11,19 +11,31 @@
 
 import type { ClassGroup, Enrollment, TuitionTable, TuitionTier } from "@/lib/types/models";
 
-/** Mensualidad para `count` grupos: el escalón más alto con count <= `count`. */
-export function feeFor(tiers: TuitionTier[], count: number): number {
-  const eligible = tiers.filter((t) => t.count <= count);
+export const TIER_ALL = "all" as const;
+
+/**
+ * Mensualidad para `count` grupos (espejo de TuitionTable.fee_for): si tiene
+ * todos los grupos del paquete (`groupCount`) y hay escalón "Todos", ese; si
+ * no, el escalón numérico más alto con count <= `count`.
+ */
+export function feeFor(tiers: TuitionTier[], count: number, groupCount = Infinity): number {
+  const all = tiers.find((t) => t.count === TIER_ALL);
+  if (all && count > 0 && count >= groupCount) return all.fee;
+  const eligible = tiers.filter((t): t is TuitionTier & { count: number } => t.count !== TIER_ALL && t.count <= count);
   if (eligible.length === 0) return 0;
   return eligible.reduce((a, b) => (b.count > a.count ? b : a)).fee;
 }
 
-/** "1 grupo $450 · 2 $650 · 3 $850" */
+/** "1 grupo $450 · 2 $650 · 3 $850 · Todos $950" */
 export function tiersLabel(tiers: TuitionTier[]): string {
-  return [...tiers]
-    .sort((a, b) => a.count - b.count)
-    .map((t, i) => `${t.count}${i === 0 ? (t.count === 1 ? " grupo" : " grupos") : ""} $${t.fee.toLocaleString("es-MX")}`)
-    .join(" · ");
+  const numeric = tiers
+    .filter((t): t is TuitionTier & { count: number } => t.count !== TIER_ALL)
+    .sort((a, b) => a.count - b.count);
+  const all = tiers.find((t) => t.count === TIER_ALL);
+  return [
+    ...numeric.map((t, i) => `${t.count}${i === 0 ? (t.count === 1 ? " grupo" : " grupos") : ""} $${t.fee.toLocaleString("es-MX")}`),
+    ...(all ? [`Todos $${all.fee.toLocaleString("es-MX")}`] : []),
+  ].join(" · ");
 }
 
 export interface PackageLine {
@@ -70,6 +82,9 @@ export function enrollmentSummary(
   const tableById = new Map(tables.filter((t) => t.is_active).map((t) => [t.id, t]));
   const groupById = new Map(groups.map((g) => [g.id, g]));
   const tableOf = (g?: ClassGroup) => (g?.tuition_table ? tableById.get(g.tuition_table) : undefined);
+  // Grupos activos de cada paquete (para el escalón "Todos")
+  const packageSize = (tableId: string) =>
+    groups.filter((g) => g.tuition_table === tableId && g.is_active !== false && !g.is_individual).length;
 
   const active = existing.filter((e) => e.status === "active");
   const beforeCount = new Map<string, number>();
@@ -96,8 +111,8 @@ export function enrollmentSummary(
     packages.push({
       kind: "package", tableId, name: table.name,
       before, after: before + added,
-      feeBefore: feeFor(table.tiers, before),
-      feeAfter: feeFor(table.tiers, before + added),
+      feeBefore: feeFor(table.tiers, before, packageSize(tableId)),
+      feeAfter: feeFor(table.tiers, before + added, packageSize(tableId)),
     });
   }
 
@@ -107,6 +122,78 @@ export function enrollmentSummary(
     monthlyTotal: existingFixed + fixedNew + packages.reduce((n, p) => n + p.feeAfter, 0),
     firstChargeTotal: fixedNew + packages.filter((p) => p.before === 0).reduce((n, p) => n + p.feeAfter, 0),
   };
+}
+
+/** Slug del feature flag de Paquetes (catálogo en el backend: apps/companies/features.py). */
+export const TUITION_TABLES_FEATURE = "tuition_tables";
+
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+/** "2026-12-01" → "1 de diciembre" */
+export function formatFrom(iso: string): string {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${d} de ${MESES[m - 1]}`;
+}
+
+/** 1.º del mes siguiente a `today`, como "1 de diciembre" (espejo de TuitionTable.schedule_tiers). */
+export function nextMonthStartLabel(today = new Date()): string {
+  return `1 de ${MESES[(today.getMonth() + 1) % 12]}`;
+}
+
+/** ¿Cambiaron los escalones? (mismo orden: siempre se guardan por count ascendente) */
+export function tiersChanged(a: TuitionTier[], b: TuitionTier[]): boolean {
+  return a.length !== b.length || a.some((t, i) => t.count !== b[i].count || t.fee !== b[i].fee);
+}
+
+/**
+ * Día de pago a precargar al inscribir a un alumno existente: solo si ya paga
+ * un paquete (un solo día de pago por paquete). Tope 28, como el campo.
+ * En precio fijo no se precarga (cada grupo sigue con su fecha de inicio).
+ */
+export function packageBillingDay(
+  enrollments: { status: string; billing_day?: number | null; tuition?: { table_id: string } | null }[],
+  tableIds: (string | null | undefined)[],
+): string | undefined {
+  // Solo el paquete de los grupos que se están inscribiendo (no otro paquete ni precio fijo)
+  const e = enrollments.find(
+    (x) => x.status === "active" && x.tuition && x.billing_day && tableIds.includes(x.tuition.table_id),
+  );
+  return e ? String(Math.min(e.billing_day as number, 28)) : undefined;
+}
+
+/** Grupo cuya cuota de inscripción se cobra: una sola por alumno (el primero que tenga cuota). */
+export function signupFeeGroup<T extends { signup_fee?: number | null }>(groups: T[]): T | undefined {
+  return groups.find((g) => (g.signup_fee ?? 0) > 0) ?? groups[0];
+}
+
+// ── Modo de cobro del grupo (pestañas "Precio fijo" / "Por paquete") ────────
+
+export type FeeMode = "fixed" | "package";
+
+/** Pestaña inicial del formulario de grupo: "Por paquete" si ya tiene tabulador. */
+export function feeModeOf(group?: { tuition_table?: string | null } | null): FeeMode {
+  return group?.tuition_table ? "package" : "fixed";
+}
+
+/**
+ * Campos de cobro que se mandan al API según la pestaña elegida.
+ * - Precio fijo: `tuition_table: null` (el API exige monthly_fee al quitar el
+ *   paquete). Sin paquetes en la academia ni tabulador previo no se manda
+ *   `tuition_table`, igual que siempre.
+ * - Por paquete: el tabulador elegido; la mensualidad que tuviera se conserva
+ *   "dormida" (el backend no la cobra mientras haya paquete).
+ */
+export function feePayload(
+  mode: FeeMode,
+  values: { monthly_fee?: number | null; tuition_table?: string | null },
+  hasTables: boolean,
+): { monthly_fee: number | null; tuition_table?: string | null } {
+  const monthly_fee = values.monthly_fee ?? null;
+  if (mode === "package") return { monthly_fee, tuition_table: values.tuition_table || null };
+  return hasTables || values.tuition_table ? { monthly_fee, tuition_table: null } : { monthly_fee };
 }
 
 /**

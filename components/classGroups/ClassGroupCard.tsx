@@ -117,6 +117,9 @@ export function ClassGroupCard({ group, onDelete }: ClassGroupCardProps) {
             const fee = group.is_individual
               ? (group.primary_enrollment_fee ?? null)
               : group.monthly_fee;
+            if (!group.is_individual && group.tuition_table_name) {
+              return <span className="text-xs font-medium text-primary">Paquete {group.tuition_table_name}</span>;
+            }
             return fee != null ? (
               <div className="flex items-center gap-1 text-sm font-semibold text-green-700">
                 <DollarSign className="h-4 w-4" />

@@ -180,7 +180,7 @@ function SummaryBox({ summary, hasExisting }: { summary: EnrollmentSummary; hasE
       {raises && (
         <p className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
           <BellRing className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>El cobro ya generado de este mes no cambia. El nuevo precio aplica desde el siguiente cobro.</span>
+          <span>El cobro de este mes no sube (salvo que se haya generado hoy). El nuevo precio aplica desde el siguiente cobro.</span>
         </p>
       )}
     </div>

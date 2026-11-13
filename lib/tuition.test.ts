@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClassGroup, Enrollment, TuitionTable } from "@/lib/types/models";
-import { enrollmentSummary, feeFor, packagePricingMissing, tiersLabel } from "./tuition";
+import { enrollmentSummary, feeFor, feeModeOf, feePayload, packageBillingDay, packagePricingMissing, signupFeeGroup, tiersLabel } from "./tuition";
 
 const TIERS = [
   { count: 1, fee: 450 }, { count: 2, fee: 650 },
@@ -29,6 +29,7 @@ describe("feeFor", () => {
 
   it("etiqueta los escalones en orden", () => {
     expect(tiersLabel([TIERS[1], TIERS[0]])).toBe("1 grupo $450 · 2 $650");
+    expect(tiersLabel([{ count: "all", fee: 950 }, TIERS[0]])).toBe("1 grupo $450 · Todos $950");
   });
 });
 
@@ -69,6 +70,83 @@ describe("enrollmentSummary", () => {
   it("sin tabulador (o inactivo) todo es precio fijo", () => {
     const s = enrollmentSummary([a], groups, [{ ...danza, is_active: false }]);
     expect(s.lines).toEqual([{ kind: "fixed", groupId: "A", name: "A", fee: 0 }]);
+  });
+});
+
+describe("escalón Todos", () => {
+  const conTodos = [TIERS[0], TIERS[1], { count: "all" as const, fee: 900 }];
+  it("aplica solo si tiene todos los grupos del paquete", () => {
+    expect(feeFor(conTodos, 4, 4)).toBe(900);
+    expect(feeFor(conTodos, 3, 4)).toBe(650);
+    expect(feeFor(conTodos, 0, 4)).toBe(0);
+  });
+  it("el resumen cuenta los grupos del paquete", () => {
+    const t = { ...danza, tiers: conTodos };
+    expect(enrollmentSummary([a, b, c, d], groups, [t]).monthlyTotal).toBe(900);
+    expect(enrollmentSummary([a, b, c], groups, [t]).monthlyTotal).toBe(650);
+  });
+});
+
+describe("helpers de paquetes", () => {
+  it("formatea la fecha de inicio y el mes siguiente", async () => {
+    const { formatFrom, nextMonthStartLabel, tiersChanged } = await import("./tuition");
+    expect(formatFrom("2026-12-01")).toBe("1 de diciembre");
+    expect(nextMonthStartLabel(new Date(2026, 10, 12))).toBe("1 de diciembre");
+    expect(nextMonthStartLabel(new Date(2026, 11, 31))).toBe("1 de enero");
+    expect(tiersChanged(TIERS, TIERS.map((t) => ({ ...t })))).toBe(false);
+    expect(tiersChanged(TIERS, TIERS.slice(0, 3))).toBe(true);
+    expect(tiersChanged(TIERS, [{ count: 1, fee: 500 }, ...TIERS.slice(1)])).toBe(true);
+  });
+});
+
+describe("día de pago precargado", () => {
+  const act = (billing_day: number, tuition: { table_id: string } | null = null) => ({ status: "active", billing_day, tuition });
+  it("precio fijo: no se precarga (aunque empiece el 30)", () => {
+    expect(packageBillingDay([act(30)], [null])).toBeUndefined();
+    expect(packageBillingDay([act(12)], ["t"])).toBeUndefined();
+  });
+  it("paquete del grupo que se inscribe: su día, con tope 28", () => {
+    expect(packageBillingDay([act(12, { table_id: "t" })], ["t"])).toBe("12");
+    expect(packageBillingDay([act(31, { table_id: "t" })], ["t"])).toBe("28");
+  });
+  it("grupo de precio fijo u otro paquete: no se precarga", () => {
+    expect(packageBillingDay([act(12, { table_id: "t" })], [null])).toBeUndefined();
+    expect(packageBillingDay([act(12, { table_id: "t" })], ["otro"])).toBeUndefined();
+  });
+  it("ignora inscripciones no activas", () => {
+    expect(packageBillingDay([{ status: "paused", billing_day: 5, tuition: { table_id: "t" } }], ["t"])).toBeUndefined();
+  });
+});
+
+describe("cuota de inscripción una por alumno", () => {
+  it("toma el primer grupo con cuota", () => {
+    const gs = [{ id: "a", signup_fee: null }, { id: "b", signup_fee: 300 }, { id: "c", signup_fee: 500 }];
+    expect(signupFeeGroup(gs)?.id).toBe("b");
+  });
+  it("sin cuotas: el primero; sin grupos: nada", () => {
+    expect(signupFeeGroup([{ id: "a", signup_fee: 0 }])?.id).toBe("a");
+    expect(signupFeeGroup([])).toBeUndefined();
+  });
+});
+
+describe("modo de cobro del grupo (pestañas)", () => {
+  it("pestaña inicial: paquete solo si el grupo ya tiene tabulador", () => {
+    expect(feeModeOf(undefined)).toBe("fixed");
+    expect(feeModeOf({ tuition_table: null })).toBe("fixed");
+    expect(feeModeOf({ tuition_table: "t1" })).toBe("package");
+  });
+  it("precio fijo sin paquetes en la academia: no manda tuition_table (igual que siempre)", () => {
+    expect(feePayload("fixed", { monthly_fee: 350, tuition_table: "" }, false)).toEqual({ monthly_fee: 350 });
+  });
+  it("precio fijo con paquetes o tabulador previo: manda tuition_table null y la mensualidad", () => {
+    expect(feePayload("fixed", { monthly_fee: 350, tuition_table: "" }, true)).toEqual({ monthly_fee: 350, tuition_table: null });
+    expect(feePayload("fixed", { monthly_fee: 350, tuition_table: "t1" }, false)).toEqual({ monthly_fee: 350, tuition_table: null });
+    expect(feePayload("fixed", { tuition_table: "t1" }, true)).toEqual({ monthly_fee: null, tuition_table: null });
+  });
+  it("por paquete: manda el tabulador y conserva la mensualidad dormida", () => {
+    expect(feePayload("package", { monthly_fee: 350, tuition_table: "t1" }, true)).toEqual({ monthly_fee: 350, tuition_table: "t1" });
+    expect(feePayload("package", { tuition_table: "t1" }, true)).toEqual({ monthly_fee: null, tuition_table: "t1" });
+    expect(feePayload("package", { monthly_fee: 350, tuition_table: "" }, true)).toEqual({ monthly_fee: 350, tuition_table: null });
   });
 });
 

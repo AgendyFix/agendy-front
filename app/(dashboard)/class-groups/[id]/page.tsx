@@ -297,10 +297,10 @@ export default function ClassGroupDetailPage() {
                 </div>
                 <div>
                   <p className="text-lg sm:text-2xl font-bold">
-                    {displayFee != null ? `$${displayFee.toLocaleString("es-MX")}` : "—"}
+                    {group.tuition_table_name ? "Paquete" : displayFee != null ? `$${displayFee.toLocaleString("es-MX")}` : "—"}
                   </p>
                   <p className="text-xs text-muted-foreground leading-tight">
-                    {group.is_individual ? "Mensualidad del alumno" : "Mensualidad base"}
+                    {group.tuition_table_name ?? (group.is_individual ? "Mensualidad del alumno" : "Mensualidad base")}
                   </p>
                 </div>
               </CardContent>
@@ -451,7 +451,11 @@ export default function ClassGroupDetailPage() {
                                 </button>
                               </span>
                             )}
-                            <span>${enrollment.monthly_fee.toLocaleString("es-MX")}/mes</span>
+                            <span>
+                              {enrollment.tuition
+                                ? `Paquete $${enrollment.tuition.fee.toLocaleString("es-MX")}/mes · ${enrollment.tuition.count} ${enrollment.tuition.count === 1 ? "grupo" : "grupos"}`
+                                : `$${enrollment.monthly_fee.toLocaleString("es-MX")}/mes`}
+                            </span>
                           </div>
                         </div>
 
