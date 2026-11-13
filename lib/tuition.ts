@@ -164,3 +164,30 @@ export function packageBillingDay(
 export function signupFeeGroup<T extends { signup_fee?: number | null }>(groups: T[]): T | undefined {
   return groups.find((g) => (g.signup_fee ?? 0) > 0) ?? groups[0];
 }
+
+// ── Modo de cobro del grupo (pestañas "Precio fijo" / "Por paquete") ────────
+
+export type FeeMode = "fixed" | "package";
+
+/** Pestaña inicial del formulario de grupo: "Por paquete" si ya tiene tabulador. */
+export function feeModeOf(group?: { tuition_table?: string | null } | null): FeeMode {
+  return group?.tuition_table ? "package" : "fixed";
+}
+
+/**
+ * Campos de cobro que se mandan al API según la pestaña elegida.
+ * - Precio fijo: `tuition_table: null` (el API exige monthly_fee al quitar el
+ *   paquete). Sin paquetes en la academia ni tabulador previo no se manda
+ *   `tuition_table`, igual que siempre.
+ * - Por paquete: el tabulador elegido; la mensualidad que tuviera se conserva
+ *   "dormida" (el backend no la cobra mientras haya paquete).
+ */
+export function feePayload(
+  mode: FeeMode,
+  values: { monthly_fee?: number | null; tuition_table?: string | null },
+  hasTables: boolean,
+): { monthly_fee: number | null; tuition_table?: string | null } {
+  const monthly_fee = values.monthly_fee ?? null;
+  if (mode === "package") return { monthly_fee, tuition_table: values.tuition_table || null };
+  return hasTables || values.tuition_table ? { monthly_fee, tuition_table: null } : { monthly_fee };
+}

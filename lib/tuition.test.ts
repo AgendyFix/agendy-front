@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClassGroup, Enrollment, TuitionTable } from "@/lib/types/models";
-import { enrollmentSummary, feeFor, packageBillingDay, signupFeeGroup, tiersLabel } from "./tuition";
+import { enrollmentSummary, feeFor, feeModeOf, feePayload, packageBillingDay, signupFeeGroup, tiersLabel } from "./tuition";
 
 const TIERS = [
   { count: 1, fee: 450 }, { count: 2, fee: 650 },
@@ -122,5 +122,26 @@ describe("cuota de inscripción una por alumno", () => {
   it("sin cuotas: el primero; sin grupos: nada", () => {
     expect(signupFeeGroup([{ id: "a", signup_fee: 0 }])?.id).toBe("a");
     expect(signupFeeGroup([])).toBeUndefined();
+  });
+});
+
+describe("modo de cobro del grupo (pestañas)", () => {
+  it("pestaña inicial: paquete solo si el grupo ya tiene tabulador", () => {
+    expect(feeModeOf(undefined)).toBe("fixed");
+    expect(feeModeOf({ tuition_table: null })).toBe("fixed");
+    expect(feeModeOf({ tuition_table: "t1" })).toBe("package");
+  });
+  it("precio fijo sin paquetes en la academia: no manda tuition_table (igual que siempre)", () => {
+    expect(feePayload("fixed", { monthly_fee: 350, tuition_table: "" }, false)).toEqual({ monthly_fee: 350 });
+  });
+  it("precio fijo con paquetes o tabulador previo: manda tuition_table null y la mensualidad", () => {
+    expect(feePayload("fixed", { monthly_fee: 350, tuition_table: "" }, true)).toEqual({ monthly_fee: 350, tuition_table: null });
+    expect(feePayload("fixed", { monthly_fee: 350, tuition_table: "t1" }, false)).toEqual({ monthly_fee: 350, tuition_table: null });
+    expect(feePayload("fixed", { tuition_table: "t1" }, true)).toEqual({ monthly_fee: null, tuition_table: null });
+  });
+  it("por paquete: manda el tabulador y conserva la mensualidad dormida", () => {
+    expect(feePayload("package", { monthly_fee: 350, tuition_table: "t1" }, true)).toEqual({ monthly_fee: 350, tuition_table: "t1" });
+    expect(feePayload("package", { tuition_table: "t1" }, true)).toEqual({ monthly_fee: null, tuition_table: "t1" });
+    expect(feePayload("package", { monthly_fee: 350, tuition_table: "" }, true)).toEqual({ monthly_fee: 350, tuition_table: null });
   });
 });

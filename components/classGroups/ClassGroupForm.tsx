@@ -55,7 +55,8 @@ import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiS
 import { DatePicker } from "@/components/ui/date-picker";
 import { todayLocalISO } from "@/lib/dates";
 import { tuitionTablesApi } from "@/lib/api/tuitionTables";
-import { TUITION_TABLES_FEATURE, tiersLabel } from "@/lib/tuition";
+import { TUITION_TABLES_FEATURE, feeModeOf, feePayload, tiersLabel, type FeeMode } from "@/lib/tuition";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsAdmin } from "@/lib/hooks/useIsAdmin";
 import { PackageForm } from "@/components/classGroups/PackageForm";
 import Link from "next/link";
@@ -79,14 +80,19 @@ const collectiveSchema = z.object({
   level:         z.enum(["all", "beginner", "intermediate", "advanced"]),
   monthly_fee:   z.number().min(0, "Debe ser mayor o igual a 0").optional(),
   signup_fee:    z.number().min(0, "Debe ser mayor o igual a 0").optional(),
-  /** Tabulador: el grupo entra al paquete por número de grupos ("" = precio fijo) */
+  /** Pestaña de cobro: precio fijo (mensualidad) o por paquete (tabulador) */
+  fee_mode:      z.enum(["fixed", "package"]),
+  /** Tabulador elegido; se conserva al cambiar de pestaña para no perderlo */
   tuition_table: z.string().optional(),
   instructor:    z.string().optional(),
   disciplines:   z.array(z.string()),
   schedules:     z.array(scheduleSchema),
 }).superRefine((val, ctx) => {
-  if (!val.tuition_table && val.monthly_fee == null) {
+  if (val.fee_mode === "fixed" && val.monthly_fee == null) {
     ctx.addIssue({ code: "custom", path: ["monthly_fee"], message: "Ingresa la mensualidad" });
+  }
+  if (val.fee_mode === "package" && !val.tuition_table) {
+    ctx.addIssue({ code: "custom", path: ["tuition_table"], message: "Elige o crea un paquete" });
   }
 });
 
@@ -205,6 +211,7 @@ export function ClassGroupForm({
       level:         (initialData?.level as CollectiveValues["level"]) ?? "all",
       monthly_fee:   initialData?.monthly_fee ?? undefined,
       signup_fee:    initialData?.signup_fee ?? undefined,
+      fee_mode:      feeModeOf(initialData),
       tuition_table: initialData?.tuition_table ?? "",
       instructor:    initialData?.instructor_id ?? "",
       disciplines:   initialData?.disciplines?.map((d) => d.id) ?? [],
@@ -230,9 +237,28 @@ export function ClassGroupForm({
   });
 
   const tuitionTable = collectiveForm.watch("tuition_table") ?? "";
-  const inPackage    = !!tuitionTable;
-  // Si el tabulador ligado ya no está activo, igual se muestra por nombre
+  const feeMode      = collectiveForm.watch("fee_mode");
+  // Pestañas "Precio fijo / Por paquete": solo donde hoy aparecería la opción de
+  // paquete. Sin paquetes ni feature, el formulario queda igual que siempre.
+  const showFeeTabs  = tables.length > 0 || canManagePackages || !!tuitionTable;
+  // Si el tabulador ligado ya no está en la lista (inactivo), igual se muestra por nombre
   const packageTable = tables.find((t) => t.id === tuitionTable);
+  const packageOptions = !tuitionTable || packageTable || !initialData?.tuition_table_name
+    ? tables
+    : [...tables, { id: tuitionTable, name: initialData.tuition_table_name } as TuitionTable];
+  // Grupo con alumnos que cambia de modo o de paquete: avisar cuándo aplica
+  const feeChangeNotice = isEditing && (initialData?.active_enrollment_count ?? 0) > 0
+    && (feeMode !== feeModeOf(initialData)
+      || (feeMode === "package" && tuitionTable !== initialData?.tuition_table));
+
+  const setFeeMode = (mode: FeeMode) => {
+    const opts = { shouldValidate: collectiveForm.formState.isSubmitted };
+    collectiveForm.setValue("fee_mode", mode, opts);
+    // Al entrar a "Por paquete" sin elección previa, proponer el primero
+    if (mode === "package" && !tuitionTable && tables.length > 0) {
+      collectiveForm.setValue("tuition_table", tables[0].id, opts);
+    }
+  };
 
   const { fields, append, remove } = useFieldArray({
     control: collectiveForm.control,
@@ -247,11 +273,8 @@ export function ClassGroupForm({
         name:          values.name,
         is_individual: false,
         level:         values.level,
-        monthly_fee:   values.tuition_table ? null : values.monthly_fee ?? null,
+        ...feePayload(values.fee_mode, values, tables.length > 0),
         signup_fee:    values.signup_fee || null,
-        ...(tables.length > 0 || values.tuition_table
-          ? { tuition_table: values.tuition_table || null }
-          : {}),
         instructor:    values.instructor || undefined,
         disciplines:   values.disciplines.length > 0 ? values.disciplines : undefined,
         schedules:     values.schedules.map((s) => ({
@@ -341,6 +364,28 @@ export function ClassGroupForm({
       setSubmitting(false);
     }
   };
+
+  // Mensualidad: va en la fila de Nivel (sin paquetes) o dentro de la pestaña "Precio fijo"
+  const monthlyFeeField = (
+    <FormField
+      control={collectiveForm.control}
+      name="monthly_fee"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Mensualidad (MXN) *</FormLabel>
+          <FormControl>
+            <Input
+              type="number" inputMode="numeric" min={0} placeholder="350"
+              value={field.value ?? ""}
+              onChange={(e) => field.onChange(e.target.value === "" ? undefined : parseFloat(e.target.value))}
+              onFocus={(e) => e.target.select()}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -447,8 +492,8 @@ export function ClassGroupForm({
               )}
             />
 
-            {/* Nivel + Mensualidad + Inscripción */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Nivel + Mensualidad + Inscripción (con paquetes, la mensualidad baja a las pestañas) */}
+            <div className={cn("grid grid-cols-1 gap-4", showFeeTabs ? "sm:grid-cols-2" : "sm:grid-cols-3")}>
               <FormField
                 control={collectiveForm.control}
                 name="level"
@@ -470,24 +515,7 @@ export function ClassGroupForm({
                 )}
               />
 
-              {!inPackage && <FormField
-                control={collectiveForm.control}
-                name="monthly_fee"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Mensualidad (MXN) *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number" inputMode="numeric" min={0} placeholder="350"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value === "" ? undefined : parseFloat(e.target.value))}
-                        onFocus={(e) => e.target.select()}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />}
+              {!showFeeTabs && monthlyFeeField}
 
               <FormField
                 control={collectiveForm.control}
@@ -512,15 +540,71 @@ export function ClassGroupForm({
               />
             </div>
 
-            {/* Sin paquetes: link para crear uno sin perder lo capturado del grupo */}
-            {tables.length === 0 && canManagePackages && (
-              <p className="text-sm text-muted-foreground">
-                ¿Cobras un solo precio por varios grupos?{" "}
-                <button type="button" className="font-medium text-primary hover:underline" onClick={() => setNewPackageOpen(true)}>
-                  Crear paquete
-                </button>
-              </p>
+            {/* Cómo cobra el grupo: precio fijo o por paquete (solo con la opción de paquetes) */}
+            {showFeeTabs && (
+              <div className="space-y-3">
+                <Label>Cómo se cobra este grupo</Label>
+                <Tabs value={feeMode} onValueChange={(v) => setFeeMode(v as FeeMode)}>
+                  <TabsList className="grid h-auto w-full grid-cols-2 p-1">
+                    <TabsTrigger value="fixed" className="h-11" disabled={busy}>Precio fijo</TabsTrigger>
+                    <TabsTrigger value="package" className="h-11" disabled={busy}>Por paquete</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="fixed" className="mt-3 space-y-2">
+                    {monthlyFeeField}
+                    <p className="text-xs text-muted-foreground">Cada alumno paga esta mensualidad por el grupo.</p>
+                  </TabsContent>
+
+                  <TabsContent value="package" className="mt-3 space-y-2">
+                    <FormField
+                      control={collectiveForm.control}
+                      name="tuition_table"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Paquete *</FormLabel>
+                          {packageOptions.length > 0 ? (
+                            <Select value={field.value || ""} onValueChange={field.onChange} disabled={busy}>
+                              <FormControl>
+                                <SelectTrigger className="w-full"><SelectValue placeholder="Elige un paquete" /></SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {packageOptions.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Aún no tienes paquetes.</p>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            {packageTable
+                              ? `${packageTable.name}: ${tiersLabel(packageTable.tiers)}. `
+                              : ""}
+                            El alumno paga un solo precio según cuántos grupos del paquete toma.
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {canManagePackages && (
+                      <div className="flex flex-wrap gap-x-4 text-sm font-medium">
+                        <button type="button" className="min-h-11 text-primary hover:underline" onClick={() => setNewPackageOpen(true)}>
+                          Crear paquete
+                        </button>
+                        <Link href="/class-groups/packages" className="inline-flex min-h-11 items-center text-primary hover:underline">
+                          Ver paquetes →
+                        </Link>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+
+                {feeChangeNotice && (
+                  <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                    Los alumnos inscritos pagan el nuevo precio desde su siguiente cobro. Si el precio baja, el cobro abierto de este mes baja de inmediato.
+                  </p>
+                )}
+              </div>
             )}
+
             <Dialog open={newPackageOpen} onOpenChange={setNewPackageOpen}>
               <DialogContent className="max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
@@ -530,59 +614,13 @@ export function ClassGroupForm({
                   onCancel={() => setNewPackageOpen(false)}
                   onSaved={(saved) => {
                     setTables((cur) => [...cur, saved]);
-                    collectiveForm.setValue("tuition_table", saved.id);
+                    collectiveForm.setValue("tuition_table", saved.id, { shouldValidate: collectiveForm.formState.isSubmitted });
+                    collectiveForm.setValue("fee_mode", "package");
                     setNewPackageOpen(false);
                   }}
                 />
               </DialogContent>
             </Dialog>
-
-            {/* Paquete por número de grupos (tabulador). Default: precio fijo. */}
-            {tables.length > 0 && (
-              <div className="rounded-lg border p-3 space-y-2">
-                <label className="flex items-start gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
-                    checked={inPackage}
-                    disabled={busy}
-                    onChange={(e) => collectiveForm.setValue(
-                      "tuition_table", e.target.checked ? tables[0].id : "", { shouldValidate: collectiveForm.formState.isSubmitted },
-                    )}
-                  />
-                  <span className="space-y-0.5">
-                    <span className="block text-sm font-medium leading-none">Entra al paquete por número de grupos</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {inPackage && packageTable
-                        ? `${packageTable.name}: ${tiersLabel(packageTable.tiers)}. El alumno paga un solo precio por todos sus grupos del paquete.`
-                        : "Sin marcar, el grupo cobra su propia mensualidad."}
-                    </span>
-                    {canManagePackages && (
-                      <span className="flex flex-wrap gap-x-3 text-xs font-medium">
-                        <button type="button" className="text-primary hover:underline" onClick={() => setNewPackageOpen(true)}>
-                          Crear paquete
-                        </button>
-                        <Link href="/class-groups/packages" className="text-primary hover:underline">
-                          Ver paquetes →
-                        </Link>
-                      </span>
-                    )}
-                  </span>
-                </label>
-                {inPackage && tables.length > 1 && (
-                  <Select
-                    value={tuitionTable}
-                    onValueChange={(v) => collectiveForm.setValue("tuition_table", v)}
-                    disabled={busy}
-                  >
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {tables.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            )}
 
             {/* Disciplinas */}
             <FormField
