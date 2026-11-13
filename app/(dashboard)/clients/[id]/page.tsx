@@ -728,72 +728,26 @@ export default function ClientDetailPage() {
 
   if (!client) return null;
 
-  const activeEnrollments = enrollments.filter((e) => e.status === "active");
-  const displayPhone = client.primary_contact_phone ?? client.phone;
+  // Tabulador: los grupos activos del paquete se muestran juntos, con el
+  // precio y el día de pago una sola vez (solo el ancla cobra).
+  const packageBlocks = Object.values(
+    enrollments.reduce<Record<string, { tableId: string; name: string; count: number; fee: number; billingDay: number; items: Enrollment[] }>>(
+      (acc, e) => {
+        if (!e.tuition || e.status !== "active") return acc;
+        const b = (acc[e.tuition.table_id] ??= {
+          tableId: e.tuition.table_id, name: e.tuition.table_name,
+          count: e.tuition.count, fee: e.tuition.fee, billingDay: e.billing_day, items: [],
+        });
+        if (e.tuition.is_anchor) {  // solo el ancla cobra: su precio y día mandan
+          b.billingDay = e.billing_day; b.fee = e.tuition.fee; b.count = e.tuition.count;
+        }
+        b.items.push(e);
+        return acc;
+      }, {}),
+  );
+  const looseEnrollments = enrollments.filter((e) => !(e.tuition && e.status === "active"));
 
-  return (
-    <div className="space-y-6">
-
-      {/* ── Header ── */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight truncate">{client.full_name}</h1>
-            {client.enrollment_status === "new" && <ClientStatusBadge status="new" />}
-          </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-0.5">
-            {displayPhone && (
-              <span className="flex items-center gap-1">
-                <Phone className="h-3 w-3" />{displayPhone}
-              </span>
-            )}
-            {client.email && (
-              <span className="flex items-center gap-1">
-                <Mail className="h-3 w-3" />{client.email}
-              </span>
-            )}
-          </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
-          <Pencil className="h-4 w-4 mr-2" />
-          Editar
-        </Button>
-      </div>
-
-      {/* ── Layout 2 columnas ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
-
-        {/* ── Inscripciones (3/5) ── */}
-        <Card className="lg:col-span-3">
-          <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
-            <CardTitle className="text-base flex items-center gap-2 min-w-0 whitespace-nowrap">
-              <GraduationCap className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="truncate">Grupos inscritos</span>
-              <span className="text-muted-foreground font-normal text-sm shrink-0">
-                ({activeEnrollments.length} activo{activeEnrollments.length !== 1 ? "s" : ""})
-              </span>
-            </CardTitle>
-            <Button size="sm" className="shrink-0" aria-label="Inscribir" title="Inscribir" onClick={() => router.push(`/enrollments/new?client=${id}`)}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Inscribir
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {enrollments.length === 0 ? (
-              <div className="flex flex-col items-center py-8 gap-2 text-center">
-                <GraduationCap className="h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">Sin inscripciones en ningún grupo</p>
-                <Button variant="outline" size="sm" onClick={() => router.push(`/enrollments/new?client=${id}`)}>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Inscribir en un grupo
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {enrollments.map((enrollment) => {
+  const renderEnrollment = (enrollment: Enrollment, inPackage: boolean) => {
                   const group = groupDetails[enrollment.class_group];
                   const isIndividual = group?.is_individual ?? false;
                   const schedules   = group?.schedules ?? [];
@@ -810,11 +764,11 @@ export default function ClientDetailPage() {
                       }`}
                     >
                       {/* ── Fila superior: nombre + badge + botones ── */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0 pt-1">
                           <button
                             type="button"
-                            className={`font-semibold text-base text-left truncate w-full leading-tight ${
+                            className={`font-semibold text-base text-left break-words w-full leading-tight ${
                               !isDropped ? "hover:text-primary hover:underline" : "text-muted-foreground cursor-default"
                             }`}
                             onClick={() => !isDropped && router.push(`/class-groups/${enrollment.class_group}?from=/clients/${id}`)}
@@ -852,20 +806,24 @@ export default function ClientDetailPage() {
                       </div>
 
                       {/* ── Metadatos: precio · día · disciplinas ── */}
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
-                        <span className="font-semibold text-green-700">
-                          ${enrollment.monthly_fee.toLocaleString("es-MX")}/mes
-                        </span>
-                        <span className="text-muted-foreground">
+                      {(!inPackage || disciplines.length > 0) && <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+                        {!inPackage && (enrollment.tuition ? (
+                          <span className="text-muted-foreground">No cuenta en el paquete {enrollment.tuition.table_name}</span>
+                        ) : (
+                          <span className="font-semibold text-green-700">
+                            ${enrollment.monthly_fee.toLocaleString("es-MX")}/mes
+                          </span>
+                        ))}
+                        {!inPackage && <span className="text-muted-foreground">
                           Día de pago: <strong className="text-foreground font-medium">{enrollment.billing_day}</strong>
-                        </span>
+                        </span>}
                         {disciplines.length > 0 && (
                           <span className="flex items-center gap-1.5 text-muted-foreground">
                             <Music2 className="h-4 w-4 shrink-0" />
                             <span>{disciplines.map((d) => d.name).join(", ")}</span>
                           </span>
                         )}
-                      </div>
+                      </div>}
 
                       {/* ── Inscripción (signup_fee) con saldo pendiente ── */}
                       {enrollment.signup_fee != null && enrollment.signup_fee > 0 && (
@@ -958,7 +916,89 @@ export default function ClientDetailPage() {
 
                     </div>
                   );
-                })}
+  };
+
+  const activeEnrollments = enrollments.filter((e) => e.status === "active");
+  const displayPhone = client.primary_contact_phone ?? client.phone;
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Header ── */}
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight truncate">{client.full_name}</h1>
+            {client.enrollment_status === "new" && <ClientStatusBadge status="new" />}
+          </div>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-0.5">
+            {displayPhone && (
+              <span className="flex items-center gap-1">
+                <Phone className="h-3 w-3" />{displayPhone}
+              </span>
+            )}
+            {client.email && (
+              <span className="flex items-center gap-1">
+                <Mail className="h-3 w-3" />{client.email}
+              </span>
+            )}
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
+          <Pencil className="h-4 w-4 mr-2" />
+          Editar
+        </Button>
+      </div>
+
+      {/* ── Layout 2 columnas ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+
+        {/* ── Inscripciones (3/5) ── */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+            <CardTitle className="text-base flex items-center gap-2 min-w-0 whitespace-nowrap">
+              <GraduationCap className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="truncate">Grupos</span>
+              <span className="text-muted-foreground font-normal text-sm shrink-0">
+                ({activeEnrollments.length} activo{activeEnrollments.length !== 1 ? "s" : ""})
+              </span>
+            </CardTitle>
+            <Button size="sm" className="shrink-0" aria-label="Inscribir" title="Inscribir" onClick={() => router.push(`/enrollments/new?client=${id}`)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Inscribir
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {enrollments.length === 0 ? (
+              <div className="flex flex-col items-center py-8 gap-2 text-center">
+                <GraduationCap className="h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">Sin inscripciones en ningún grupo</p>
+                <Button variant="outline" size="sm" onClick={() => router.push(`/enrollments/new?client=${id}`)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Inscribir en un grupo
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {packageBlocks.map(({ tableId, name, count, fee, billingDay, items }) => (
+                  <div key={tableId} className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-1">
+                      <p className="font-semibold">
+                        Paquete {name}
+                        <span className="font-normal text-muted-foreground"> · {count} {count === 1 ? "grupo" : "grupos"}</span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-semibold text-green-700">${fee.toLocaleString("es-MX")}/mes</span>
+                        {" · "}Día de pago <strong className="text-foreground font-medium">{billingDay}</strong>
+                      </p>
+                    </div>
+                    {items.map((e) => renderEnrollment(e, true))}
+                  </div>
+                ))}
+                {looseEnrollments.map((e) => renderEnrollment(e, false))}
               </div>
             )}
           </CardContent>

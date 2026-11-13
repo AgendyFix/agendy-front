@@ -24,6 +24,9 @@ import {
 } from "@/components/ui/select";
 import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
 import { EnrollmentCharges } from "@/components/enrollments/EnrollmentCharges";
+import { GroupMultiPicker } from "@/components/enrollments/GroupMultiPicker";
+import { tuitionTablesApi } from "@/lib/api/tuitionTables";
+import { enrollmentSummary, packagePricingMissing } from "@/lib/tuition";
 import {
   EMPTY_CHARGES, chargesPayload, validateCharges, type EnrollmentChargesValue,
 } from "@/lib/enrollmentCharges";
@@ -33,7 +36,7 @@ import { clientsApi } from "@/lib/api/clients";
 import { classGroupsApi } from "@/lib/api/classGroups";
 import { useFeatures } from "@/lib/hooks/useFeatures";
 import type { CreateClientRequest } from "@/lib/types/api";
-import type { ClassGroup } from "@/lib/types/models";
+import type { ClassGroup, TuitionTable } from "@/lib/types/models";
 
 // ── Schemas ────────────────────────────────────────────────────────────────
 
@@ -152,6 +155,19 @@ export default function NewClientPage() {
   const enrollmentMode    = watch("enrollment_mode");
   const selectedGroupId   = watch("grp_class_group");
   const selectedGroup     = groups.find((g) => g.id === selectedGroupId);
+  // Varios grupos a la vez: con 2 o más se manda group_enrollment
+  const [groupIds, setGroupIds] = useState<string[]>([]);
+  const [tables, setTables]     = useState<TuitionTable[]>([]);
+  const bulk           = groupIds.length > 1;
+  const selectedGroups = groups.filter((g) => groupIds.includes(g.id));
+  const summary        = enrollmentSummary(selectedGroups, groups, tables);
+  const signupGroup    = selectedGroups.find((g) => (g.signup_fee ?? 0) > 0) ?? selectedGroups[0];
+  const packageGroupSelected = !bulk && !!selectedGroup?.tuition_table;
+  const onPickGroups = (ids: string[]) => {
+    setGroupIds(ids);
+    setValue("grp_class_group", ids[0] ?? "");
+    if (ids.length > 1) setValue("grp_monthly_fee", "");
+  };
 
   // Al cambiar de modo (individual / grupo / sin inscripción) se reinician los cobros
   useEffect(() => { setCharges(EMPTY_CHARGES); }, [enrollmentMode]);
@@ -159,6 +175,7 @@ export default function NewClientPage() {
   // Carga grupos colectivos cuando el usuario elige ese modo
   useEffect(() => {
     if (enrollmentMode === "group" && groups.length === 0) {
+      tuitionTablesApi.getAll().then(setTables).catch(() => setTables([]));
       setLoadingGroups(true);
       classGroupsApi.getAll({ is_individual: false, limit: 200, ordering: "name" })
         .then((r) => setGroups(r.results))
@@ -170,6 +187,10 @@ export default function NewClientPage() {
   // ── Submit ───────────────────────────────────────────────────────────────
 
   const onSubmit = async (data: FormData) => {
+    if (enrollmentMode === "group" && packagePricingMissing(selectedGroups, tables)) {
+      toast.error("No se pudieron cargar los precios del paquete. Recarga la página e inténtalo de nuevo.");
+      return;
+    }
     try {
       setSaving(true);
 
@@ -203,9 +224,19 @@ export default function NewClientPage() {
           // Cuota de inscripción + pago de la primera mensualidad
           ...chargesPayload(charges, todayISO()),
         };
+      } else if (data.enrollment_mode === "group" && bulk) {
+        const chargesError = validateCharges(charges, summary.firstChargeTotal || null);
+        if (chargesError) { toast.error(chargesError); return; }
+        const { signup_fee, signup_fee_paid, initial_payment } = chargesPayload(charges, todayISO());
+        payload.group_enrollment = {
+          class_groups:       groupIds,
+          start_date:         data.grp_start_date!,
+          custom_billing_day: data.grp_billing_day ? Number(data.grp_billing_day) : undefined,
+          signup_fee, signup_fee_paid, initial_payment,
+        };
       } else if (data.enrollment_mode === "group") {
         const groupFee = data.grp_monthly_fee ? Number(data.grp_monthly_fee)
-          : groups.find((g) => g.id === data.grp_class_group)?.monthly_fee ?? null;
+          : summary.firstChargeTotal || null;
         const chargesError = validateCharges(charges, groupFee);
         if (chargesError) { toast.error(chargesError); return; }
         payload.enrollment = {
@@ -479,7 +510,7 @@ export default function NewClientPage() {
             {enrollmentMode === "group" && (
               <div className="space-y-4 pt-1">
                 <div className="space-y-1.5">
-                  <Label>Grupo <span className="text-destructive">*</span></Label>
+                  <Label>Grupos <span className="text-destructive">*</span></Label>
                   {/* Estado vacío cuando no hay grupos colectivos */}
                   {!loadingGroups && groups.length === 0 ? (
                     <div className="rounded-lg border border-dashed p-4 text-center space-y-2">
@@ -497,49 +528,37 @@ export default function NewClientPage() {
                       </Button>
                     </div>
                   ) : (
-                    <Select
+                    <GroupMultiPicker
+                      groups={groups}
+                      value={groupIds}
+                      onChange={onPickGroups}
+                      tables={tables}
+                      hideSummary={packageGroupSelected && !!watch("grp_monthly_fee")}
                       disabled={saving || loadingGroups}
-                      onValueChange={(v) => setValue("grp_class_group", v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={loadingGroups ? "Cargando grupos..." : "Seleccionar grupo..."} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {groups.map((g) => (
-                          <SelectItem key={g.id} value={g.id}>
-                            <span>{g.name}</span>
-                            {g.monthly_fee != null && (
-                              <span className="ml-2 text-muted-foreground text-xs">
-                                · ${g.monthly_fee.toLocaleString("es-MX")}/mes
-                              </span>
-                            )}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   )}
                   {errors.grp_class_group && <p className="text-xs text-red-500">{errors.grp_class_group.message}</p>}
                 </div>
 
-                {/* Info del grupo seleccionado */}
-                {selectedGroup && (
-                  <div className="rounded-lg bg-muted/40 border px-3 py-2 text-sm text-muted-foreground space-y-0.5">
-                    {selectedGroup.schedule_display && <p>{selectedGroup.schedule_display}</p>}
-                    {selectedGroup.instructor_name   && <p>Instructor: {selectedGroup.instructor_name}</p>}
-                    {selectedGroup.monthly_fee != null && (
-                      <p>Mensualidad base: <strong className="text-foreground">${selectedGroup.monthly_fee.toLocaleString("es-MX")}</strong></p>
-                    )}
-                  </div>
+                {/* Instructor del grupo (horario y precio ya están en la lista y el resumen) */}
+                {selectedGroup?.instructor_name && !bulk && (
+                  <p className="text-sm text-muted-foreground">Instructor: {selectedGroup.instructor_name}</p>
                 )}
 
-                <div className="space-y-1.5">
+                {bulk && (
+                  <p className="text-xs text-muted-foreground">
+                    Con varios grupos, el precio especial y las disciplinas se ajustan después desde la ficha del alumno.
+                  </p>
+                )}
+
+                {!bulk && <div className="space-y-1.5">
                   <Label>Disciplinas <span className="text-muted-foreground text-xs">(opcional, sobreescribe las del grupo)</span></Label>
                   <DisciplineMultiSelect
                     value={disciplines}
                     onChange={setDisciplines}
                     disabled={saving}
                   />
-                </div>
+                </div>}
 
                 <div className="grid gap-3 grid-cols-2">
                   <div className="space-y-1.5">
@@ -568,19 +587,23 @@ export default function NewClientPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                {!bulk && <div className="space-y-1.5">
                   <Label htmlFor="grp_monthly_fee">Precio especial</Label>
                   <Input
                     id="grp_monthly_fee"
                     type="number"
                     inputMode="numeric"
                     min={0}
-                    placeholder={selectedGroup?.monthly_fee != null ? String(selectedGroup.monthly_fee) : "Precio del grupo"}
+                    placeholder={packageGroupSelected ? "Según el paquete" : selectedGroup?.monthly_fee != null ? String(selectedGroup.monthly_fee) : "Precio del grupo"}
                     disabled={saving}
                     {...register("grp_monthly_fee")}
                   />
-                  <p className="text-xs text-muted-foreground">Opcional. Vacío usa el precio del grupo</p>
-                </div>
+                  <p className="text-xs text-muted-foreground">
+                    {packageGroupSelected
+                      ? "Si lo llenas, este grupo se cobra aparte y no cuenta en el paquete"
+                      : "Opcional. Vacío usa el precio del grupo"}
+                  </p>
+                </div>}
 
                 {/* ── Cobros al inscribir (la cuota se propone desde el grupo) ── */}
                 <EnrollmentCharges
@@ -588,13 +611,13 @@ export default function NewClientPage() {
                   value={charges}
                   onChange={setCharges}
                   monthlyFee={
-                    watch("grp_monthly_fee") ? Number(watch("grp_monthly_fee"))
-                    : selectedGroup?.monthly_fee ?? null
+                    watch("grp_monthly_fee") && !bulk ? Number(watch("grp_monthly_fee"))
+                    : summary.firstChargeTotal || null
                   }
                   startDate={watch("grp_start_date") ?? ""}
                   billingDay={watch("grp_billing_day")}
-                  groupId={selectedGroup?.id}
-                  groupSignupFee={selectedGroup?.signup_fee ?? null}
+                  groupId={signupGroup?.id}
+                  groupSignupFee={signupGroup?.signup_fee ?? null}
                   disabled={saving}
                 />
 

@@ -589,6 +589,9 @@ export interface ClassGroup {
   monthly_fee: number | null;
   /** Cuota de inscripción sugerida del grupo (null = sin cuota) */
   signup_fee?: number | null;
+  /** Tabulador (paquete por número de grupos). null = precio fijo del grupo */
+  tuition_table?: string | null;
+  tuition_table_name?: string | null;
   /** Solo en grupos individuales: mensualidad del enrollment activo */
   primary_enrollment_fee?: number | null;
   /** Solo en grupos individuales: alumno principal */
@@ -610,6 +613,19 @@ export interface ClassGroup {
   created_at: string;
 }
 
+/** Tabulador: mensualidad única según cuántos grupos del paquete toma el alumno */
+export interface TuitionTier {
+  count: number;
+  fee: number;
+}
+
+export interface TuitionTable {
+  id: string;
+  name: string;
+  tiers: TuitionTier[];
+  is_active: boolean;
+}
+
 export type EnrollmentStatus = 'active' | 'paused' | 'dropped';
 
 export interface Enrollment {
@@ -625,6 +641,14 @@ export interface Enrollment {
   custom_billing_day: number | null;    // null = usa start_date.day
   monthly_fee: number;                  // Alias de effective_monthly_fee (read-only)
   effective_monthly_fee: number;        // Precio real: custom o el del grupo
+  /** Tabulador: desglose del paquete (null = precio propio/fijo). Solo el ancla cobra `fee`. */
+  tuition?: {
+    table_id: string;
+    table_name: string;
+    count: number;
+    fee: number;
+    is_anchor: boolean;
+  } | null;
   custom_monthly_fee: number | null;    // null = usa precio del grupo
   signup_fee: number | null;            // Inscripción única (costo total)
   signup_fee_paid: number | null;       // Cuánto pagó de la inscripción

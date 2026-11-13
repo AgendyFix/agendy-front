@@ -54,6 +54,9 @@ import { PUBLIC_SITE_FEATURE } from "@/components/publicPage/constants";
 import { DisciplineMultiSelect } from "@/components/disciplines/DisciplineMultiSelect";
 import { DatePicker } from "@/components/ui/date-picker";
 import { todayLocalISO } from "@/lib/dates";
+import { tuitionTablesApi } from "@/lib/api/tuitionTables";
+import { tiersLabel } from "@/lib/tuition";
+import type { TuitionTable } from "@/lib/types/models";
 
 // ── Schemas ────────────────────────────────────────────────────────────────
 
@@ -68,11 +71,17 @@ const collectiveSchema = z.object({
   is_individual: z.literal(false),
   name:          z.string().min(2, "Mínimo 2 caracteres").max(120, "Máximo 120 caracteres"),
   level:         z.enum(["all", "beginner", "intermediate", "advanced"]),
-  monthly_fee:   z.number().min(0, "Debe ser mayor o igual a 0"),
+  monthly_fee:   z.number().min(0, "Debe ser mayor o igual a 0").optional(),
   signup_fee:    z.number().min(0, "Debe ser mayor o igual a 0").optional(),
+  /** Tabulador: el grupo entra al paquete por número de grupos ("" = precio fijo) */
+  tuition_table: z.string().optional(),
   instructor:    z.string().optional(),
   disciplines:   z.array(z.string()),
   schedules:     z.array(scheduleSchema),
+}).superRefine((val, ctx) => {
+  if (!val.tuition_table && val.monthly_fee == null) {
+    ctx.addIssue({ code: "custom", path: ["monthly_fee"], message: "Ingresa la mensualidad" });
+  }
 });
 
 // Schema para clase individual
@@ -86,14 +95,8 @@ const individualSchema = z.object({
   disciplines:    z.array(z.string()),
 });
 
-const classGroupSchema = z.discriminatedUnion("is_individual", [
-  collectiveSchema,
-  individualSchema,
-]);
-
 type CollectiveValues  = z.infer<typeof collectiveSchema>;
 type IndividualValues  = z.infer<typeof individualSchema>;
-type ClassGroupFormValues = CollectiveValues | IndividualValues;
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -154,6 +157,12 @@ export function ClassGroupForm({
   // El tipo activo — controlado por el toggle (solo cuando se crea)
   const [isIndividual, setIsIndividual] = useState(defaultIsInd);
 
+  // Tabuladores de la academia: sin ninguno no se muestra la casilla de paquete
+  const [tables, setTables] = useState<TuitionTable[]>([]);
+  useEffect(() => {
+    tuitionTablesApi.getAll().then(setTables).catch(() => setTables([]));
+  }, []);
+
   const { isFeatureEnabled } = useFeatures();
   const showsOnPublicSite = isFeatureEnabled(PUBLIC_SITE_FEATURE);
 
@@ -186,6 +195,7 @@ export function ClassGroupForm({
       level:         (initialData?.level as CollectiveValues["level"]) ?? "all",
       monthly_fee:   initialData?.monthly_fee ?? undefined,
       signup_fee:    initialData?.signup_fee ?? undefined,
+      tuition_table: initialData?.tuition_table ?? "",
       instructor:    initialData?.instructor_id ?? "",
       disciplines:   initialData?.disciplines?.map((d) => d.id) ?? [],
       schedules:     initialData?.schedules?.map((s) => ({
@@ -209,6 +219,11 @@ export function ClassGroupForm({
     },
   });
 
+  const tuitionTable = collectiveForm.watch("tuition_table") ?? "";
+  const inPackage    = !!tuitionTable;
+  // Si el tabulador ligado ya no está activo, igual se muestra por nombre
+  const packageTable = tables.find((t) => t.id === tuitionTable);
+
   const { fields, append, remove } = useFieldArray({
     control: collectiveForm.control,
     name: "schedules",
@@ -222,8 +237,11 @@ export function ClassGroupForm({
         name:          values.name,
         is_individual: false,
         level:         values.level,
-        monthly_fee:   values.monthly_fee ?? null,
+        monthly_fee:   values.tuition_table ? null : values.monthly_fee ?? null,
         signup_fee:    values.signup_fee || null,
+        ...(tables.length > 0 || values.tuition_table
+          ? { tuition_table: values.tuition_table || null }
+          : {}),
         instructor:    values.instructor || undefined,
         disciplines:   values.disciplines.length > 0 ? values.disciplines : undefined,
         schedules:     values.schedules.map((s) => ({
@@ -442,7 +460,7 @@ export function ClassGroupForm({
                 )}
               />
 
-              <FormField
+              {!inPackage && <FormField
                 control={collectiveForm.control}
                 name="monthly_fee"
                 render={({ field }) => (
@@ -459,7 +477,7 @@ export function ClassGroupForm({
                     <FormMessage />
                   </FormItem>
                 )}
-              />
+              />}
 
               <FormField
                 control={collectiveForm.control}
@@ -483,6 +501,43 @@ export function ClassGroupForm({
                 )}
               />
             </div>
+
+            {/* Paquete por número de grupos (tabulador). Default: precio fijo. */}
+            {tables.length > 0 && (
+              <div className="rounded-lg border p-3 space-y-2">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+                    checked={inPackage}
+                    disabled={busy}
+                    onChange={(e) => collectiveForm.setValue(
+                      "tuition_table", e.target.checked ? tables[0].id : "", { shouldValidate: collectiveForm.formState.isSubmitted },
+                    )}
+                  />
+                  <span className="space-y-0.5">
+                    <span className="block text-sm font-medium leading-none">Entra al paquete por número de grupos</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {inPackage && packageTable
+                        ? `${packageTable.name}: ${tiersLabel(packageTable.tiers)}. El alumno paga un solo precio por todos sus grupos del paquete.`
+                        : "Sin marcar, el grupo cobra su propia mensualidad."}
+                    </span>
+                  </span>
+                </label>
+                {inPackage && tables.length > 1 && (
+                  <Select
+                    value={tuitionTable}
+                    onValueChange={(v) => collectiveForm.setValue("tuition_table", v)}
+                    disabled={busy}
+                  >
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {tables.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
 
             {/* Disciplinas */}
             <FormField

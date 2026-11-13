@@ -120,6 +120,26 @@ export interface CreateClientRequest {
   contacts?: CreateContactInline[];
   /** Inscripción a crear en el mismo request (Flujo 1 o 2) */
   enrollment?: CreateEnrollmentInline;
+  /** Varios grupos colectivos de una vez (excluyente con `enrollment`) */
+  group_enrollment?: EnrollGroupsInline;
+}
+
+/**
+ * Inscribir a varios grupos de una vez: misma fecha y día de pago, cuota de
+ * inscripción una por alumno, `initial_payment` = lo que pagó hoy del total.
+ */
+export interface EnrollGroupsInline {
+  class_groups: string[];
+  start_date: string;                 // YYYY-MM-DD
+  custom_billing_day?: number;        // 1-28
+  signup_fee?: number | null;
+  signup_fee_paid?: number;
+  initial_payment?: InitialPaymentInline;
+}
+
+/** POST /enrollments/bulk/ */
+export interface EnrollGroupsRequest extends EnrollGroupsInline {
+  client: string;
 }
 
 export interface ClientListParams {
@@ -416,6 +436,7 @@ export interface CreateClassGroupRequest {
   is_individual?: boolean;
   monthly_fee?: number | null;         // null permitido si is_individual=true
   signup_fee?: number | null;          // Cuota de inscripción sugerida (null = sin cuota)
+  tuition_table?: string | null;       // Tabulador (null = precio fijo del grupo)
   instructor?: string;                 // UUID (optional)
   disciplines?: string[];              // Array de UUIDs de disciplinas
   schedules?: CreateScheduleInput[];
