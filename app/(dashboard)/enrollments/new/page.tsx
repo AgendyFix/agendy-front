@@ -219,13 +219,8 @@ export default function NewEnrollmentPage() {
     if (!clientId) { setClientEnrollments([]); return; }
     enrollmentsApi.getAll({ client: clientId, limit: 200 }).then((res) => {
       setClientEnrollments(res.results);
-      // Mismo día de pago que los grupos que ya tiene
-      const current = res.results.find((e) => e.status === "active");
-      if (current && !form.getValues("custom_billing_day")) {
-        form.setValue("custom_billing_day", String(current.billing_day));
-      }
     }).catch(() => {});
-  }, [selectedClientId, preselectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedClientId, preselectedClientId]);
 
   const handleSubmit = async (values: FormValues) => {
     const chargesError = validateCharges(charges, effectiveFee);
