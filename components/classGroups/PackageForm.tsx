@@ -101,7 +101,7 @@ export function PackageForm({ initial, onSaved, onCancel, createLabel = "Crear p
         <Label htmlFor="package-name">Nombre</Label>
         <Input
           id="package-name"
-          placeholder="Ej: Danza regular"
+          placeholder="Ej: Paquete Danza"
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={saving}
